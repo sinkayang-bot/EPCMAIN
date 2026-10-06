@@ -5289,7 +5289,7 @@ function pioneerLoadEvent_(id){
   A.pioneer[id]={eventId:id,first4:[],scores:{},confirmed:false,updatedAt:''};
   (e.players||[]).forEach(p=>A.pioneer[id].scores[p.memberId]=1);
  }
- persist();renderActivities();setTimeout(enhanceSearchCombos_,0);
+ persist();if(window.saveActivityCloudV3)window.saveActivityCloudV3();renderActivities();setTimeout(enhanceSearchCombos_,0);
 }
 function pioneerSetFirst_(eventId,pos,memberId){
  ensureActDb_();const P=db.activityManagement.pioneer[eventId]||(db.activityManagement.pioneer[eventId]={eventId,first4:[],scores:{},confirmed:false,updatedAt:''});
@@ -5325,7 +5325,7 @@ const defaults=[5,4,3,2];
  else if(idx<0 && (!Number.isFinite(Number(P.scores[p.memberId])) || Number(P.scores[p.memberId])===0))P.scores[p.memberId]=1;
 });
  const chosen=P.first4.filter(Boolean);if(new Set(chosen).size!==chosen.length)return alert('前4名不能重複');
- P.confirmed=true;P.updatedAt=new Date().toISOString();persist();renderActivities();setTimeout(enhanceSearchCombos_,0);setTimeout(()=>alert('本場先鋒排名已儲存'),50);
+ P.confirmed=true;P.updatedAt=new Date().toISOString();persist();if(window.saveActivityCloudV3)window.saveActivityCloudV3();renderActivities();setTimeout(enhanceSearchCombos_,0);setTimeout(()=>alert('本場先鋒排名已儲存'),50);
 }
 function togglePioneerCard_(eventId,btn){
  const card=$('pioneerCard_'+eventId);if(!card)return;
@@ -5388,25 +5388,25 @@ function addRankRecurringRule_(){
   from:$('rankRuleFrom')?.value||'00:00',to:$('rankRuleTo')?.value||'00:00',
   mult:+$('rankRuleMult')?.value||2
  });
- persist();renderActivities();setTimeout(enhanceSearchCombos_,0);
+ persist();if(window.saveActivityCloudV3)window.saveActivityCloudV3();renderActivities();setTimeout(enhanceSearchCombos_,0);
 }
 function editRankRecurringRule_(id,k,v){
  const r=(db.activityManagement.rankRecurringRules||[]).find(x=>x.id===id);if(!r)return;
  if(k==='enabled')r.enabled=!!v;
  else if(k==='mult'||k==='firstN')r[k]=Number(v)||1;
  else r[k]=v;
- persist();renderActivities();setTimeout(enhanceSearchCombos_,0);
+ persist();if(window.saveActivityCloudV3)window.saveActivityCloudV3();renderActivities();setTimeout(enhanceSearchCombos_,0);
 }
 function toggleRankRuleDay_(id,d,v){
  const r=(db.activityManagement.rankRecurringRules||[]).find(x=>x.id===id);if(!r)return;
  r.days=Array.isArray(r.days)?r.days:[];
  if(v&&!r.days.includes(d))r.days.push(d);
  if(!v)r.days=r.days.filter(x=>x!==d);
- persist();renderActivities();setTimeout(enhanceSearchCombos_,0);
+ persist();if(window.saveActivityCloudV3)window.saveActivityCloudV3();renderActivities();setTimeout(enhanceSearchCombos_,0);
 }
 function delRankRecurringRule_(id){
  db.activityManagement.rankRecurringRules=(db.activityManagement.rankRecurringRules||[]).filter(x=>x.id!==id);
- persist();renderActivities();setTimeout(enhanceSearchCombos_,0);
+ persist();if(window.saveActivityCloudV3)window.saveActivityCloudV3();renderActivities();setTimeout(enhanceSearchCombos_,0);
 }
 function eventTopScores_(e){
  const arr=(e.players||[]).map(p=>({id:String(p.memberId),name:actMember_(p.memberId).name||p.memberId,net:chipGrowthFor(p,e),stack:+p.stack||0})).sort((a,b)=>b.net-a.net||b.stack-a.stack);
@@ -5460,12 +5460,12 @@ async function addHunter_(){
  if(!eventId||!killer)return actionMsg('請選場次與擊殺者',true);
  const rec=stampActivityRecord_({id:'H'+Date.now(),date:(db.events||[]).find(e=>e.id===eventId)?.date||'',eventId,killer,points:+$('hunterPoints').value||1,note:$('hunterNote').value||''});
  db.activityManagement.hunter.unshift(rec);
- persist();renderActivities();
+ persist();if(window.saveActivityCloudV3)window.saveActivityCloudV3();renderActivities();
  if(cloudReady)await saveCloudNow(false);
 }
 async function hunterEdit_(id,v){
  const x=db.activityManagement.hunter.find(z=>z.id===id);
- if(x){x.points=+v||0;stampActivityRecord_(x);persist();renderActivities();if(cloudReady)await saveCloudNow(false);}
+ if(x){x.points=+v||0;stampActivityRecord_(x);persist();if(window.saveActivityCloudV3)window.saveActivityCloudV3();renderActivities();if(cloudReady)await saveCloudNow(false);}
 }
 async function hunterDel_(id){
  const x=db.activityManagement.hunter.find(z=>z.id===id);
@@ -5473,7 +5473,7 @@ async function hunterDel_(id){
  // Tombstone prevents another computer's stale copy from resurrecting a deleted hunter record.
  db.activityManagement.hunterDeleted=db.activityManagement.hunterDeleted||{};
  db.activityManagement.hunterDeleted[String(id)]=Date.now();
- persist();renderActivities();
+ persist();if(window.saveActivityCloudV3)window.saveActivityCloudV3();renderActivities();
  if(cloudReady)await saveCloudNow(false);
 }
 function actHunter_(){
