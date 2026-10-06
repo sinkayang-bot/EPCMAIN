@@ -15,6 +15,7 @@
   };
   fs.onSnapshot(col,snap=>{
    const rows=[];snap.forEach(d=>{const x=d.data()||{};if(x.status!=='deleted')rows.push({...x,eventId:x.eventId||d.id})});
+   window.EPC_FIRESTORE_LAST_EVENTS=rows;
    window.dispatchEvent(new CustomEvent('epcFirestoreEvents',{detail:{events:rows}}));
   },err=>window.dispatchEvent(new CustomEvent('epcFirestoreError',{detail:{message:String(err?.message||err)}})));
  }catch(e){window.dispatchEvent(new CustomEvent('epcFirestoreError',{detail:{message:String(e?.message||e)}}))}
