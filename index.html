@@ -4646,7 +4646,7 @@ function printDailyAccounting(){
   <h2>當日賽事明細</h2>
   <table><thead><tr><th>場次</th><th>賽事</th><th>組數</th><th>行政費收入</th><th>重買優惠</th><th>組數優惠</th><th>手動優惠</th><th>折扣支出</th><th>實收行政費</th><th>JP</th></tr></thead><tbody>${eventRows}</tbody></table>
   <div class="sign"><div>製表：____________________</div><div>覆核：____________________</div></div>
- </div><script src="sync-v3.js"></script>\n<script src="app.js"></script>\n</body></html>`;
+ </div></body></html>`;
 
  const w=window.open('','_blank');
  if(!w){
@@ -6520,7 +6520,9 @@ async function epcShowRecoveryAudit_(){
   box.textContent="Firebase 唯讀盤點｜會員 "+a.memberCount+"｜賽事 "+a.eventCount+"｜最新賽事 "+(a.latestEventDate||"—")+"｜SHA-256 "+(a.snapshotHashOk?"通過":"失敗")+"｜Revision "+a.legacyRevision;
  }catch(e){alert("唯讀盤點失敗："+String(e&&e.message||e));}
 }
-</script></body></html>
+</script>
+<script src="sync-v3.js"></script>
+<script src="app.js"></script></body></html>
 
 
 
