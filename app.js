@@ -251,14 +251,14 @@ window.addEventListener('online',()=>{boot(false)});
 async function renderDashboardSummaryV3(){
  const now=new Date(),ym=now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0'),last=new Date(now.getFullYear(),now.getMonth()+1,0).getDate();
  const from=document.querySelector('#dashboardDateFrom')?.value||ym+'-01',to=document.querySelector('#dashboardDateTo')?.value||ym+'-'+String(last).padStart(2,'0');
- const a=await api('dashboard.summary',{startDate:from,endDate:to}),z=a.summary||{},all=await api('dashboard.summary',{startDate:'',endDate:''});
+ const [a,all,jpRange,jpAll]=await Promise.all([api('dashboard.summary',{startDate:from,endDate:to}),api('dashboard.summary',{startDate:'',endDate:''}),api('jp.summary',{startDate:from,endDate:to}),api('jp.summary',{startDate:'',endDate:''})]),z=a.summary||{};
  const az=all.summary||{};const set=(id,v)=>{const e=document.querySelector(id);if(e)e.textContent=v};
- set('#kMembers',money(MEMBER_ROWS.length));set('#kProfit',money(az.adminNet||0));set('#kMonthProfit',money(z.adminNet||0));set('#kJP',money(z.jp||0));set('#kMonthExpense',money((z.totalDiscount||0)+(z.prizePool||0)));set('#kMonthEvents',(z.eventCount||0)+' 場');
+ set('#kMembers',money(MEMBER_ROWS.length));set('#kProfit',money(az.adminNet||0));set('#kMonthProfit',money(z.adminNet||0));set('#kJP',money(jpAll.total||0));set('#kMonthExpense',money((z.totalDiscount||0)+(z.prizePool||0)));set('#kMonthEvents',(z.eventCount||0)+' 場');
  const levels=Object.entries(z.levels||{}).map(([k,v])=>k+'：'+v+' 場').join('　｜　')||'尚無已結算賽事';set('#kLevelBreakdown',levels);
 }
 async function renderDashboardDailyReportV3(){
  const d=document.querySelector('#dashboardDailyDate')?.value||businessDate(),r=await api('dashboard.summary',{startDate:d,endDate:d}),z=r.summary||{};const set=(id,v)=>{const e=document.querySelector(id);if(e)e.textContent=v};
- set('#drEvents',(z.eventCount||0)+' 場');set('#drAdmin',money(z.adminGross||0));set('#drDiscount',money(z.totalDiscount||0));set('#drNet',money(z.adminNet||0));set('#drJP',money(z.jp||0));
+ set('#drEvents',(z.eventCount||0)+' 場');set('#drAdmin',money(z.adminGross||0));set('#drMembership',money(z.membershipIncome||0));set('#drDiscount',money(z.totalDiscount||0));set('#drOtherIncome',money(z.otherIncome||0));set('#drOtherExpense',money(z.otherExpense||0));set('#drNet',money(z.netIncome||0));set('#drJP',money(z.jp||0));
  const body=document.querySelector('#dashboardDailyItemRows');if(body)body.innerHTML=(r.rows||[]).map(x=>'<tr><td><span class="pos">收入</span></td><td>賽事</td><td>'+esc(x.eventName)+'</td><td>'+money(x.adminNet)+'</td><td>'+esc(x.level)+'</td></tr>').join('')||'<tr><td colspan="5" class="small">本日尚無已結算賽事</td></tr>';
 }
 window.renderDashboardSummary=renderDashboardSummaryV3;
