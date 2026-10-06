@@ -241,9 +241,9 @@ document.querySelector('#workspaceSettle').addEventListener('click',async()=>{
      const lp=legacyPlayers.find(x=>String(x.memberKey||'')===String(p.memberKey||'')||String(x.memberId||'')===String(p.memberId||''));
      return{memberKey:p.memberKey,prize:Number(lp?.prize??p.prize??0)};
    });
-   const r=await api('event.settle',{eventId:ACTIVE_EVENT,prizes});
+   const r=await api('event.settle',{eventId:ACTIVE_EVENT,expectedRevision:current?.revision,prizes});
    window.EIGHT_SETTLEMENT_SNAPSHOT=r.snapshot;WORKSPACE_PLAYERS=(r.snapshot?.players||WORKSPACE_PLAYERS).map(p=>({...p,prize:Number(prizes.find(x=>x.memberKey===p.memberKey)?.prize??p.prize??0)}));
-   if(current){current.status='settled';if(r.accounting)current.summary={participants:r.accounting.participants,rebuyPeople:r.accounting.rebuyPeople,totalEntries:r.accounting.totalEntries,totalGross:r.accounting.totalGross,earlyDiscount:r.accounting.earlyDiscount,lateDiscount:r.accounting.lateDiscount,rebuyDiscount:r.accounting.rebuyDiscount,entryDiscount:r.accounting.entryDiscount,otherDiscount:r.accounting.otherDiscount,prizePool:r.accounting.prizePool,adminNet:r.accounting.adminNet,jp:r.accounting.jp};renderEvents(window.EIGHT_EVENTS)}
+   if(current){current.status='settled';if(r.snapshot?.event?.revision)current.revision=r.snapshot.event.revision;if(r.accounting)current.summary={participants:r.accounting.participants,rebuyPeople:r.accounting.rebuyPeople,totalEntries:r.accounting.totalEntries,totalGross:r.accounting.totalGross,earlyDiscount:r.accounting.earlyDiscount,lateDiscount:r.accounting.lateDiscount,rebuyDiscount:r.accounting.rebuyDiscount,entryDiscount:r.accounting.entryDiscount,otherDiscount:r.accounting.otherDiscount,prizePool:r.accounting.prizePool,adminNet:r.accounting.adminNet,jp:r.accounting.jp};renderEvents(window.EIGHT_EVENTS)}
    alert('賽事已完成結算，帳務與 JP 已寫入。');
  }catch(err){alert('結算前同步失敗：'+err.message)}
  finally{btn.disabled=false}
