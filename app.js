@@ -65,7 +65,7 @@ async function saveMember(e){e.preventDefault();const btn=document.querySelector
 window.eightReloadMembers_=async function(){
  const state=document.querySelector('#eightMemberState'),btn=document.querySelector('#eightMemberRetry');
  if(btn)btn.disabled=true;if(state)state.textContent='正在從 V3 API 讀取會員…';
- try{let r;try{r=await api('member.list')}catch(e){if(!/UNKNOWN_ACTION|unknow action/i.test(String(e.message||e)))throw e;r=await api('bootstrap')}MEMBER_ROWS=r.members||[];localStorage.setItem('eightMemberCache',JSON.stringify(MEMBER_ROWS));if(window.db){window.db.members=MEMBER_ROWS.map(m=>({id:m.memberId,name:m.name,nickname:m.nickname,group:m.group,birth:m.birth,phone:m.phone,address:m.address,memberKey:m.memberKey,revision:m.revision}))}const k=document.querySelector('#kMembers');if(k)k.textContent=money(MEMBER_ROWS.length);if(typeof window.renderMemberRows==='function')window.renderMemberRows();if(state)state.textContent='會員已載入 '+MEMBER_ROWS.length+' 人｜V3';setSync('資料庫：已連線');return r}catch(e){console.error(e);if(state)state.textContent='會員讀取失敗：'+e.message;setSync('資料庫：連線失敗',true);throw e}finally{if(btn)btn.disabled=false}
+ try{let r;try{r=await api('member.list')}catch(e){if(!/UNKNOWN_ACTION|unknow action/i.test(String(e.message||e)))throw e;r=await api('bootstrap')}MEMBER_ROWS=r.members||[];if(Number.isFinite(Number(r.cursor))){localStorage.setItem('epcCursor',String(Number(r.cursor)));if(window.EPCSync)window.EPCSync.state.cursor=Number(r.cursor)}localStorage.setItem('eightMemberCache',JSON.stringify(MEMBER_ROWS));if(window.db){window.db.members=MEMBER_ROWS.map(m=>({id:m.memberId,name:m.name,nickname:m.nickname,group:m.group,birth:m.birth,phone:m.phone,address:m.address,memberKey:m.memberKey,revision:m.revision}))}const k=document.querySelector('#kMembers');if(k)k.textContent=money(MEMBER_ROWS.length);if(typeof window.renderMemberRows==='function')window.renderMemberRows();if(state)state.textContent='會員已載入 '+MEMBER_ROWS.length+' 人｜V3';setSync('資料庫：已連線');return r}catch(e){console.error(e);if(state)state.textContent='會員讀取失敗：'+e.message;setSync('資料庫：連線失敗',true);throw e}finally{if(btn)btn.disabled=false}
 };
 async function boot(force=false){
  const state=document.querySelector('#eightMemberState');
@@ -382,6 +382,28 @@ window.saveMemberEdit=async function(){
   console.error('V3 member update failed',err);
   alert('修改會員失敗：'+err.message);
  }finally{if(btn)btn.disabled=false}
+};
+
+
+window.performDelMember=async function(id){
+ const sid=String(id||'').trim();
+ const legacy=window.db&&Array.isArray(window.db.members)?window.db.members.find(x=>String(x.id||'').trim()===sid):null;
+ const row=MEMBER_ROWS.find(x=>String(x.memberKey||'')===String(legacy?.memberKey||'')||String(x.memberId||'').trim()===sid);
+ if(!row)return alert('找不到此會員的 V3 資料，請先按重新讀取會員');
+ const used=(window.db?.events||[]).some(e=>(e.players||[]).some(p=>String(p.memberId||'').trim()===sid));
+ if(used)return alert('此會員已有賽事紀錄，不能直接刪除，以免破壞歷史帳務。');
+ try{
+  await api('member.delete',{memberKey:row.memberKey,expectedRevision:row.revision});
+  MEMBER_ROWS=MEMBER_ROWS.filter(x=>x.memberKey!==row.memberKey);
+  if(window.db&&Array.isArray(window.db.members))window.db.members=window.db.members.filter(x=>String(x.id||'').trim()!==sid);
+  try{localStorage.setItem('eightMemberCache',JSON.stringify(MEMBER_ROWS))}catch(_){}
+  if(typeof window.renderMemberRows==='function')window.renderMemberRows();else renderMembers();
+  const k=document.querySelector('#kMembers');if(k)k.textContent=money(MEMBER_ROWS.length);
+  if(typeof window.actionMsg==='function')window.actionMsg('會員已從 V3 刪除並同步');
+ }catch(err){
+  console.error('V3 member delete failed',err);
+  alert('刪除會員失敗：'+err.message);
+ }
 };
 
 })();
