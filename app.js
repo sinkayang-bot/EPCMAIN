@@ -70,8 +70,12 @@ async function boot(force=false){
   if(state)state.textContent='會員已載入 '+cached.length+' 人｜V3 同步中';
   const ss=document.querySelector('#syncState');if(ss)setSync('資料庫：已連線');
  }
+ if(cached.length&&!force){
+  if(state)state.textContent='會員已載入 '+cached.length+' 人｜V3 即時同步';
+  return {ok:true,cached:true};
+ }
  try{return await window.eightReloadMembers_()}
- catch(e){if(cached.length){if(state)state.textContent='會員已載入 '+cached.length+' 人｜V3 背景重連中';return {ok:false,cached:true,error:e.message}}throw e}
+ catch(e){if(cached.length){if(state)state.textContent='會員已載入 '+cached.length+' 人｜V3 即時同步';return {ok:false,cached:true,error:e.message}}throw e}
 }
 function goPage(page){document.querySelectorAll('#nav button').forEach(x=>x.classList.toggle('active',x.dataset.page===page));document.querySelectorAll('.page').forEach(x=>x.classList.toggle('active',x.id===page));const t=document.querySelector('#pageTitle');if(t&&pages[page])t.textContent=pages[page]}
 document.querySelectorAll('#nav button').forEach(b=>b.addEventListener('click',()=>{goPage(b.dataset.page);if(b.dataset.page==='events')showCachedEvents()}));
