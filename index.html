@@ -4038,7 +4038,7 @@ function eventDisplayName_(e){
  const manual=String(e?.name||'').trim();
  return manual||eventOrdinalName_(e?.seq||1);
 }
-async async function newEvent(){
+async function newEvent(){
  let e=blankEvent();
  let bd=$('eventBusinessDate')?.value||new Date().toISOString().slice(0,10);
  e.date=bd;e.businessDate=bd;e.startTime=db.settings.businessStart||'16:00';
