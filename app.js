@@ -149,39 +149,22 @@ function bridgeV3Activities_(events,playersByEvent){if(!window.db)return;window.
 window.addEventListener('epcFirestoreEvents',e=>{
  const incoming=e.detail?.events||[],date=document.querySelector('#eventBusinessDate')?.value||document.querySelector('#eventDate')?.value||businessDate();
  const remote=incoming.filter(x=>!date||String(x.businessDate||'')===String(date));
- // Migration safety: an empty/new Firestore collection must NEVER erase the existing authoritative list.
+ // Migration safety: never let Firestore replace a fuller legacy/local event list yet.
  const local=(window.EIGHT_EVENTS||[]).filter(x=>!date||String(x.businessDate||'')===String(date));
- const byId=new Map(local.map(x=>[String(x.eventId),x]));
- remote.forEach(x=>byId.set(String(x.eventId),{...(byId.get(String(x.eventId))||{}),...x}));
- const rows=[...byId.values()];
- if(document.querySelector('#events')?.classList.contains('active')&&rows.length){renderEvents(rows);try{localStorage.setItem('eightEvents:'+date,JSON.stringify(rows))}catch(_){}}
+ if(remote.length<local.length)return;
+ if(document.querySelector('#events')?.classList.contains('active')&&remote.length){renderEvents(remote);try{localStorage.setItem('eightEvents:'+date,JSON.stringify(remote))}catch(_){}}
 });
 window.addEventListener('epcFirestoreError',e=>setSync('Firebase：連線失敗 '+String(e.detail?.message||''),true));
 // firebase-events.js can receive its first snapshot before app.js finishes loading.
 setTimeout(()=>{if(Array.isArray(window.EPC_FIRESTORE_LAST_EVENTS))window.dispatchEvent(new CustomEvent('epcFirestoreEvents',{detail:{events:window.EPC_FIRESTORE_LAST_EVENTS}}))},0);
 function mirrorEventToFirebase_(ev){try{if(window.EPCFirestore?.ready&&ev?.eventId)window.EPCFirestore.upsertEvent(ev).catch(console.warn)}catch(_){}}
 function deleteEventFromFirebase_(id){try{if(window.EPCFirestore?.ready&&id)window.EPCFirestore.deleteEvent(id).catch(console.warn)}catch(_){}}
-// One-time safe seed: once Firestore is connected and empty, copy the fuller local event list into it.
-let FIREBASE_SEEDED=false;
-async function seedLocalEventsToFirebase_(){
- if(FIREBASE_SEEDED||!window.EPCFirestore?.ready)return;
- const d=window.EPC_FIRESTORE_DIAG||{};if(d.state!=='connected'||Number(d.count||0)!==0)return;
- let rows=(window.EIGHT_EVENTS||[]).filter(x=>x?.eventId);
- if(!rows.length){
-   const date=document.querySelector('#eventBusinessDate')?.value||document.querySelector('#eventDate')?.value||businessDate();
-   try{rows=JSON.parse(localStorage.getItem('eightEvents:'+date)||'[]').filter(x=>x?.eventId)}catch(_){rows=[]}
- }
- if(!rows.length)return;
- FIREBASE_SEEDED=true;
- try{for(const ev of rows)await window.EPCFirestore.upsertEvent(ev)}catch(e){FIREBASE_SEEDED=false;console.warn(e)}
-}
-setInterval(seedLocalEventsToFirebase_,1200);
-function showFirestoreDiag_(){
+// Automatic Firestore seeding disabled: legacy event sources are partial and must not overwrite/migrate implicitly.\nfunction showFirestoreDiag_(){
  if(!document.querySelector('#events')?.classList.contains('active'))return;
  let box=document.querySelector('#firestoreDiag');
  if(!box){box=document.createElement('div');box.id='firestoreDiag';box.style.cssText='margin:8px 0;padding:10px 12px;border:1px solid #d6b35a;border-radius:8px;font:12px monospace;white-space:pre-wrap;color:#f3d27a;background:#111827';const host=document.querySelector('#events .card:last-of-type')||document.querySelector('#events');host?.prepend(box)}
  const d=window.EPC_FIRESTORE_DIAG||{};
- box.textContent='FIREBASE DIAG | build 20261007-0750 | project='+(d.projectId||window.EPC_FIREBASE_CONFIG?.projectId||'?')+' | state='+(d.state||'not-loaded')+' | docs='+(d.count??'?')+(d.error?' | ERROR='+d.error:'');
+ box.textContent='FIREBASE DIAG | build 20261007-0760 | project='+(d.projectId||window.EPC_FIREBASE_CONFIG?.projectId||'?')+' | state='+(d.state||'not-loaded')+' | docs='+(d.count??'?')+(d.error?' | ERROR='+d.error:'');
 }
 setInterval(showFirestoreDiag_,1000);setTimeout(showFirestoreDiag_,300);
 function renderEvents(rows=[]){window.EIGHT_EVENTS=rows;bridgeV3Activities_(rows);const el=document.querySelector('#eventList')||document.querySelector('#eventRows');if(!el)return;if(!rows.length){if(el.tagName==='TBODY'){el.innerHTML='<tr><td colspan="10" class="small" style="text-align:center">目前營業日尚無賽事</td></tr>'}else{el.className='empty';el.innerHTML='目前營業日尚無賽事'}return}if(el.tagName==='TBODY'){el.innerHTML=rows.map(x=>{const z=x.summary||{};return '<tr data-event-id="'+esc(x.eventId)+'"><td>'+esc(x.businessDate||'')+'</td><td style="text-align:left"><b>'+esc(x.name||'未命名賽事')+'</b><div class="small">'+esc(x.startTime||'')+'</div></td><td>'+esc(x.level||'自訂')+'</td><td>'+esc(z.participants||0)+'</td><td>'+esc(z.rebuyPeople||0)+'</td><td>'+esc(z.totalEntries||0)+'</td><td>'+money(z.prizePool||0)+'</td><td>'+money(z.jp||0)+'</td><td>'+(x.status==='settled'?'已結算':'進行中')+'</td><td><button class="secondary enter-event" data-id="'+esc(x.eventId)+'">進入</button> <button class="danger delete-event" data-id="'+esc(x.eventId)+'">刪除</button></td></tr>'}).join('');return}el.className='event-list';const stat=(k,v,moneyFmt=false)=>'<div class="event-stat"><small>'+k+'</small><b>'+(moneyFmt?money(v):esc(v??0))+'</b></div>';el.innerHTML=rows.map(x=>{const z=x.summary||{};return '<div class="event-row event-row-rich" data-event-id="'+esc(x.eventId)+'"><div class="event-main"><div><b>'+esc(x.name||'未命名賽事')+'</b><small>'+esc(x.businessDate||'')+' · '+esc(x.startTime||'')+' · '+esc(x.level||'自訂')+' · '+(x.status==='settled'?'已結算':'進行中')+'</small></div><div class="event-actions"><button class="secondary enter-event" data-id="'+esc(x.eventId)+'">進入</button>'+(x.status==='settled'?'<button class="secondary unlock-event" data-id="'+esc(x.eventId)+'">解鎖編輯</button>':'')+'<button class="danger delete-event" data-id="'+esc(x.eventId)+'">刪除</button></div></div><div class="event-stats">'+stat('參賽人數',z.participants||0)+stat('重買人數',z.rebuyPeople||0)+stat('總組數',z.totalEntries||0)+stat('總買入',z.totalGross||0,true)+stat('早鳥',z.earlyDiscount||0,true)+stat('晚鳥',z.lateDiscount||0,true)+stat('重買優惠',z.rebuyDiscount||0,true)+stat('組數優惠',z.entryDiscount||0,true)+stat('其他優惠',z.otherDiscount||0,true)+stat('總獎金',z.prizePool||0,true)+stat('實收行政費',z.adminNet||0,true)+stat('JP',z.jp||0,true)+'</div></div>'}).join('')}
