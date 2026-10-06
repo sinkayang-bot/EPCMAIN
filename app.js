@@ -166,7 +166,7 @@ function showFirestoreDiag_(){
  let box=document.querySelector('#firestoreDiag');
  if(!box){box=document.createElement('div');box.id='firestoreDiag';box.style.cssText='margin:8px 0;padding:10px 12px;border:1px solid #d6b35a;border-radius:8px;font:12px monospace;white-space:pre-wrap;color:#f3d27a;background:#111827';const host=document.querySelector('#events .card:last-of-type')||document.querySelector('#events');host?.prepend(box)}
  const d=window.EPC_FIRESTORE_DIAG||{};
- box.textContent='FIREBASE DIAG | build 20261007-0790 | project='+(d.projectId||window.EPC_FIREBASE_CONFIG?.projectId||'?')+' | state='+(d.state||'not-loaded')+' | docs='+(d.count??'?')+(d.error?' | ERROR='+d.error:'');
+ box.textContent='FIREBASE DIAG | build 20261007-0810 | project='+(d.projectId||window.EPC_FIREBASE_CONFIG?.projectId||'?')+' | state='+(d.state||'not-loaded')+' | docs='+(d.count??'?')+(d.error?' | ERROR='+d.error:'');
 }
 setInterval(showFirestoreDiag_,1000);setTimeout(showFirestoreDiag_,300);
 function renderEvents(rows=[]){window.EIGHT_EVENTS=rows;bridgeV3Activities_(rows);const el=document.querySelector('#eventList')||document.querySelector('#eventRows');if(!el)return;if(!rows.length){if(el.tagName==='TBODY'){el.innerHTML='<tr><td colspan="10" class="small" style="text-align:center">目前營業日尚無賽事</td></tr>'}else{el.className='empty';el.innerHTML='目前營業日尚無賽事'}return}if(el.tagName==='TBODY'){el.innerHTML=rows.map(x=>{const z=x.summary||{};return '<tr data-event-id="'+esc(x.eventId)+'"><td>'+esc(x.businessDate||'')+'</td><td style="text-align:left"><b>'+esc(x.name||'未命名賽事')+'</b><div class="small">'+esc(x.startTime||'')+'</div></td><td>'+esc(x.level||'自訂')+'</td><td>'+esc(z.participants||0)+'</td><td>'+esc(z.rebuyPeople||0)+'</td><td>'+esc(z.totalEntries||0)+'</td><td>'+money(z.prizePool||0)+'</td><td>'+money(z.jp||0)+'</td><td>'+(x.status==='settled'?'已結算':'進行中')+'</td><td><button class="secondary enter-event" data-id="'+esc(x.eventId)+'">進入</button> <button class="danger delete-event" data-id="'+esc(x.eventId)+'">刪除</button></td></tr>'}).join('');return}el.className='event-list';const stat=(k,v,moneyFmt=false)=>'<div class="event-stat"><small>'+k+'</small><b>'+(moneyFmt?money(v):esc(v??0))+'</b></div>';el.innerHTML=rows.map(x=>{const z=x.summary||{};return '<div class="event-row event-row-rich" data-event-id="'+esc(x.eventId)+'"><div class="event-main"><div><b>'+esc(x.name||'未命名賽事')+'</b><small>'+esc(x.businessDate||'')+' · '+esc(x.startTime||'')+' · '+esc(x.level||'自訂')+' · '+(x.status==='settled'?'已結算':'進行中')+'</small></div><div class="event-actions"><button class="secondary enter-event" data-id="'+esc(x.eventId)+'">進入</button>'+(x.status==='settled'?'<button class="secondary unlock-event" data-id="'+esc(x.eventId)+'">解鎖編輯</button>':'')+'<button class="danger delete-event" data-id="'+esc(x.eventId)+'">刪除</button></div></div><div class="event-stats">'+stat('參賽人數',z.participants||0)+stat('重買人數',z.rebuyPeople||0)+stat('總組數',z.totalEntries||0)+stat('總買入',z.totalGross||0,true)+stat('早鳥',z.earlyDiscount||0,true)+stat('晚鳥',z.lateDiscount||0,true)+stat('重買優惠',z.rebuyDiscount||0,true)+stat('組數優惠',z.entryDiscount||0,true)+stat('其他優惠',z.otherDiscount||0,true)+stat('總獎金',z.prizePool||0,true)+stat('實收行政費',z.adminNet||0,true)+stat('JP',z.jp||0,true)+'</div></div>'}).join('')}
@@ -316,10 +316,12 @@ async function addWorkspacePlayer(){
    alert('加入失敗：'+err.message);
  }
 }
-document.querySelector('#eventList')?.addEventListener('click',e=>{
- const del=e.target.closest('.delete-event');if(del)return;
- const enter=e.target.closest('.enter-event'),row=e.target.closest('.event-row[data-event-id]'),id=enter?.dataset.id||row?.dataset.eventId;
- if(id)openEventWorkspace(id)
+document.addEventListener('click',e=>{
+ const enter=e.target.closest('.enter-event');if(!enter)return;
+ const host=enter.closest('#eventList,#eventRows');if(!host)return;
+ e.preventDefault();e.stopPropagation();
+ const id=enter.dataset.id||enter.closest('[data-event-id]')?.dataset.eventId;
+ if(id)openEventWorkspace(id);
 });
 function returnToEventList(){
  const eventId=ACTIVE_EVENT,keys=[...WS_PENDING_PATCH.keys()],events=document.querySelector('#events'),workspace=document.querySelector('#eventWorkspace');
@@ -377,7 +379,26 @@ document.querySelector('#workspaceSettle')?.addEventListener('click',async()=>{
 });
 
 document.querySelector('#eventList')?.addEventListener('click',async e=>{const b=e.target.closest('.unlock-event');if(!b)return;const id=b.dataset.id,ev=(window.EIGHT_EVENTS||[]).find(x=>x.eventId===id);if(!ev||!confirm('確定解鎖這場已結算賽事？\n解鎖後原帳務與 JP 會暫停計入，重新正式結算後覆蓋原紀錄。'))return;b.disabled=true;try{const r=await api('event.unlock',{eventId:id,expectedRevision:ev.revision});Object.assign(ev,r.event||{status:'open'});renderEvents(window.EIGHT_EVENTS);await renderDashboardSummaryV3();alert('已解鎖，可修改後重新正式結算。')}catch(err){alert('解鎖失敗：'+err.message)}finally{b.disabled=false}});
-document.querySelector('#eventList')?.addEventListener('click',e=>{const b=e.target.closest('.delete-event');if(!b)return;if(!confirm('確定刪除此賽事？'))return;const id=b.dataset.id,old=[...(window.EIGHT_EVENTS||[])];window.EIGHT_EVENTS=old.filter(x=>x.eventId!==id);renderEvents(window.EIGHT_EVENTS);deleteEventFromFirebase_(id);api('event.delete',{eventId:id,expectedRevision:old.find(x=>x.eventId===id)?.revision}).catch(err=>{window.EIGHT_EVENTS=old;renderEvents(old);alert('刪除失敗：'+err.message)})});
+document.addEventListener('click',async e=>{
+ const b=e.target.closest('.delete-event');if(!b)return;
+ const host=b.closest('#eventList,#eventRows');if(!host)return;
+ e.preventDefault();e.stopPropagation();
+ if(!confirm('確定刪除此賽事？'))return;
+ const id=b.dataset.id||b.closest('[data-event-id]')?.dataset.eventId;if(!id)return;
+ b.disabled=true;
+ try{
+   if(!window.EPCFirestore?.ready)throw new Error('Firebase 尚未連線');
+   await window.EPCFirestore.deleteEvent(id);
+   window.EIGHT_EVENTS=(window.EIGHT_EVENTS||[]).filter(x=>String(x.eventId)!==String(id));
+   renderEvents(window.EIGHT_EVENTS);
+   try{localStorage.setItem('eightEvents:'+(document.querySelector('#eventDate')?.value||businessDate()),JSON.stringify(window.EIGHT_EVENTS))}catch(_){}
+   // Google Sheet is a secondary mirror. Its failure must never resurrect a Firestore-deleted event.
+   api('event.delete',{eventId:id}).catch(err=>console.warn('Sheet delete mirror failed',err));
+ }catch(err){
+   b.disabled=false;
+   alert('刪除失敗：'+String(err?.message||err));
+ }
+});
 
 window.addEventListener('offline',()=>{const el=document.querySelector('#dbStatus');if(el){el.textContent='資料庫：網路離線';el.className='bad'}});
 window.addEventListener('online',()=>{boot(false)});
