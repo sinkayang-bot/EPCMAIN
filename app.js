@@ -159,7 +159,8 @@ window.addEventListener('epcFirestoreError',e=>setSync('Firebase：連線失敗 
 setTimeout(()=>{if(Array.isArray(window.EPC_FIRESTORE_LAST_EVENTS))window.dispatchEvent(new CustomEvent('epcFirestoreEvents',{detail:{events:window.EPC_FIRESTORE_LAST_EVENTS}}))},0);
 function mirrorEventToFirebase_(ev){try{if(window.EPCFirestore?.ready&&ev?.eventId)window.EPCFirestore.upsertEvent(ev).catch(console.warn)}catch(_){}}
 function deleteEventFromFirebase_(id){try{if(window.EPCFirestore?.ready&&id)window.EPCFirestore.deleteEvent(id).catch(console.warn)}catch(_){}}
-// Automatic Firestore seeding disabled: legacy event sources are partial and must not overwrite/migrate implicitly.\nfunction showFirestoreDiag_(){
+// Automatic Firestore seeding disabled: legacy event sources are partial and must not overwrite/migrate implicitly.
+function showFirestoreDiag_(){
  if(!document.querySelector('#events')?.classList.contains('active'))return;
  let box=document.querySelector('#firestoreDiag');
  if(!box){box=document.createElement('div');box.id='firestoreDiag';box.style.cssText='margin:8px 0;padding:10px 12px;border:1px solid #d6b35a;border-radius:8px;font:12px monospace;white-space:pre-wrap;color:#f3d27a;background:#111827';const host=document.querySelector('#events .card:last-of-type')||document.querySelector('#events');host?.prepend(box)}
