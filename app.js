@@ -161,6 +161,17 @@ window.addEventListener('epcFirestoreError',e=>setSync('Firebase：連線失敗 
 setTimeout(()=>{if(Array.isArray(window.EPC_FIRESTORE_LAST_EVENTS))window.dispatchEvent(new CustomEvent('epcFirestoreEvents',{detail:{events:window.EPC_FIRESTORE_LAST_EVENTS}}))},0);
 function mirrorEventToFirebase_(ev){try{if(window.EPCFirestore?.ready&&ev?.eventId)window.EPCFirestore.upsertEvent(ev).catch(console.warn)}catch(_){}}
 function deleteEventFromFirebase_(id){try{if(window.EPCFirestore?.ready&&id)window.EPCFirestore.deleteEvent(id).catch(console.warn)}catch(_){}}
+// One-time safe seed: once Firestore is connected and empty, copy the fuller local event list into it.
+let FIREBASE_SEEDED=false;
+async function seedLocalEventsToFirebase_(){
+ if(FIREBASE_SEEDED||!window.EPCFirestore?.ready)return;
+ const d=window.EPC_FIRESTORE_DIAG||{};if(d.state!=='connected'||Number(d.count||0)!==0)return;
+ const rows=(window.EIGHT_EVENTS||[]).filter(x=>x?.eventId);
+ if(!rows.length)return;
+ FIREBASE_SEEDED=true;
+ try{for(const ev of rows)await window.EPCFirestore.upsertEvent(ev)}catch(e){FIREBASE_SEEDED=false;console.warn(e)}
+}
+setInterval(seedLocalEventsToFirebase_,1200);
 function showFirestoreDiag_(){
  if(!document.querySelector('#events')?.classList.contains('active'))return;
  let box=document.querySelector('#firestoreDiag');
