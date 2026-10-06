@@ -1,3 +1,4 @@
+(()=>{
 const CONFIG={apiUrl:localStorage.getItem('epcApiUrl')||'',businessStart:localStorage.getItem('eightBusinessStart')||'16:00',businessEnd:localStorage.getItem('eightBusinessEnd')||'07:00'};
 let MEMBER_ROWS=[];let MEMBER_PAGE=1;const MEMBER_PAGE_SIZE=100;let MEMBER_SEARCH_TIMER=null;
 const pages={dashboard:'總覽',members:'會員資料',events:'賽事管理',settlement:'分帳報表',accounting:'帳務管理',activities:'活動專區',devices:'設備管理',settings:'系統設定'};
@@ -297,3 +298,5 @@ window.addAccountingItem=addAccountingItemV3;window.deleteAccountingItemV3=delet
 
 let EPC_ACTIVITY_SAVE_TIMER=null;
 window.saveActivityCloudV3=function(){clearTimeout(EPC_ACTIVITY_SAVE_TIMER);EPC_ACTIVITY_SAVE_TIMER=setTimeout(async function(){if(!window.db||!window.db.activityManagement)return;try{const r=await api('activity.update',{data:window.db.activityManagement,expectedRevision:Number(window.EPC_ACTIVITY_REVISION||0)});window.EPC_ACTIVITY_REVISION=Number(r.revision||0)}catch(e){console.error('activity cloud save',e);try{const g=await api('activity.get',{});window.db.activityManagement=g.data||{};window.EPC_ACTIVITY_REVISION=Number(g.revision||0);if(typeof window.renderActivities==='function')window.renderActivities()}catch(_){}}},250)};
+
+})();
