@@ -64,7 +64,7 @@ async function boot(force=false){
  setSync(cached.length?'資料庫：同步中…':'資料庫：首次載入中…');
  try{
    const r=await api('bootstrap');
-   if(r.settings){CONFIG.businessStart=r.settings.businessStart||CONFIG.businessStart;CONFIG.businessEnd=r.settings.businessEnd||CONFIG.businessEnd;localStorage.setItem('eightSettingsCache',JSON.stringify(r.settings));document.querySelector('#businessStart').value=CONFIG.businessStart;document.querySelector('#businessEnd').value=CONFIG.businessEnd}
+   if(r.settings){CONFIG.businessStart=r.settings.businessStart||CONFIG.businessStart;CONFIG.businessEnd=r.settings.businessEnd||CONFIG.businessEnd;localStorage.setItem('eightSettingsCache',JSON.stringify(r.settings));document.querySelector('#businessStart').value=CONFIG.businessStart;document.querySelector('#businessEnd').value=CONFIG.businessEnd} if(r.activity&&window.db){window.db.activityManagement=r.activity.data||{};window.EPC_ACTIVITY_REVISION=Number(r.activity.revision||0)}
    MEMBER_ROWS=r.members||[];localStorage.setItem('eightMemberCache',JSON.stringify(MEMBER_ROWS));
    renderMembers();document.querySelector('#kMembers').textContent=money(r.summary?.memberCount);document.querySelector('#kNewMembers').textContent=money(r.summary?.monthNewMembers);refreshBusinessDay();setSync('資料庫：已連線')
  }catch(e){console.error(e);setSync(cached.length?'資料庫：使用本機資料':'資料庫：連線失敗',true)}
