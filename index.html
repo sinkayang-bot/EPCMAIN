@@ -4087,8 +4087,21 @@ async function performDeleteEventByIndex(index){
  }
  localStorage.setItem('epcV1',JSON.stringify(db));
  render();
+ // Firestore is the realtime authority for cross-terminal event deletion.
+ // Delete there immediately so every connected terminal receives the snapshot.
+ try{
+   if(window.EPCFirestore?.ready&&typeof window.EPCFirestore.deleteEvent==='function'){
+     await window.EPCFirestore.deleteEvent(id);
+   }else{
+     actionMsg('Firebase 尚未連線，刪除未同步到其他設備',true);
+     return;
+   }
+ }catch(err){
+   actionMsg('Firebase 刪除同步失敗：'+String(err?.message||err),true);
+   return;
+ }
  actionMsg(`已刪除：${label}；分帳報表已同步更新`);
- // 不等待 900ms 排程，避免刪除後立刻關閉頁面造成資料庫仍保留舊賽事。
+ // Keep the legacy cloud save as a persistence fallback.
  if(cloudReady) await saveCloudNow();
 }
 function removePlayerByIndex(index){
