@@ -1,6 +1,9 @@
 (()=>{
 const DEFAULT_V3_API='https://script.google.com/macros/s/AKfycbwZi5bXuFJdtXiE6oxPmn4NZti-wZyOwEfTKZ8VPo5nXP5GK1mPOYrfkxz714AN4UQx9w/exec';
-const CONFIG={apiUrl:localStorage.getItem('epcApiUrl')||DEFAULT_V3_API,businessStart:localStorage.getItem('eightBusinessStart')||'16:00',businessEnd:localStorage.getItem('eightBusinessEnd')||'07:00'};
+// EPCMAIN V3 uses one canonical backend on every terminal. Do not allow an old
+// per-browser epcApiUrl value to silently point a second PC at a legacy deployment.
+try{localStorage.setItem('epcApiUrl',DEFAULT_V3_API)}catch(_){}
+const CONFIG={apiUrl:DEFAULT_V3_API,businessStart:localStorage.getItem('eightBusinessStart')||'16:00',businessEnd:localStorage.getItem('eightBusinessEnd')||'07:00'};
 const legacyDb_=()=>window.epcDb||window.db||null;
 let MEMBER_ROWS=[];let MEMBER_PAGE=1;const MEMBER_PAGE_SIZE=100;let MEMBER_SEARCH_TIMER=null;
 const pages={dashboard:'總覽',members:'會員資料',events:'賽事管理',settlement:'分帳報表',accounting:'帳務管理',activities:'活動專區',devices:'設備管理',settings:'系統設定'};
