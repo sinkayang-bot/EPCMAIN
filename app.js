@@ -166,7 +166,7 @@ function showFirestoreDiag_(){
  let box=document.querySelector('#firestoreDiag');
  if(!box){box=document.createElement('div');box.id='firestoreDiag';box.style.cssText='margin:8px 0;padding:10px 12px;border:1px solid #d6b35a;border-radius:8px;font:12px monospace;white-space:pre-wrap;color:#f3d27a;background:#111827';const host=document.querySelector('#events .card:last-of-type')||document.querySelector('#events');host?.prepend(box)}
  const d=window.EPC_FIRESTORE_DIAG||{};
- box.textContent='FIREBASE DIAG | build 20261007-0810 | project='+(d.projectId||window.EPC_FIREBASE_CONFIG?.projectId||'?')+' | state='+(d.state||'not-loaded')+' | docs='+(d.count??'?')+(d.error?' | ERROR='+d.error:'');
+ box.textContent='FIREBASE DIAG | build 20261007-0820 | project='+(d.projectId||window.EPC_FIREBASE_CONFIG?.projectId||'?')+' | state='+(d.state||'not-loaded')+' | docs='+(d.count??'?')+(d.error?' | ERROR='+d.error:'');
 }
 setInterval(showFirestoreDiag_,1000);setTimeout(showFirestoreDiag_,300);
 function renderEvents(rows=[]){window.EIGHT_EVENTS=rows;bridgeV3Activities_(rows);const el=document.querySelector('#eventList')||document.querySelector('#eventRows');if(!el)return;if(!rows.length){if(el.tagName==='TBODY'){el.innerHTML='<tr><td colspan="10" class="small" style="text-align:center">目前營業日尚無賽事</td></tr>'}else{el.className='empty';el.innerHTML='目前營業日尚無賽事'}return}if(el.tagName==='TBODY'){el.innerHTML=rows.map(x=>{const z=x.summary||{};return '<tr data-event-id="'+esc(x.eventId)+'"><td>'+esc(x.businessDate||'')+'</td><td style="text-align:left"><b>'+esc(x.name||'未命名賽事')+'</b><div class="small">'+esc(x.startTime||'')+'</div></td><td>'+esc(x.level||'自訂')+'</td><td>'+esc(z.participants||0)+'</td><td>'+esc(z.rebuyPeople||0)+'</td><td>'+esc(z.totalEntries||0)+'</td><td>'+money(z.prizePool||0)+'</td><td>'+money(z.jp||0)+'</td><td>'+(x.status==='settled'?'已結算':'進行中')+'</td><td><button class="secondary enter-event" data-id="'+esc(x.eventId)+'">進入</button> <button class="danger delete-event" data-id="'+esc(x.eventId)+'">刪除</button></td></tr>'}).join('');return}el.className='event-list';const stat=(k,v,moneyFmt=false)=>'<div class="event-stat"><small>'+k+'</small><b>'+(moneyFmt?money(v):esc(v??0))+'</b></div>';el.innerHTML=rows.map(x=>{const z=x.summary||{};return '<div class="event-row event-row-rich" data-event-id="'+esc(x.eventId)+'"><div class="event-main"><div><b>'+esc(x.name||'未命名賽事')+'</b><small>'+esc(x.businessDate||'')+' · '+esc(x.startTime||'')+' · '+esc(x.level||'自訂')+' · '+(x.status==='settled'?'已結算':'進行中')+'</small></div><div class="event-actions"><button class="secondary enter-event" data-id="'+esc(x.eventId)+'">進入</button>'+(x.status==='settled'?'<button class="secondary unlock-event" data-id="'+esc(x.eventId)+'">解鎖編輯</button>':'')+'<button class="danger delete-event" data-id="'+esc(x.eventId)+'">刪除</button></div></div><div class="event-stats">'+stat('參賽人數',z.participants||0)+stat('重買人數',z.rebuyPeople||0)+stat('總組數',z.totalEntries||0)+stat('總買入',z.totalGross||0,true)+stat('早鳥',z.earlyDiscount||0,true)+stat('晚鳥',z.lateDiscount||0,true)+stat('重買優惠',z.rebuyDiscount||0,true)+stat('組數優惠',z.entryDiscount||0,true)+stat('其他優惠',z.otherDiscount||0,true)+stat('總獎金',z.prizePool||0,true)+stat('實收行政費',z.adminNet||0,true)+stat('JP',z.jp||0,true)+'</div></div>'}).join('')}
@@ -321,7 +321,12 @@ document.addEventListener('click',e=>{
  const host=enter.closest('#eventList,#eventRows');if(!host)return;
  e.preventDefault();e.stopPropagation();
  const id=enter.dataset.id||enter.closest('[data-event-id]')?.dataset.eventId;
- if(id)openEventWorkspace(id);
+ if(!id)return;
+ // EPCMAIN's real event editor is the legacy #event page in index.html.
+ // Keep Firestore/V3 as the authoritative list, but enter through the complete
+ // event editor instead of the unfinished eventWorkspace (which has no DOM).
+ if(typeof window.openEvent==='function')window.openEvent(id);
+ else if(typeof openEvent==='function')openEvent(id);
 });
 function returnToEventList(){
  const eventId=ACTIVE_EVENT,keys=[...WS_PENDING_PATCH.keys()],events=document.querySelector('#events'),workspace=document.querySelector('#eventWorkspace');
