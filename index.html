@@ -4038,7 +4038,7 @@ function eventDisplayName_(e){
  const manual=String(e?.name||'').trim();
  return manual||eventOrdinalName_(e?.seq||1);
 }
-async function newEvent(){
+async async function newEvent(){
  let e=blankEvent();
  let bd=$('eventBusinessDate')?.value||new Date().toISOString().slice(0,10);
  e.date=bd;e.businessDate=bd;e.startTime=db.settings.businessStart||'16:00';
@@ -4771,6 +4771,12 @@ function setEventName_(id,value){
  e.name=v&&v!==eventOrdinalName_(e.seq||1)?v:'';
  touchEvent_(e);
  persist();render();
+ if(window.EPCFirestore?.ready)window.EPCFirestore.upsertEvent({
+   eventId:e.id,businessDate:businessDateForEvent(e),name:eventDisplayName_(e),startTime:e.startTime||'',
+   level:e.level,buyin:e.poolUnit,fee:e.admin,buyinTotal:e.buyinTotal,buyinAdmin:e.buyinAdmin,
+   rebuyTotal:e.rebuyTotal,rebuyAdmin:e.rebuyAdmin,freeAdminFrom:(+e.overbuyThreshold||10)+1,
+   jpRate:e.jp,jpRound:e.jpRound,status:e.status==='已結算'?'settled':'open',revision:+e.revision||1
+ }).catch(err=>actionMsg('Firebase 更新失敗：'+String(err?.message||err),true));
 }
 function applyFirestoreEventsToLegacy_(rows){
  const remote=(rows||[]).map(v=>({
@@ -6538,10 +6544,10 @@ async function epcShowRecoveryAudit_(){
  }catch(e){alert("唯讀盤點失敗："+String(e&&e.message||e));}
 }
 </script>
-<script src="firebase-config.js?v=20261007-0770"></script>
-<script src="firebase-events.js?v=20261007-0770"></script>
-<script src="sync-v3.js?v=20261007-0770"></script>
-<script src="app.js?v=20261007-0770"></script></body></html>
+<script src="firebase-config.js?v=20261007-0780"></script>
+<script src="firebase-events.js?v=20261007-0780"></script>
+<script src="sync-v3.js?v=20261007-0780"></script>
+<script src="app.js?v=20261007-0780"></script></body></html>
 
 
 
