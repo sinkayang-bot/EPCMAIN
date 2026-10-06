@@ -4038,13 +4038,24 @@ function eventDisplayName_(e){
  const manual=String(e?.name||'').trim();
  return manual||eventOrdinalName_(e?.seq||1);
 }
-function newEvent(){
+async function newEvent(){
  let e=blankEvent();
  let bd=$('eventBusinessDate')?.value||new Date().toISOString().slice(0,10);
- e.date=bd;
- e.startTime=db.settings.businessStart||'16:00';
+ e.date=bd;e.businessDate=bd;e.startTime=db.settings.businessStart||'16:00';
  let same=db.events.filter(x=>businessDateForEvent(x)===bd);
  e.seq=same.length?Math.max(...same.map(x=>+x.seq||0))+1:1;
+ // The visible legacy button comes here. Firestore must be the first authoritative write.
+ if(window.EPCFirestore?.ready&&typeof window.EPCFirestore.createEvent==='function'){
+   try{
+     const remote=await window.EPCFirestore.createEvent({
+       eventId:e.id,businessDate:bd,name:eventDisplayName_(e),startTime:e.startTime,
+       level:e.level,buyin:e.poolUnit,fee:e.admin,buyinTotal:e.buyinTotal,buyinAdmin:e.buyinAdmin,
+       rebuyTotal:e.rebuyTotal,rebuyAdmin:e.rebuyAdmin,freeAdminFrom:(+e.overbuyThreshold||10)+1,
+       jpRate:e.jp,icmRound:e.jpRound,status:'open',revision:1
+     });
+     e.id=remote.eventId||e.id;
+   }catch(err){actionMsg('Firebase 建立失敗：'+String(err?.message||err),true);return;}
+ }else{actionMsg('Firebase 尚未連線，暫停建立賽事',true);return;}
  db.events.unshift(e); setCurrentEventDevice_(e.id); persist(); showPage('event');
 }
 function openEvent(id){
@@ -4761,6 +4772,24 @@ function setEventName_(id,value){
  touchEvent_(e);
  persist();render();
 }
+function applyFirestoreEventsToLegacy_(rows){
+ const remote=(rows||[]).map(v=>({
+   id:v.eventId,date:v.businessDate||v.date,name:v.name||'',startTime:v.startTime||'',regCloseTime:v.regClose||'',
+   seq:+v.seq||1,level:+v.level||3400,poolUnit:+v.buyin||Math.max(0,(+v.buyinTotal||3400)-(+v.buyinAdmin||400)),
+   admin:+v.fee||+v.buyinAdmin||400,pricingMode:(v.pricingMode||'standard'),buyinTotal:+v.buyinTotal||3400,
+   buyinAdmin:+v.buyinAdmin||400,rebuyTotal:+v.rebuyTotal||3400,rebuyAdmin:+v.rebuyAdmin||400,
+   overbuyThreshold:Math.max(1,(+v.freeAdminFrom||11)-1),chips:+v.chips||300000,jp:+v.jpRate||3,
+   jpRound:+v.jpRound||100,payout:v.payout||'50,30,20',players:Array.isArray(v.players)?v.players:[],
+   status:v.status==='settled'?'已結算':'進行中',accounting:v.accounting||{otherIncome:0,venueIncome:0,laborExpense:0,otherExpense:0},
+   createdAt:+v.createdAt||Date.now()
+ }));
+ const remoteIds=new Set(remote.map(x=>String(x.id)));
+ // During migration, Firestore owns only events it knows; retain legacy-only historical rows.
+ const legacyOnly=(db.events||[]).filter(x=>!remoteIds.has(String(x.id)));
+ db.events=[...remote,...legacyOnly];
+ renderEventList();
+}
+window.addEventListener('epcFirestoreEvents',ev=>{try{applyFirestoreEventsToLegacy_(ev.detail?.events||[])}catch(err){console.warn(err)}});
 function renderEventList(){
  let body=$('eventRows'); if(!body)return;
  if($('businessStartTime'))$('businessStartTime').value=db.settings.businessStart||'16:00';
