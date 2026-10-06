@@ -148,7 +148,7 @@ function filterWorkspaceMembers(q){
 }
 function renderWorkspace(){
  const e=WORKSPACE_EVENT;if(!e)return;const body=document.querySelector('#workspacePlayerRows');document.querySelector('#workspacePlayerCount').textContent=WORKSPACE_PLAYERS.length+' 人';
- let totals={buyin:0,rebuy:0,groups:0,gross:0,early:0,late:0,rd:0,overbuy:0,other:0,paid:0};
+ let totals={buyin:0,rebuy:0,groups:0,gross:0,early:0,late:0,rd:0,overbuy:0,accountingOverbuy:0,other:0,paid:0};
  body.innerHTML=WORKSPACE_PLAYERS.map(p=>{const c=eventCalcPlayer(p,e);Object.keys(totals).forEach(k=>totals[k]+=Number(c[k]||0));
  return '<tr data-key="'+esc(p.memberKey)+'"><td class="name">'+esc(p.name||'')+'</td><td>'+esc(p.memberId||'')+'</td>'+
  '<td><input class="ws-buyin" type="number" min="0" value="'+c.buyin+'"></td><td><input class="ws-rebuy" type="number" min="0" value="'+c.rebuy+'"></td><td class="ws-groups">'+c.groups+'</td>'+
@@ -156,7 +156,7 @@ function renderWorkspace(){
  '<td class="ws-auto">'+money(c.overbuy)+'</td><td><input class="ws-other" type="number" min="0" value="'+c.other+'"></td><td class="ws-paid">'+money(c.paid)+'</td>'+
  '<td><input class="ws-chips" type="number" min="0" value="'+Number(p.chips||0)+'"></td><td><button class="danger ws-remove">移除</button></td><td><input class="ws-group" value="'+esc(p.group||'')+'"></td></tr>'}).join('');
  document.querySelector('#workspacePlayerTotals').innerHTML='<tr><td colspan="2">合計</td><td>'+totals.buyin+'</td><td>'+totals.rebuy+'</td><td>'+totals.groups+'</td><td>'+money(totals.early)+'</td><td>'+money(totals.late)+'</td><td>'+money(totals.rd)+'</td><td>'+money(totals.overbuy)+'</td><td>'+money(totals.other)+'</td><td>'+money(totals.paid)+'</td><td colspan="3"></td></tr>';
- const adminGross=totals.buyin*Number(e.buyinAdmin||0)+totals.rebuy*Number(e.rebuyAdmin||0),discounts=totals.early+totals.late+totals.rd+totals.overbuy+totals.other;
+ const adminGross=totals.buyin*Number(e.buyinAdmin||0)+totals.rebuy*Number(e.rebuyAdmin||0),discounts=totals.early+totals.late+totals.rd+totals.accountingOverbuy+totals.other;
  const prizeBase=totals.buyin*Math.max(0,Number(e.buyinTotal||0)-Number(e.buyinAdmin||0))+totals.rebuy*Math.max(0,Number(e.rebuyTotal||0)-Number(e.rebuyAdmin||0));
  const jp=prizeBase>0?Math.ceil((prizeBase*Number(e.jpRate||0)/100)/100)*100:0,unit=Math.max(1,Number(e.icmRound||100)),prize=Math.floor(Math.max(0,prizeBase-jp)/unit)*unit;
  const k=[['參賽人數',WORKSPACE_PLAYERS.length],['重買人數',WORKSPACE_PLAYERS.filter(p=>Number(p.rebuy||0)>0).length],['總組數',totals.groups],['總買入',money(totals.gross)],['總優惠',money(discounts)],['總獎金',money(prize)],['實收行政費',money(Math.max(0,adminGross-discounts))],['JP',money(jp)]];
@@ -164,11 +164,11 @@ function renderWorkspace(){
 }
 function syncWorkspaceEventSummaryLocal(){
  if(!WORKSPACE_EVENT)return;
- let totals={buyin:0,rebuy:0,groups:0,gross:0,early:0,late:0,rd:0,overbuy:0,other:0};
+ let totals={buyin:0,rebuy:0,groups:0,gross:0,early:0,late:0,rd:0,overbuy:0,accountingOverbuy:0,other:0};
  WORKSPACE_PLAYERS.forEach(p=>{const c=eventCalcPlayer(p,WORKSPACE_EVENT);for(const k of Object.keys(totals))totals[k]+=Number(c[k]||0)});
  const e=WORKSPACE_EVENT,adminGross=totals.buyin*Number(e.buyinAdmin||0)+totals.rebuy*Number(e.rebuyAdmin||0);
  const prizeBase=totals.buyin*Math.max(0,Number(e.buyinTotal||0)-Number(e.buyinAdmin||0))+totals.rebuy*Math.max(0,Number(e.rebuyTotal||0)-Number(e.rebuyAdmin||0));
- const discounts=totals.early+totals.late+totals.rd+totals.overbuy+totals.other,unit=Math.max(1,Number(e.icmRound||100));
+ const discounts=totals.early+totals.late+totals.rd+totals.accountingOverbuy+totals.other,unit=Math.max(1,Number(e.icmRound||100));
  e.summary={participants:WORKSPACE_PLAYERS.length,rebuyPeople:WORKSPACE_PLAYERS.filter(p=>Number(p.rebuy||0)>0).length,totalEntries:totals.groups,totalGross:totals.gross,earlyDiscount:totals.early,lateDiscount:totals.late,rebuyDiscount:totals.rd,entryDiscount:totals.overbuy,otherDiscount:totals.other,prizePool:Math.floor(Math.max(0,prizeBase-(prizeBase>0?Math.ceil((prizeBase*Number(e.jpRate||0)/100)/100)*100:0))/unit)*unit,adminNet:Math.max(0,adminGross-discounts),jp:(prizeBase>0?Math.ceil((prizeBase*Number(e.jpRate||0)/100)/100)*100:0)};
  const date=e.businessDate||document.querySelector('#eventDate').value||businessDate();
  try{localStorage.setItem('eightEvents:'+date,JSON.stringify(window.EIGHT_EVENTS||[]))}catch(_){}
