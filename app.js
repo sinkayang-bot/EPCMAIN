@@ -382,10 +382,10 @@ window.addMember=async function(){
   alert('新增會員失敗：'+msg);
  }finally{if(btn){btn.disabled=false;btn.textContent='新增會員'}}
 };
-window.saveMemberEdit=async function(){
- const id=String(window.editingMemberId||'');
- const legacy=window.db&&Array.isArray(window.db.members)?window.db.members.find(x=>String(x.id)===id):null;
- const row=MEMBER_ROWS.find(x=>String(x.memberKey||'')===String(legacy?.memberKey||'')||String(x.memberId||'')===id);
+window.epcV3SaveMemberEdit=async function(memberId){
+ const id=String(memberId||document.querySelector('#mId')?.value||'').trim().toUpperCase();
+ const legacy=window.db&&Array.isArray(window.db.members)?window.db.members.find(x=>String(x.id||'').trim().toUpperCase()===id):null;
+ const row=MEMBER_ROWS.find(x=>String(x.memberKey||'')===String(legacy?.memberKey||'')||String(x.memberId||'').trim().toUpperCase()===id);
  if(!row)return alert('找不到此會員的 V3 資料，請先重新讀取會員');
  const name=document.querySelector('#mName')?.value.trim()||'';
  if(!name)return alert('請輸入會員名稱');
@@ -403,6 +403,7 @@ window.saveMemberEdit=async function(){
   alert('修改會員失敗：'+err.message);
  }finally{if(btn)btn.disabled=false}
 };
+window.saveMemberEdit=function(){return window.epcV3SaveMemberEdit(document.querySelector('#mId')?.value||'')};
 
 
 window.performDelMember=async function(id){
