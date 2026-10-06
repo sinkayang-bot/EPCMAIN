@@ -5196,7 +5196,7 @@ function actSetActivityRange_(kind,field,value){
  ensureActDb_();
  if(kind==='boss'){db.activityManagement.boss[field==='from'?'activityFrom':'activityTo']=String(value||'')}
  else{const R=db.activityManagement.activityRanges[kind]||(db.activityManagement.activityRanges[kind]={from:'',to:''});R[field]=String(value||'')}
- persist();renderActivities();
+ persist();if(window.saveActivityCloudV3)window.saveActivityCloudV3();renderActivities();
 }
 function actRangeEditor_(kind){
  const names={weekly:'每週任務卡',pioneer:'開桌先鋒',rank:'週排行榜',hunter:'獵人排行榜',umbrella:'保護傘',boss:'雙十狩主'},r=actActivityRange_(kind);
@@ -5243,15 +5243,15 @@ function actPlayerStats_(kind=actTab_){
  }));
  return Object.values(map).map(x=>({...x,days:x.dates.size})).filter(x=>!q||x.name.toLowerCase().includes(q)||x.id.toLowerCase().includes(q));
 }
-function actSave_(){persist();renderActivities()}
+function actSave_(){persist();if(window.saveActivityCloudV3)window.saveActivityCloudV3();renderActivities()}
 function actAdj_(kind,id,field,v){
  ensureActDb_();const A=db.activityManagement;
  if(kind==='weekly'){A.weeklyAdjust[id]=A.weeklyAdjust[id]||{};A.weeklyAdjust[id][field]=Number(v)||0}
  if(kind==='pioneerQual'){A.pioneerQualify[id]=!!v}
  if(kind==='rank'){A.rankAdjust[id]=Number(v)||0}
- persist();renderActivities();setTimeout(enhanceSearchCombos_,0);
+ persist();if(window.saveActivityCloudV3)window.saveActivityCloudV3();renderActivities();setTimeout(enhanceSearchCombos_,0);
 }
-function actWeeklyClaim_(id,v){ensureActDb_();const r=actActivityRange_('weekly'),key=(r.from||'')+'_'+(r.to||'')+'_'+id;db.activityManagement.weeklyClaims[key]=!!v;persist();renderActivities()}
+function actWeeklyClaim_(id,v){ensureActDb_();const r=actActivityRange_('weekly'),key=(r.from||'')+'_'+(r.to||'')+'_'+id;db.activityManagement.weeklyClaims[key]=!!v;persist();if(window.saveActivityCloudV3)window.saveActivityCloudV3();renderActivities()}
 function actWeekly_(){
  const A=db.activityManagement,range=actActivityRange_('weekly');
  const rows=actPlayerStats_('weekly').map(x=>{
