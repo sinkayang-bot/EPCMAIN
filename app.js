@@ -43,6 +43,7 @@ function startDeltaSync(){
  EPCSync.state.cursor=Number(localStorage.getItem('epcCursor')||0);
  EPCSync.loop();setSync('資料庫：即時同步');
 }
+window.setEpcV3ApiUrl=async function(url){const v=String(url||'').trim();if(!/^https:\/\/script\.google\.com\/macros\/s\/.+\/exec$/.test(v))throw new Error('請輸入 Apps Script 部署後的 /exec 網址');localStorage.setItem('epcApiUrl',v);CONFIG.apiUrl=v;if(window.EPCSync)EPCSync.setApiUrl(v);const r=await api('ping',{});return r};
 function refreshBusinessDay(){CONFIG.businessStart=document.querySelector('#businessStart')?.value||CONFIG.businessStart;CONFIG.businessEnd=document.querySelector('#businessEnd')?.value||CONFIG.businessEnd;const d=businessDate();document.querySelector('#businessDayLabel').textContent='營業時間：每日 '+CONFIG.businessStart+'–翌日 '+CONFIG.businessEnd;document.querySelector('#todayDate').textContent=d;document.querySelector('#globalDate').value=d}
 function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 function memberSearchText(v){return String(v??'').normalize('NFKC').toLowerCase().replace(/\s+/g,'')}
