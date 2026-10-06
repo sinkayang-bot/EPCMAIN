@@ -234,9 +234,14 @@ document.querySelector('#workspaceSettle').addEventListener('click',async()=>{
  try{
    for(const key of [...WS_PENDING_PATCH.keys()])await flushWorkspacePlayer(key);
    const current=(window.EIGHT_EVENTS||[]).find(x=>x.eventId===ACTIVE_EVENT);
-   const prizes=(WORKSPACE_PLAYERS||[]).map(p=>({memberKey:p.memberKey,prize:Number(p.prize||0)}));
+   const legacyEvent=(window.db&&Array.isArray(window.db.events))?window.db.events.find(e=>String(e.id)===String(ACTIVE_EVENT)):null;
+   const legacyPlayers=legacyEvent&&Array.isArray(legacyEvent.players)?legacyEvent.players:[];
+   const prizes=(WORKSPACE_PLAYERS||[]).map(p=>{
+     const lp=legacyPlayers.find(x=>String(x.memberKey||'')===String(p.memberKey||'')||String(x.memberId||'')===String(p.memberId||''));
+     return{memberKey:p.memberKey,prize:Number(lp?.prize??p.prize??0)};
+   });
    const r=await api('event.settle',{eventId:ACTIVE_EVENT,prizes});
-   window.EIGHT_SETTLEMENT_SNAPSHOT=r.snapshot;
+   window.EIGHT_SETTLEMENT_SNAPSHOT=r.snapshot;WORKSPACE_PLAYERS=(r.snapshot?.players||WORKSPACE_PLAYERS).map(p=>({...p,prize:Number(prizes.find(x=>x.memberKey===p.memberKey)?.prize??p.prize??0)}));
    if(current){current.status='settled';if(r.accounting)current.summary={participants:r.accounting.participants,rebuyPeople:r.accounting.rebuyPeople,totalEntries:r.accounting.totalEntries,totalGross:r.accounting.totalGross,earlyDiscount:r.accounting.earlyDiscount,lateDiscount:r.accounting.lateDiscount,rebuyDiscount:r.accounting.rebuyDiscount,entryDiscount:r.accounting.entryDiscount,otherDiscount:r.accounting.otherDiscount,prizePool:r.accounting.prizePool,adminNet:r.accounting.adminNet,jp:r.accounting.jp};renderEvents(window.EIGHT_EVENTS)}
    alert('賽事已完成結算，帳務與 JP 已寫入。');
  }catch(err){alert('結算前同步失敗：'+err.message)}
