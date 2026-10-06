@@ -5,6 +5,7 @@
   const appMod=await import('https://www.gstatic.com/firebasejs/12.4.0/firebase-app.js');
   const fs=await import('https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js');
   const app=appMod.initializeApp(cfg,'epcmain-v3');
+  window.EPC_FIRESTORE_DIAG={state:'connecting',projectId:cfg.projectId,count:0,error:''};
   const db=fs.getFirestore(app);
   const col=fs.collection(db,'epc_events');
   const clean=x=>{const y={};Object.entries(x||{}).forEach(([k,v])=>{if(v!==undefined&&typeof v!=='function')y[k]=v});return y};
@@ -16,7 +17,8 @@
   fs.onSnapshot(col,snap=>{
    const rows=[];snap.forEach(d=>{const x=d.data()||{};if(x.status!=='deleted')rows.push({...x,eventId:x.eventId||d.id})});
    window.EPC_FIRESTORE_LAST_EVENTS=rows;
+   window.EPC_FIRESTORE_DIAG={state:'connected',projectId:cfg.projectId,count:rows.length,error:''};
    window.dispatchEvent(new CustomEvent('epcFirestoreEvents',{detail:{events:rows}}));
-  },err=>window.dispatchEvent(new CustomEvent('epcFirestoreError',{detail:{message:String(err?.message||err)}})));
- }catch(e){window.dispatchEvent(new CustomEvent('epcFirestoreError',{detail:{message:String(e?.message||e)}}))}
+  },err=>{window.EPC_FIRESTORE_DIAG={state:'error',projectId:cfg.projectId,count:0,error:String(err?.message||err)};window.dispatchEvent(new CustomEvent('epcFirestoreError',{detail:{message:String(err?.message||err)}}))});
+ }catch(e){window.EPC_FIRESTORE_DIAG={state:'error',projectId:cfg?.projectId||'?',count:0,error:String(e?.message||e)};window.dispatchEvent(new CustomEvent('epcFirestoreError',{detail:{message:String(e?.message||e)}}))}
 })();
