@@ -234,7 +234,8 @@ document.querySelector('#workspaceSettle').addEventListener('click',async()=>{
  try{
    for(const key of [...WS_PENDING_PATCH.keys()])await flushWorkspacePlayer(key);
    const current=(window.EIGHT_EVENTS||[]).find(x=>x.eventId===ACTIVE_EVENT);
-   const r=await api('event.settle',{eventId:ACTIVE_EVENT});
+   const prizes=(WORKSPACE_PLAYERS||[]).map(p=>({memberKey:p.memberKey,prize:Number(p.prize||0)}));
+   const r=await api('event.settle',{eventId:ACTIVE_EVENT,prizes});
    window.EIGHT_SETTLEMENT_SNAPSHOT=r.snapshot;
    if(current){current.status='settled';if(r.accounting)current.summary={participants:r.accounting.participants,rebuyPeople:r.accounting.rebuyPeople,totalEntries:r.accounting.totalEntries,totalGross:r.accounting.totalGross,earlyDiscount:r.accounting.earlyDiscount,lateDiscount:r.accounting.lateDiscount,rebuyDiscount:r.accounting.rebuyDiscount,entryDiscount:r.accounting.entryDiscount,otherDiscount:r.accounting.otherDiscount,prizePool:r.accounting.prizePool,adminNet:r.accounting.adminNet,jp:r.accounting.jp};renderEvents(window.EIGHT_EVENTS)}
    alert('賽事已完成結算，帳務與 JP 已寫入。');
@@ -262,3 +263,16 @@ async function renderDashboardDailyReportV3(){
 }
 window.renderDashboardSummary=renderDashboardSummaryV3;
 window.renderDashboardDailyReport=renderDashboardDailyReportV3;
+
+async function renderSettlementManagerV3(){
+ const from=document.querySelector('#settlementDateFrom')?.value||'',to=document.querySelector('#settlementDateTo')?.value||'',r=await api('settlement.report',{startDate:from,endDate:to}),z=r.report||{};
+ const body=document.querySelector('#settlementDayRows');if(!body)return;const by={};(z.events||[]).forEach(e=>{if(!by[e.businessDate])by[e.businessDate]={date:e.businessDate,events:0};by[e.businessDate].events++});
+ body.innerHTML=Object.values(by).sort((a,b)=>b.date.localeCompare(a.date)).map(x=>'<tr><td>'+x.date+'</td><td>'+x.events+'</td><td>—</td><td>—</td><td>—</td><td>—</td><td><button type="button" onclick="openSettlementDayV3(\''+x.date+'\')">查看</button></td></tr>').join('')||'<tr><td colspan="7" class="small">此區間尚無已結算賽事</td></tr>';
+}
+async function openSettlementDayV3(date){
+ const r=await api('settlement.report',{businessDate:date}),z=r.report||{};document.querySelector('#settlementListView').style.display='none';document.querySelector('#settlementDetailView').style.display='block';document.querySelector('#settlementDetailDate').textContent=date;document.querySelector('#dailyDate').value=date;
+ const set=(id,v)=>{const e=document.querySelector(id);if(e)e.textContent=v};set('#dEvents',z.eventCount||0);set('#dMembers',z.memberCount||0);set('#dPaid',money(z.totalPaid||0));set('#dPrize',money(z.totalPrize||0));
+ const host=document.querySelector('#dailyGroupDetail');if(host)host.innerHTML=(z.groups||[]).map(g=>'<div class="card tablewrap"><h3>'+esc(g.group)+'</h3><div class="grid"><div class="kpi"><div class="l">群組實付</div><div class="v">'+money(g.totalPaid)+'</div></div><div class="kpi"><div class="l">群組領回</div><div class="v">'+money(g.totalPrize)+'</div></div><div class="kpi"><div class="l">群組輸贏</div><div class="v">'+money(g.net)+'</div></div></div><table><thead><tr><th>會員</th><th>實付</th><th>領回</th><th>輸贏</th></tr></thead><tbody>'+g.members.map(m=>'<tr><td>'+esc(m.name)+' <span class="small">'+esc(m.memberId)+'</span></td><td>'+money(m.paid)+'</td><td>'+money(m.prize)+'</td><td>'+money(m.net)+'</td></tr>').join('')+'</tbody></table></div>').join('')||'<div class="card small">本日尚無分帳資料</div>';
+}
+window.renderSettlementManager=renderSettlementManagerV3;
+window.openSettlementDayV3=openSettlementDayV3;
