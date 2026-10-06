@@ -53,10 +53,11 @@ function refreshBusinessDay(){CONFIG.businessStart=document.querySelector('#busi
 function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 function memberSearchText(v){return String(v??'').normalize('NFKC').toLowerCase().replace(/\s+/g,'')}
 function renderMembers(rows=MEMBER_ROWS){
- if(window.db){
-  window.db.members=rows.map(m=>({id:m.memberId,name:m.name,nickname:m.nickname,group:m.group,birth:m.birth,phone:m.phone,address:m.address,memberKey:m.memberKey,revision:m.revision,createdAt:m.createdAt,eventCount:m.eventCount,totalEntries:m.totalEntries,pnl:m.pnl,spendShare:m.spendShare,lastVisit:m.lastVisit}));}
+ const ldb=legacyDb_();
+ if(ldb){
+  ldb.members=rows.map(m=>({id:m.memberId,name:m.name,nickname:m.nickname,group:m.group,birth:m.birth,phone:m.phone,address:m.address,memberKey:m.memberKey,revision:m.revision,createdAt:m.createdAt,eventCount:m.eventCount,totalEntries:m.totalEntries,pnl:m.pnl,spendShare:m.spendShare,lastVisit:m.lastVisit}));
   if(typeof window.renderMemberRows==='function'){window.renderMemberRows();return}
- }}
+ }
  const tb=document.querySelector('#members tbody');if(!tb)return;
  const q=memberSearchText(document.querySelector('#memberSearch')?.value||''),filtered=q?rows.filter(m=>[m.memberId,m.name,m.nickname,m.group,m.phone].some(v=>memberSearchText(v).includes(q))):rows;
  tb.innerHTML=filtered.map(m=>'<tr data-key="'+esc(m.memberKey)+'"><td>'+esc(m.memberId)+'</td><td>'+esc(m.name)+'</td><td>'+esc(m.nickname)+'</td><td>'+esc(m.group)+'</td><td>'+money(m.eventCount)+'</td><td>'+money(m.totalEntries)+'</td><td>'+money(m.pnl)+'</td><td>'+esc(m.spendShare||'—')+'</td><td>'+esc(m.lastVisit||'—')+'</td></tr>').join('')||'<tr><td colspan="10" class="empty">目前沒有符合的會員資料</td></tr>';
@@ -68,12 +69,23 @@ async function saveMember(e){e.preventDefault();const btn=document.querySelector
 window.eightReloadMembers_=async function(){
  const state=document.querySelector('#eightMemberState'),btn=document.querySelector('#eightMemberRetry');
  if(btn)btn.disabled=true;if(state)state.textContent='正在從 V3 API 讀取會員…';
- try{let r;try{r=await api('member.list')}catch(e){if(!/UNKNOWN_ACTION|unknow action/i.test(String(e.message||e)))throw e;r=await api('bootstrap')}MEMBER_ROWS=r.members||[];if(Number.isFinite(Number(r.cursor))){localStorage.setItem('epcCursor',String(Number(r.cursor)));if(window.EPCSync)window.EPCSync.state.cursor=Number(r.cursor)}localStorage.setItem('eightMemberCache',JSON.stringify(MEMBER_ROWS));{const ldb=legacyDb_();if(ldb){ldb.members=MEMBER_ROWS.map(m=>({id:m.memberId,name:m.name,nickname:m.nickname,group:m.group,birth:m.birth,phone:m.phone,address:m.address,memberKey:m.memberKey,revision:m.revision}))}const k=document.querySelector('#kMembers');if(k)k.textContent=money(MEMBER_ROWS.length);const ms=document.querySelector('#memberSearch');if(ms)ms.value='';const mf=document.querySelector('#memberFilterBy');if(mf)mf.value='all';if(typeof window.renderMemberRows==='function')window.renderMemberRows();
- const tail=MEMBER_ROWS.slice(-5).map(x=>String(x.name||'')+'('+String(x.memberId||'')+')').join('、');
- const has84458=MEMBER_ROWS.some(x=>String(x.memberId||'').trim().toUpperCase()==='A84458');
- if(state)state.textContent='會員已載入 '+MEMBER_ROWS.length+' 人｜V3｜A84458:'+(has84458?'API有':'API無')+'｜末5筆：'+tail;
- console.info('[EPC V3 member.list]',{count:MEMBER_ROWS.length,hasA84458:has84458,tail:MEMBER_ROWS.slice(-5)});
- setSync('資料庫：已連線');return r}catch(e){console.error(e);if(state)state.textContent='會員讀取失敗：'+e.message;setSync('資料庫：連線失敗',true);throw e}finally{if(btn)btn.disabled=false}
+ try{
+  let r;
+  try{r=await api('member.list')}catch(e){if(!/UNKNOWN_ACTION|unknow action/i.test(String(e.message||e)))throw e;r=await api('bootstrap')}
+  MEMBER_ROWS=r.members||[];
+  if(Number.isFinite(Number(r.cursor))){localStorage.setItem('epcCursor',String(Number(r.cursor)));if(window.EPCSync)window.EPCSync.state.cursor=Number(r.cursor)}
+  localStorage.setItem('eightMemberCache',JSON.stringify(MEMBER_ROWS));
+  const ldb=legacyDb_();
+  if(ldb)ldb.members=MEMBER_ROWS.map(m=>({id:m.memberId,name:m.name,nickname:m.nickname,group:m.group,birth:m.birth,phone:m.phone,address:m.address,memberKey:m.memberKey,revision:m.revision}));
+  const k=document.querySelector('#kMembers');if(k)k.textContent=money(MEMBER_ROWS.length);
+  const ms=document.querySelector('#memberSearch');if(ms)ms.value='';
+  const mf=document.querySelector('#memberFilterBy');if(mf)mf.value='all';
+  if(typeof window.renderMemberRows==='function')window.renderMemberRows();
+  const has84458=MEMBER_ROWS.some(x=>String(x.memberId||'').trim().toUpperCase()==='A84458');
+  if(state)state.textContent='會員已載入 '+MEMBER_ROWS.length+' 人｜V3｜A84458:'+(has84458?'API有':'API無');
+  setSync('資料庫：已連線');return r
+ }catch(e){console.error(e);if(state)state.textContent='會員讀取失敗：'+e.message;setSync('資料庫：連線失敗',true);throw e}
+ finally{if(btn)btn.disabled=false}
 };
 async function boot(force=false){
  const state=document.querySelector('#eightMemberState');
