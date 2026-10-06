@@ -31,10 +31,19 @@ function applyDeltaChange(c){
    renderMembers();const km=document.querySelector('#kMembers');if(km)km.textContent=Number(MEMBER_ROWS.length).toLocaleString();
  }
  if(c.entity==='event'){
-   const rows=window.EIGHT_EVENTS||[];
-   if(c.op==='delete'){window.EIGHT_EVENTS=rows.filter(x=>x.eventId!==c.entityKey);if(window.db&&Array.isArray(window.db.events))window.db.events=window.db.events.filter(x=>String(x.id)!==String(c.entityKey));}
-   else {const i=rows.findIndex(x=>x.eventId===c.entityKey);if(i>=0)rows[i]={...rows[i],...p};else if(!p.businessDate||p.businessDate===(document.querySelector('#eventDate')?.value||businessDate()))rows.push(p)}
+   const selectedDate=document.querySelector('#eventDate')?.value||businessDate(),rows=window.EIGHT_EVENTS||[];
+   if(c.op==='delete'){
+     window.EIGHT_EVENTS=rows.filter(x=>x.eventId!==c.entityKey);
+     if(window.db&&Array.isArray(window.db.events))window.db.events=window.db.events.filter(x=>String(x.id)!==String(c.entityKey));
+   }else{
+     const i=rows.findIndex(x=>x.eventId===c.entityKey);
+     if(i>=0)rows[i]={...rows[i],...p};
+     else if(!p.businessDate||String(p.businessDate)===String(selectedDate))rows.push(p);
+   }
    renderEvents(window.EIGHT_EVENTS||[]);
+   try{localStorage.setItem('eightEvents:'+selectedDate,JSON.stringify(window.EIGHT_EVENTS||[]))}catch(_){}
+   // Event deltas must also refresh the legacy activity bridge on the receiving device.
+   if(typeof window.renderActivities==='function'&&document.querySelector('#activities')?.classList.contains('active'))window.renderActivities();
  }
  if(c.entity==='player'){
    if(window.db){const e=(window.db.events||[]).find(x=>String(x.id)===String(p.eventId));if(e){e.players=e.players||[];if(c.op==='delete')e.players=e.players.filter(x=>String(x.memberKey)!==String(p.memberKey));else{const i=e.players.findIndex(x=>String(x.memberKey)===String(p.memberKey));const q={memberId:p.memberId,memberKey:p.memberKey,name:p.name,buyin:p.buyin,rebuy:p.rebuy,entries:p.entries,chips:p.chips,prize:p.prize,group:p.group,earlyDiscount:p.earlyDiscount,lateDiscount:p.lateDiscount,otherDiscount:p.otherDiscount,revision:p.revision};if(i>=0)e.players[i]={...e.players[i],...q};else e.players.push(q)}if(typeof window.renderActivities==='function'&&document.querySelector('#activities')?.classList.contains('active'))window.renderActivities()}}
