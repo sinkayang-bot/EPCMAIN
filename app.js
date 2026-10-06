@@ -1,4 +1,4 @@
-const CONFIG={apiUrl:localStorage.getItem('epcApiUrl')||localStorage.getItem('eightApiUrl')||'https://script.google.com/macros/s/AKfycbwj-jLaSTiljcw15_UnhUFv4QxVq5HbNyers3ybU-6IAkwSj_A5X36x-852Xu5MxobS/exec',businessStart:localStorage.getItem('eightBusinessStart')||'16:00',businessEnd:localStorage.getItem('eightBusinessEnd')||'07:00'};
+const CONFIG={apiUrl:localStorage.getItem('epcApiUrl')||'',businessStart:localStorage.getItem('eightBusinessStart')||'16:00',businessEnd:localStorage.getItem('eightBusinessEnd')||'07:00'};
 let MEMBER_ROWS=[];let MEMBER_PAGE=1;const MEMBER_PAGE_SIZE=100;let MEMBER_SEARCH_TIMER=null;
 const pages={dashboard:'總覽',members:'會員資料',events:'賽事管理',settlement:'分帳報表',accounting:'帳務管理',activities:'活動專區',devices:'設備管理',settings:'系統設定'};
 const pad=n=>String(n).padStart(2,'0'),money=n=>new Intl.NumberFormat('zh-TW').format(Number(n||0));
