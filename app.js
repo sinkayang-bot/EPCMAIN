@@ -148,8 +148,13 @@ function bridgeV3Activities_(events,playersByEvent){if(!window.db)return;window.
 // Firestore phase-1 event realtime bridge. Apps Script remains persistence fallback during migration.
 window.addEventListener('epcFirestoreEvents',e=>{
  const incoming=e.detail?.events||[],date=document.querySelector('#eventBusinessDate')?.value||document.querySelector('#eventDate')?.value||businessDate();
- const rows=incoming.filter(x=>!date||String(x.businessDate||'')===String(date));
- if(document.querySelector('#events')?.classList.contains('active')){renderEvents(rows);try{localStorage.setItem('eightEvents:'+date,JSON.stringify(rows))}catch(_){}}
+ const remote=incoming.filter(x=>!date||String(x.businessDate||'')===String(date));
+ // Migration safety: an empty/new Firestore collection must NEVER erase the existing authoritative list.
+ const local=(window.EIGHT_EVENTS||[]).filter(x=>!date||String(x.businessDate||'')===String(date));
+ const byId=new Map(local.map(x=>[String(x.eventId),x]));
+ remote.forEach(x=>byId.set(String(x.eventId),{...(byId.get(String(x.eventId))||{}),...x}));
+ const rows=[...byId.values()];
+ if(document.querySelector('#events')?.classList.contains('active')&&rows.length){renderEvents(rows);try{localStorage.setItem('eightEvents:'+date,JSON.stringify(rows))}catch(_){}}
 });
 window.addEventListener('epcFirestoreError',e=>setSync('Firebase：連線失敗 '+String(e.detail?.message||''),true));
 function mirrorEventToFirebase_(ev){try{if(window.EPCFirestore?.ready&&ev?.eventId)window.EPCFirestore.upsertEvent(ev).catch(console.warn)}catch(_){}}
