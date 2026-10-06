@@ -59,11 +59,19 @@ window.eightReloadMembers_=async function(){
  try{const r=await api('bootstrap');MEMBER_ROWS=r.members||[];localStorage.setItem('eightMemberCache',JSON.stringify(MEMBER_ROWS));if(window.db){window.db.members=MEMBER_ROWS.map(m=>({id:m.memberId,name:m.name,nickname:m.nickname,group:m.group,birth:m.birth,phone:m.phone,address:m.address,memberKey:m.memberKey,revision:m.revision}))}const k=document.querySelector('#kMembers');if(k)k.textContent=money(MEMBER_ROWS.length);if(typeof window.renderMemberRows==='function')window.renderMemberRows();if(state)state.textContent='會員已載入 '+MEMBER_ROWS.length+' 人｜V3';setSync('資料庫：已連線');return r}catch(e){console.error(e);if(state)state.textContent='會員讀取失敗：'+e.message;setSync('資料庫：連線失敗',true);throw e}finally{if(btn)btn.disabled=false}
 };
 async function boot(force=false){
- if(!CONFIG.apiUrl){setSync('資料庫：等待 Apps Script 部署');return}
+ const state=document.querySelector('#eightMemberState');
+ if(!CONFIG.apiUrl){if(state)state.textContent='尚未設定 V3 API';setSync('資料庫：等待 Apps Script 部署');return}
  let cached=[];try{cached=JSON.parse(localStorage.getItem('eightMemberCache')||'[]')}catch(_){}
- if(cached.length){MEMBER_ROWS=cached;const k=document.querySelector('#kMembers');if(k)k.textContent=money(cached.length);if(window.db){window.db.members=cached.map(m=>({id:m.memberId,name:m.name,nickname:m.nickname,group:m.group,birth:m.birth,phone:m.phone,address:m.address,memberKey:m.memberKey,revision:m.revision}))}if(typeof window.renderMemberRows==='function')window.renderMemberRows();const ss=document.querySelector('#syncState');if(ss)setSync('資料庫：已連線')}
- if(!force&&cached.length)return;
- return window.eightReloadMembers_();
+ if(cached.length){
+  MEMBER_ROWS=cached;
+  const k=document.querySelector('#kMembers');if(k)k.textContent=money(cached.length);
+  if(window.db)window.db.members=cached.map(m=>({id:m.memberId,name:m.name,nickname:m.nickname,group:m.group,birth:m.birth,phone:m.phone,address:m.address,memberKey:m.memberKey,revision:m.revision}));
+  if(typeof window.renderMemberRows==='function')window.renderMemberRows();
+  if(state)state.textContent='會員已載入 '+cached.length+' 人｜V3 同步中';
+  const ss=document.querySelector('#syncState');if(ss)setSync('資料庫：已連線');
+ }
+ try{return await window.eightReloadMembers_()}
+ catch(e){if(cached.length){if(state)state.textContent='會員已載入 '+cached.length+' 人｜V3 背景重連中';return {ok:false,cached:true,error:e.message}}throw e}
 }
 function goPage(page){document.querySelectorAll('#nav button').forEach(x=>x.classList.toggle('active',x.dataset.page===page));document.querySelectorAll('.page').forEach(x=>x.classList.toggle('active',x.id===page));const t=document.querySelector('#pageTitle');if(t&&pages[page])t.textContent=pages[page]}
 document.querySelectorAll('#nav button').forEach(b=>b.addEventListener('click',()=>{goPage(b.dataset.page);if(b.dataset.page==='events')showCachedEvents()}));
