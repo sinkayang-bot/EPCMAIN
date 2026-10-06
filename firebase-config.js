@@ -1,6 +1,6 @@
 // EPCMAIN Firestore realtime event bridge — phase 1
 window.EPC_FIREBASE_CONFIG={
- apiKey:"AIzaSyC7B-I7OGizCbU83LS5FMEZetSvI_PPYgM",
+ apiKey:"AIzaSyc7B-I70GizCbU83LS5FMEZetSvL_PPYgM",
  authDomain:"epcmain-54592.firebaseapp.com",
  projectId:"epcmain-54592",
  storageBucket:"epcmain-54592.firebasestorage.app",
