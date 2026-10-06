@@ -27,7 +27,7 @@ function applyDeltaChange(c){
  }
  if(c.entity==='event'){
    const rows=window.EIGHT_EVENTS||[];
-   if(c.op==='delete')window.EIGHT_EVENTS=rows.filter(x=>x.eventId!==c.entityKey);
+   if(c.op==='delete'){window.EIGHT_EVENTS=rows.filter(x=>x.eventId!==c.entityKey);if(window.db&&Array.isArray(window.db.events))window.db.events=window.db.events.filter(x=>String(x.id)!==String(c.entityKey));}
    else {const i=rows.findIndex(x=>x.eventId===c.entityKey);if(i>=0)rows[i]={...rows[i],...p};else if(!p.businessDate||p.businessDate===(document.querySelector('#eventDate')?.value||businessDate()))rows.push(p)}
    renderEvents(window.EIGHT_EVENTS||[]);
  }
@@ -130,6 +130,7 @@ function eventCalcPlayer(p,e){
  const poolUnit=Math.max(0,Number(e.buyin||0)),admin=Math.max(0,Number(e.fee||0)),gross=groups*(poolUnit+admin),half=Math.max(0,Math.min(groups,10)-1),free=Math.max(0,groups-10),rd=half*admin*.5,overbuy=free*admin,discount=rd+overbuy+manual;
  return{buyin,rebuy,groups,gross,early,late,rd,overbuy,accountingOverbuy:overbuy,other,discount,paid:Math.max(0,gross-discount)};
 }
+window.applyPhoneStacksToV3=async function(eventId,stacks){const rows=(WORKSPACE_PLAYERS||[]);const byId=new Map(rows.map(p=>[String(p.memberId),p]));const updates=[];(stacks||[]).forEach(x=>{const p=byId.get(String(x.memberId));const chips=Number(x.stack);if(p&&Number.isFinite(chips)&&chips>=0&&Number(p.chips||0)!==chips)updates.push({memberKey:p.memberKey,chips,expectedRevision:p.revision})});if(!updates.length)return{ok:true,updated:0};const r=await api('player.stackBatch',{eventId,stacks:updates});(r.players||[]).forEach(p=>{const i=WORKSPACE_PLAYERS.findIndex(x=>x.memberKey===p.memberKey);if(i>=0)WORKSPACE_PLAYERS[i]={...WORKSPACE_PLAYERS[i],...p}});bridgeV3Activities_([WORKSPACE_EVENT],{[eventId]:WORKSPACE_PLAYERS});renderWorkspace();return{ok:true,updated:(r.players||[]).length}}
 function showOnlyPage(id){goPage(id)}
 async function openEventWorkspace(id){
  WORKSPACE_EVENT=(window.EIGHT_EVENTS||[]).find(x=>x.eventId===id);if(!WORKSPACE_EVENT)return;
