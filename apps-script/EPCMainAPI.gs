@@ -34,12 +34,25 @@ function playerAdd_(eventId,key,p,mid){const l=LockService.getScriptLock();l.wai
 function playerUpdate_(eventId,key,p,er,mid){const l=LockService.getScriptLock();l.waitLock(8000);try{const f=pf_(eventId,key);stale_(f.rev,er);let buyin='buyin'in p?Math.max(0,+p.buyin||0):(+f.r[16]||1),rebuy='rebuy'in p?Math.max(0,+p.rebuy||0):(+f.r[17]||0);const map={discount:6,group:7,chips:8,status:9,earlyDiscount:12,lateDiscount:13,rebuyDiscount:14,entryDiscount:15,otherDiscount:16,buyin:17,rebuy:18,prize:20};Object.keys(map).forEach(k=>{if(k in p)f.sh.getRange(f.row,map[k]).setValue(p[k])});f.sh.getRange(f.row,5).setValue(buyin+rebuy);const rev=f.rev+1;f.sh.getRange(f.row,11).setValue(new Date());f.sh.getRange(f.row,19).setValue(rev);const player=po_(eventId,key),ek=eventId+'|'+key;return{ok:true,player,cursor:log_('player',ek,'upsert',rev,player,mid)}}finally{l.releaseLock()}}
 function playerDelete_(eventId,key,er,mid){const l=LockService.getScriptLock();l.waitLock(8000);try{const f=pf_(eventId,key);stale_(f.rev,er);const rev=f.rev+1;f.sh.getRange(f.row,9).setValue('deleted');f.sh.getRange(f.row,11).setValue(new Date());f.sh.getRange(f.row,19).setValue(rev);const ek=eventId+'|'+key;return{ok:true,cursor:log_('player',ek,'delete',rev,{eventId:eventId,memberKey:key},mid)}}finally{l.releaseLock()}}
 
+function calcPlayerV3_(p,e){
+ const buyin=Math.max(0,+p.buyin||0),rebuy=Math.max(0,+p.rebuy||0),addon=Math.max(0,+p.addon||0),groups=buyin+rebuy+addon,manual=Math.max(0,(+p.earlyDiscount||0)+(+p.lateDiscount||0)+(+p.otherDiscount||0));
+ const custom=(+e.buyinTotal||0)>0;
+ if(custom){
+  const buyinTotal=+e.buyinTotal||0,buyinAdmin=+e.buyinAdmin||0,rebuyTotal=+e.rebuyTotal||0,rebuyAdmin=+e.rebuyAdmin||0,threshold=Math.max(1,Math.floor((+e.freeAdminFrom||11)-1));
+  const normalRebuyGroups=Math.max(0,Math.min(groups,threshold)-1),overbuyGroups=Math.max(0,groups-threshold);
+  const rebuyDiscount=Math.max(0,buyinTotal-rebuyTotal)*normalRebuyGroups;
+  let overbuyPer=Math.max(0,buyinAdmin-rebuyAdmin);if(overbuyPer===0||overbuyPer>rebuyAdmin)overbuyPer=rebuyAdmin;
+  const overbuyDiscount=overbuyPer*overbuyGroups,accountingGroupDiscount=buyinAdmin*overbuyGroups,accountingRebuyDiscount=rebuyDiscount,original=Math.max(0,groups*buyinTotal),paid=Math.max(0,original-rebuyDiscount-accountingGroupDiscount-manual),poolPerGroup=Math.max(0,buyinTotal-buyinAdmin),pool=groups*poolPerGroup,grossAdmin=groups*buyinAdmin,netAdmin=Math.max(0,grossAdmin-rebuyDiscount-accountingGroupDiscount-manual);
+  return{groups,manual,original,paid,pool,grossAdmin,netAdmin,rebuyDiscount,overbuyDiscount,accountingRebuyDiscount,accountingGroupDiscount,totalDiscount:rebuyDiscount+accountingGroupDiscount+manual};
+ }
+ const poolUnit=Math.max(0,+e.buyin||0),admin=Math.max(0,+e.fee||0),base=groups*(poolUnit+admin),half=Math.max(0,Math.min(groups,10)-1),free=Math.max(0,groups-10),rebuyDiscount=half*admin*.5,overbuyDiscount=free*admin,disc=rebuyDiscount+overbuyDiscount+manual,grossAdmin=groups*admin;
+ return{groups,manual,original:base,paid:Math.max(0,base-disc),pool:groups*poolUnit,grossAdmin,netAdmin:Math.max(0,grossAdmin-disc),rebuyDiscount,overbuyDiscount,accountingRebuyDiscount:rebuyDiscount,accountingGroupDiscount:overbuyDiscount,totalDiscount:disc};
+}
 function eventSnapshot_(id){
- const e=eo_(id),ps=listPlayers_(id);let buyins=0,rebuys=0,early=0,late=0,other=0,rebuyDisc=0,entryDisc=0;
- ps.forEach(p=>{const b=Math.max(0,+p.buyin||1),rb=Math.max(0,+p.rebuy||0);buyins+=b;rebuys+=rb;early+=+p.earlyDiscount||0;late+=+p.lateDiscount||0;other+=+p.otherDiscount||0;rebuyDisc+=rb*(+e.rebuyAdmin||0)/2;entryDisc+=Math.max(0,b+rb-Math.max(0,(+e.freeAdminFrom||11)-1))*(+e.rebuyAdmin||0)/2});
- const totalEntries=buyins+rebuys,totalGross=buyins*(+e.buyinTotal||0)+rebuys*(+e.rebuyTotal||0),adminGross=buyins*(+e.buyinAdmin||0)+rebuys*(+e.rebuyAdmin||0),discounts=early+late+rebuyDisc+entryDisc+other;
- const prizeBase=buyins*Math.max(0,(+e.buyinTotal||0)-(+e.buyinAdmin||0))+rebuys*Math.max(0,(+e.rebuyTotal||0)-(+e.rebuyAdmin||0)),jp=jpForEvent_(e,prizeBase),unit=Math.max(1,+e.icmRound||100),prizePool=Math.floor((Math.max(0,prizeBase-jp)*(1-(+e.icmRate||0)/100))/unit)*unit;
- return{ok:true,snapshot:{event:e,players:ps,summary:{participants:ps.length,rebuyPeople:ps.filter(p=>(+p.rebuy||0)>0).length,totalEntries,totalGross,earlyDiscount:early,lateDiscount:late,rebuyDiscount:rebuyDisc,entryDiscount:entryDisc,otherDiscount:other,totalDiscount:discounts,prizePool,adminGross,adminNet:Math.max(0,adminGross-discounts),jp}}}
+ const e=eo_(id),ps=listPlayers_(id);let totalEntries=0,totalGross=0,poolBase=0,adminGross=0,adminNet=0,rebuyDisc=0,entryDisc=0,manual=0;
+ ps.forEach(p=>{const c=calcPlayerV3_(p,e);totalEntries+=c.groups;totalGross+=c.original;poolBase+=c.pool;adminGross+=c.grossAdmin;adminNet+=c.netAdmin;rebuyDisc+=c.accountingRebuyDiscount;entryDisc+=c.accountingGroupDiscount;manual+=c.manual});
+ const jp=jpForEvent_(e,poolBase),unit=Math.max(1,+e.icmRound||100),prizePool=Math.floor(Math.max(0,poolBase-jp)/unit)*unit,totalDiscount=rebuyDisc+entryDisc+manual;
+ return{ok:true,snapshot:{event:e,players:ps,summary:{participants:ps.length,rebuyPeople:ps.filter(p=>(+p.rebuy||0)>0).length,totalEntries,totalGross,earlyDiscount:0,lateDiscount:0,rebuyDiscount:rebuyDisc,entryDiscount:entryDisc,otherDiscount:manual,totalDiscount,prizePool,adminGross,adminNet,jp}}}
 }
 
 function acc_(){const ss=db_();let sh=ss.getSheetByName(ACC);if(!sh){sh=ss.insertSheet(ACC);sh.appendRow(['eventId','businessDate','eventName','level','participants','rebuyPeople','totalEntries','totalGross','earlyDiscount','lateDiscount','rebuyDiscount','entryDiscount','otherDiscount','totalDiscount','prizePool','adminGross','adminNet','jp','status','createdAt','updatedAt','revision'])}return sh}
