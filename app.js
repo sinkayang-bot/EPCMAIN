@@ -321,4 +321,67 @@ window.addAccountingItem=addAccountingItemV3;window.deleteAccountingItemV3=delet
 let EPC_ACTIVITY_SAVE_TIMER=null;
 window.saveActivityCloudV3=function(){clearTimeout(EPC_ACTIVITY_SAVE_TIMER);EPC_ACTIVITY_SAVE_TIMER=setTimeout(async function(){if(!window.db||!window.db.activityManagement)return;try{const r=await api('activity.update',{data:window.db.activityManagement,expectedRevision:Number(window.EPC_ACTIVITY_REVISION||0)});window.EPC_ACTIVITY_REVISION=Number(r.revision||0)}catch(e){console.error('activity cloud save',e);try{const g=await api('activity.get',{});window.db.activityManagement=g.data||{};window.EPC_ACTIVITY_REVISION=Number(g.revision||0);if(typeof window.renderActivities==='function')window.renderActivities()}catch(_){}}},250)};
 
+
+/* V3 bridge for the legacy member form in index.html.
+   The visible member UI uses #mName/#mId/#mGroup/#mNote and inline addMember(),
+   so route those legacy handlers to EPC MAIN V3 instead of the disabled legacy cloud API. */
+function syncLegacyMemberFromV3_(m,note){
+ if(!m)return;
+ const legacy={id:m.memberId,name:m.name,nickname:m.nickname||'',group:m.group||'',note:note||'',memberKey:m.memberKey,revision:m.revision,createdDate:m.createdAt||'',source:'V3',history:[]};
+ if(window.db&&Array.isArray(window.db.members)){
+  const idx=window.db.members.findIndex(x=>String(x.memberKey||'')===String(m.memberKey||'')||String(x.id||'')===String(m.memberId||''));
+  if(idx>=0)window.db.members[idx]={...window.db.members[idx],...legacy};
+  else window.db.members.unshift(legacy);
+ }
+ const mi=MEMBER_ROWS.findIndex(x=>x.memberKey===m.memberKey);
+ if(mi>=0)MEMBER_ROWS[mi]={...MEMBER_ROWS[mi],...m};
+ else MEMBER_ROWS.unshift(m);
+ try{localStorage.setItem('eightMemberCache',JSON.stringify(MEMBER_ROWS))}catch(_){}
+ const k=document.querySelector('#kMembers');if(k)k.textContent=money(MEMBER_ROWS.length);
+ if(typeof window.renderMemberRows==='function')window.renderMemberRows();else renderMembers();
+}
+window.addMember=async function(){
+ if(window.editingMemberId)return window.saveMemberEdit();
+ const name=document.querySelector('#mName')?.value.trim()||'';
+ if(!name)return alert('請輸入會員名稱');
+ const id=String(document.querySelector('#mId')?.value.trim()||nextMemberId()).toUpperCase();
+ const group=document.querySelector('#mGroup')?.value.trim()||'';
+ const note=document.querySelector('#mNote')?.value.trim()||'';
+ const btn=document.querySelector('#memberSaveBtn');
+ if(btn){btn.disabled=true;btn.textContent='新增中…'}
+ try{
+  const r=await api('member.create',{member:{memberId:id,name,group}});
+  syncLegacyMemberFromV3_(r.member,note);
+  ['mName','mId','mGroup','mNote'].forEach(x=>{const el=document.querySelector('#'+x);if(el)el.value=''});
+  const s=document.querySelector('#memberSearch');if(s)s.value='';
+  if(typeof window.actionMsg==='function')window.actionMsg('會員「'+name+'」已寫入 V3 與 Google Sheet');
+  if(typeof window.setCloudState==='function')window.setCloudState('● V3 會員資料已同步');
+ }catch(err){
+  console.error('V3 add member failed',err);
+  const msg={MEMBER_ID_ALREADY_EXISTS:'此會員 ID 已存在',MEMBER_REQUIRED:'會員 ID 與姓名為必填'}[err.message]||err.message;
+  alert('新增會員失敗：'+msg);
+ }finally{if(btn){btn.disabled=false;btn.textContent='新增會員'}}
+};
+window.saveMemberEdit=async function(){
+ const id=String(window.editingMemberId||'');
+ const legacy=window.db&&Array.isArray(window.db.members)?window.db.members.find(x=>String(x.id)===id):null;
+ const row=MEMBER_ROWS.find(x=>String(x.memberKey||'')===String(legacy?.memberKey||'')||String(x.memberId||'')===id);
+ if(!row)return alert('找不到此會員的 V3 資料，請先重新讀取會員');
+ const name=document.querySelector('#mName')?.value.trim()||'';
+ if(!name)return alert('請輸入會員名稱');
+ const group=document.querySelector('#mGroup')?.value.trim()||'';
+ const note=document.querySelector('#mNote')?.value.trim()||'';
+ const btn=document.querySelector('#memberSaveBtn');
+ if(btn){btn.disabled=true;btn.textContent='儲存中…'}
+ try{
+  const r=await api('member.update',{memberKey:row.memberKey,patch:{name,group},expectedRevision:row.revision});
+  syncLegacyMemberFromV3_(r.member,note);
+  if(typeof window.cancelMemberEdit==='function')window.cancelMemberEdit();
+  if(typeof window.actionMsg==='function')window.actionMsg('會員「'+name+'」修改已同步至 V3');
+ }catch(err){
+  console.error('V3 member update failed',err);
+  alert('修改會員失敗：'+err.message);
+ }finally{if(btn)btn.disabled=false}
+};
+
 })();
