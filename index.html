@@ -3184,7 +3184,7 @@ async function readPhoneStacksApi(eventId){
 async function syncPhoneStacksOnly(){
  const localEvent=currentEvent();
  if(!localEvent)return alert('請先選擇要結算的賽事');
- if(localEvent.status==='已結算')return alert('此賽事已正式結算，不能再同步籌碼。');
+ if(localEvent.status==='已結算'||localEvent.status==='settled')return alert('此賽事已正式結算，不能再同步籌碼。');
  if(__phoneStackSyncBusy)return;
  const btn=(typeof event!=='undefined'&&event&&event.currentTarget)?event.currentTarget:null;
  __phoneStackSyncBusy=true;
@@ -3192,32 +3192,16 @@ async function syncPhoneStacksOnly(){
  try{
   setCloudState('● 正在讀取手機籌碼…');
   const res=await readPhoneStacksApi(localEvent.id);
-  const map={};
-  (res.stacks||[]).forEach(x=>map[String(x.memberId)]=x.stack);
-  let updated=0,unchanged=0,missing=0;
-  (localEvent.players||[]).forEach(lp=>{
-    const k=String(lp.memberId);
-    if(!Object.prototype.hasOwnProperty.call(map,k)){missing++;return;}
-    const stack=Number(map[k]);
-    if(!Number.isFinite(stack)||stack<0){missing++;return;}
-    if(Number(lp.stack)!==stack){lp.stack=stack;updated++;}else unchanged++;
-  });
-  // 手機籌碼讀回後必須成為正式賽事資料，否則下一次 EPC_DATA 資料庫同步
-  // 會把剛讀到的 stack 當成本機暫存而覆蓋掉。
-  if(updated>0){
-    touchEvent_(localEvent);
-    localDirty=true;
-    localStorage.setItem('epcLocalDirty','1');
-    localStorage.setItem('epcV1',JSON.stringify(db));
-  }
-  render();
-  if(updated>0 && cloudReady)await saveCloudNow(false);
-  actionMsg(`手機籌碼同步完成｜更新 ${updated} 人｜相同 ${unchanged} 人｜未輸入 ${missing} 人`);
-  setCloudState(updated>0?'● 手機籌碼已同步至電腦與資料庫':'● 手機籌碼已同步｜資料相同');
+  if(typeof window.applyPhoneStacksToV3!=='function')throw new Error('V3_PHONE_STACK_BRIDGE_NOT_READY');
+  const result=await window.applyPhoneStacksToV3(String(localEvent.id),res.stacks||[]);
+  const updated=Number(result&&result.updated||0);
+  actionMsg('手機籌碼同步完成｜更新 '+updated+' 人');
+  setCloudState(updated>0?'● 手機籌碼已同步至 V3 資料庫':'● 手機籌碼已同步｜資料相同');
  }catch(err){
   console.error(err);
-  setCloudState('⚠ 手機籌碼同步失敗｜電腦資料未被覆蓋',true);
-  alert('同步手機籌碼失敗：'+String(err.message||err));
+  const stale=String(err&&err.message||err).includes('STALE_WRITE');
+  setCloudState(stale?'⚠ 玩家資料已被另一台更新｜請重新讀取後再同步':'⚠ 手機籌碼同步失敗｜V3 資料未被覆蓋',true);
+  alert(stale?'同步停止：另一台電腦已修改玩家資料，請重新讀取賽事後再同步手機籌碼。':'同步手機籌碼失敗：'+String(err.message||err));
  }finally{
   __phoneStackSyncBusy=false;
   if(btn){btn.disabled=false;btn.textContent=btn.dataset.oldText||'同步手機籌碼';}
