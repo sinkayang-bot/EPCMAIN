@@ -155,7 +155,26 @@ async function loadEvents(force=false){
  try{const r=await api('event.list',{businessDate:date}),rows=r.events||[];if(EVENTS_CACHE_DATE!==date)return;renderEvents(rows);EVENTS_LAST_SYNC=Date.now();try{localStorage.setItem(cacheKey,JSON.stringify(rows))}catch(_){}}
  catch(err){if(err.message!=='UNKNOWN_ACTION')console.error(err)}
 }
-document.querySelector('#eventDate')?.addEventListener('change',()=>loadEvents(false));
+document.querySelector('#eventDate')?.addEventListener('change',()=>loadEvents(true));
+// While the Events page is open, reconcile directly with the authoritative API.
+// Delta sync remains the fast path; this prevents a missed cursor/cache delta from
+// leaving another terminal stale.
+let EVENT_RECONCILE_BUSY=false;
+async function reconcileEvents_(){
+ if(EVENT_RECONCILE_BUSY||!document.querySelector('#events')?.classList.contains('active'))return;
+ EVENT_RECONCILE_BUSY=true;
+ try{
+   const date=document.querySelector('#eventDate')?.value||businessDate();
+   const r=await api('event.list',{businessDate:date}),rows=r.events||[];
+   const sig=x=>JSON.stringify((x||[]).map(e=>[e.eventId,e.revision,e.status,e.summary?.participants,e.summary?.totalEntries,e.summary?.totalGross,e.summary?.adminNet,e.summary?.jp]));
+   if(sig(rows)!==sig(window.EIGHT_EVENTS||[])){
+     EVENTS_CACHE_DATE=date;renderEvents(rows);EVENTS_LAST_SYNC=Date.now();
+     try{localStorage.setItem('eightEvents:'+date,JSON.stringify(rows))}catch(_){}
+   }
+ }catch(_){}
+ finally{EVENT_RECONCILE_BUSY=false}
+}
+setInterval(reconcileEvents_,2000);
 document.querySelector('#eventForm')?.addEventListener('submit',async e=>{e.preventDefault();const state=document.querySelector('#eventFormState');const level=document.querySelector('#eventLevel').value,count=(window.EIGHT_EVENTS||[]).length+1;let eventName=document.querySelector('#eventName').value.trim();if(!eventName)eventName='EPC#'+count+' '+(level==='custom'?'自訂':level)+' 限時錦標賽';const buyinTotal=Number(document.querySelector('#eventBuyinTotal').value||0),buyinAdmin=Number(document.querySelector('#eventBuyinAdmin').value||0),rebuyTotal=Number(document.querySelector('#eventRebuyTotal').value||0),rebuyAdmin=Number(document.querySelector('#eventRebuyAdmin').value||0);const event={name:eventName,businessDate:document.querySelector('#eventBusinessDate').value,startTime:document.querySelector('#eventStartTime').value,regClose:document.querySelector('#eventRegClose').value,level,buyin:Math.max(0,buyinTotal-buyinAdmin),fee:buyinAdmin,buyinTotal,buyinAdmin,rebuyTotal,rebuyAdmin,freeAdminFrom:Number(document.querySelector('#eventFreeAdminFrom').value||11),jpRate:Number(document.querySelector('#eventJP').value||0),icmRate:Number(document.querySelector('#eventICMRate').value||0),icmRound:Number(document.querySelector('#eventICMRound').value||100)};state.textContent='建立中…';try{const created=await api('event.create',{event});state.textContent='建立成功';state.className='form-state good';document.querySelector('#eventDate').value=event.businessDate;closeEventModal();if(created.event){window.EIGHT_EVENTS=[...(window.EIGHT_EVENTS||[]),created.event];renderEvents(window.EIGHT_EVENTS);try{localStorage.setItem('eightEvents:'+event.businessDate,JSON.stringify(window.EIGHT_EVENTS))}catch(_){}}}catch(err){state.textContent='建立失敗：'+err.message;state.className='form-state bad'}});
 let ACTIVE_EVENT=null,EVENT_PLAYERS=[];
 function openPlayersModal(eventId){ACTIVE_EVENT=eventId;const ev=(window.EIGHT_EVENTS||[]).find(x=>x.eventId===eventId);document.querySelector('#eventPlayersTitle').textContent=ev?.name||'賽事玩家';document.querySelector('#eventPlayersMeta').textContent=(ev?.businessDate||'')+' '+(ev?.startTime||'');document.querySelector('#eventMemberSearch').value='';document.querySelector('#eventMemberMatches').innerHTML='';document.querySelector('#eventPlayersModal').hidden=false;loadEventPlayers()}
