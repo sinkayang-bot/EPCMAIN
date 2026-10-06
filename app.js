@@ -16,6 +16,33 @@ async function api(action,payload={}){
   finally{clearTimeout(timer)}
 }
 function setSync(t,bad=false){const e=document.querySelector('#syncState');e.textContent=t;e.style.color=bad?'var(--bad)':''}
+function applyDeltaChange(c){
+ const p=c.payload||{};
+ if(c.entity==='member'){
+   if(c.op==='delete')MEMBER_ROWS=MEMBER_ROWS.filter(x=>x.memberKey!==c.entityKey);
+   else {const i=MEMBER_ROWS.findIndex(x=>x.memberKey===c.entityKey);if(i>=0)MEMBER_ROWS[i]={...MEMBER_ROWS[i],...p};else MEMBER_ROWS.unshift(p)}
+   try{localStorage.setItem('eightMemberCache',JSON.stringify(MEMBER_ROWS))}catch(_){}
+   renderMembers();const km=document.querySelector('#kMembers');if(km)km.textContent=money(MEMBER_ROWS.length);
+ }
+ if(c.entity==='event'){
+   const rows=window.EIGHT_EVENTS||[];
+   if(c.op==='delete')window.EIGHT_EVENTS=rows.filter(x=>x.eventId!==c.entityKey);
+   else {const i=rows.findIndex(x=>x.eventId===c.entityKey);if(i>=0)rows[i]={...rows[i],...p};else if(!p.businessDate||p.businessDate===(document.querySelector('#eventDate')?.value||businessDate()))rows.push(p)}
+   renderEvents(window.EIGHT_EVENTS||[]);
+ }
+ if(c.entity==='player'&&ACTIVE_EVENT&&p.eventId===ACTIVE_EVENT){
+   if(c.op==='delete')WORKSPACE_PLAYERS=WORKSPACE_PLAYERS.filter(x=>x.memberKey!==p.memberKey);
+   else {const i=WORKSPACE_PLAYERS.findIndex(x=>x.memberKey===p.memberKey);if(i>=0)WORKSPACE_PLAYERS[i]={...WORKSPACE_PLAYERS[i],...p};else WORKSPACE_PLAYERS.push(p)}
+   renderWorkspace();
+ }
+}
+function startDeltaSync(){
+ if(!window.EPCSync)return;
+ EPCSync.setApiUrl(CONFIG.apiUrl);
+ EPCSync.on(msg=>{if(msg.type==='change')applyDeltaChange(msg.change);if(msg.type==='sync-error')setSync('資料庫：重連中…',true)});
+ EPCSync.state.cursor=Number(localStorage.getItem('epcCursor')||0);
+ EPCSync.loop();setSync('資料庫：即時同步');
+}
 function refreshBusinessDay(){CONFIG.businessStart=document.querySelector('#businessStart')?.value||CONFIG.businessStart;CONFIG.businessEnd=document.querySelector('#businessEnd')?.value||CONFIG.businessEnd;const d=businessDate();document.querySelector('#businessDayLabel').textContent='營業時間：每日 '+CONFIG.businessStart+'–翌日 '+CONFIG.businessEnd;document.querySelector('#todayDate').textContent=d;document.querySelector('#globalDate').value=d}
 function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 function memberSearchText(v){return String(v??'').normalize('NFKC').toLowerCase().replace(/\s+/g,'')}
@@ -48,7 +75,7 @@ document.body.dataset.theme=localStorage.getItem('eightTheme')||'dark';
 document.querySelector('#businessStart').addEventListener('change',refreshBusinessDay);document.querySelector('#businessEnd').addEventListener('change',refreshBusinessDay);
 document.querySelector('#saveBusinessHours').addEventListener('click',async()=>{const state=document.querySelector('#businessSaveState');const start=document.querySelector('#businessStart').value,end=document.querySelector('#businessEnd').value;state.textContent='儲存中…';try{const r=await api('settings.update',{settings:{businessStart:start,businessEnd:end}});CONFIG.businessStart=r.settings.businessStart;CONFIG.businessEnd=r.settings.businessEnd;localStorage.removeItem('eightBusinessStart');localStorage.removeItem('eightBusinessEnd');refreshBusinessDay();state.textContent='已同步到資料庫'}catch(err){state.textContent='儲存失敗：'+err.message}setTimeout(()=>state.textContent='',2200)});
 const now=new Date(),first=new Date(now.getFullYear(),now.getMonth(),1);document.querySelector('#rangeFrom').value=localISO(first);document.querySelector('#rangeTo').value=localISO(now);
-document.querySelector('#refreshBtn').addEventListener('click',async()=>{await boot(true);await loadEvents(true)});boot(false);
+document.querySelector('#refreshBtn').addEventListener('click',async()=>{await boot(true);await loadEvents(true)});boot(false).then(()=>startDeltaSync());
 document.querySelector('#addMemberBtn').addEventListener('click',()=>openMemberModal());
 document.querySelectorAll('[data-close-member]').forEach(x=>x.addEventListener('click',closeMemberModal));
 document.querySelector('#memberForm').addEventListener('submit',saveMember);
