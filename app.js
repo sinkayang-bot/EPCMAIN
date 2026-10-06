@@ -118,13 +118,17 @@ document.querySelectorAll('[data-close-players]').forEach(x=>x.addEventListener(
 
 let WORKSPACE_EVENT=null,WORKSPACE_PLAYERS=[],WS_SAVE_TIMERS=new Map(),WS_PENDING_PATCH=new Map(),WS_PLAYER_SYNC=new Map();
 function eventCalcPlayer(p,e){
- const buyin=Math.max(0,Number(p.buyin??1)),rebuy=Math.max(0,Number(p.rebuy??0)),groups=buyin+rebuy;
- const gross=buyin*Number(e.buyinTotal||0)+rebuy*Number(e.rebuyTotal||0);
- const early=Number(p.earlyDiscount||0),late=Number(p.lateDiscount||0),other=Number(p.otherDiscount||0);
- const rd=Math.max(0,rebuy)*Number(e.rebuyAdmin||0)/2;
- const overbuy=Math.max(0,groups-Math.max(0,Number(e.freeAdminFrom||11)-1))*Number(e.rebuyAdmin||0)/2;
- const discount=early+late+rd+overbuy+other;
- return {buyin,rebuy,groups,gross,early,late,rd,overbuy,other,discount,paid:Math.max(0,gross-discount)};
+ const buyin=Math.max(0,Number(p.buyin??1)),rebuy=Math.max(0,Number(p.rebuy??0)),groups=buyin+rebuy,early=Math.max(0,Number(p.earlyDiscount||0)),late=Math.max(0,Number(p.lateDiscount||0)),other=Math.max(0,Number(p.otherDiscount||0)),manual=early+late+other;
+ const custom=Number(e.buyinTotal||0)>0;
+ if(custom){
+  const buyinTotal=Number(e.buyinTotal||0),buyinAdmin=Number(e.buyinAdmin||0),rebuyTotal=Number(e.rebuyTotal||0),rebuyAdmin=Number(e.rebuyAdmin||0),threshold=Math.max(1,Math.floor(Number(e.freeAdminFrom||11)-1));
+  const normalRebuyGroups=Math.max(0,Math.min(groups,threshold)-1),overbuyGroups=Math.max(0,groups-threshold),rd=Math.max(0,buyinTotal-rebuyTotal)*normalRebuyGroups;
+  let overbuyPer=Math.max(0,buyinAdmin-rebuyAdmin);if(overbuyPer===0||overbuyPer>rebuyAdmin)overbuyPer=rebuyAdmin;
+  const overbuy=overbuyPer*overbuyGroups,accountingOverbuy=buyinAdmin*overbuyGroups,gross=groups*buyinTotal,discount=rd+accountingOverbuy+manual;
+  return{buyin,rebuy,groups,gross,early,late,rd,overbuy,accountingOverbuy,other,discount,paid:Math.max(0,gross-discount)};
+ }
+ const poolUnit=Math.max(0,Number(e.buyin||0)),admin=Math.max(0,Number(e.fee||0)),gross=groups*(poolUnit+admin),half=Math.max(0,Math.min(groups,10)-1),free=Math.max(0,groups-10),rd=half*admin*.5,overbuy=free*admin,discount=rd+overbuy+manual;
+ return{buyin,rebuy,groups,gross,early,late,rd,overbuy,accountingOverbuy:overbuy,other,discount,paid:Math.max(0,gross-discount)};
 }
 function showOnlyPage(id){goPage(id)}
 async function openEventWorkspace(id){
