@@ -154,7 +154,7 @@ function renderWorkspace(){
  document.querySelector('#workspacePlayerTotals').innerHTML='<tr><td colspan="2">合計</td><td>'+totals.buyin+'</td><td>'+totals.rebuy+'</td><td>'+totals.groups+'</td><td>'+money(totals.early)+'</td><td>'+money(totals.late)+'</td><td>'+money(totals.rd)+'</td><td>'+money(totals.overbuy)+'</td><td>'+money(totals.other)+'</td><td>'+money(totals.paid)+'</td><td colspan="3"></td></tr>';
  const adminGross=totals.buyin*Number(e.buyinAdmin||0)+totals.rebuy*Number(e.rebuyAdmin||0),discounts=totals.early+totals.late+totals.rd+totals.overbuy+totals.other;
  const prizeBase=totals.buyin*Math.max(0,Number(e.buyinTotal||0)-Number(e.buyinAdmin||0))+totals.rebuy*Math.max(0,Number(e.rebuyTotal||0)-Number(e.rebuyAdmin||0));
- const jp=Math.floor(adminGross*Number(e.jpRate||0)/100),unit=Math.max(1,Number(e.icmRound||100)),prize=Math.floor((prizeBase*(1-Number(e.icmRate||0)/100))/unit)*unit;
+ const jp=prizeBase>0?Math.ceil((prizeBase*Number(e.jpRate||0)/100)/100)*100:0,unit=Math.max(1,Number(e.icmRound||100)),prize=Math.floor(Math.max(0,prizeBase-jp)/unit)*unit;
  const k=[['參賽人數',WORKSPACE_PLAYERS.length],['重買人數',WORKSPACE_PLAYERS.filter(p=>Number(p.rebuy||0)>0).length],['總組數',totals.groups],['總買入',money(totals.gross)],['總優惠',money(discounts)],['總獎金',money(prize)],['實收行政費',money(Math.max(0,adminGross-discounts))],['JP',money(jp)]];
  document.querySelector('#workspaceKpis').innerHTML=k.map(x=>'<div class="card event-kpi"><small>'+x[0]+'</small><b>'+x[1]+'</b></div>').join('');
 }
@@ -165,7 +165,7 @@ function syncWorkspaceEventSummaryLocal(){
  const e=WORKSPACE_EVENT,adminGross=totals.buyin*Number(e.buyinAdmin||0)+totals.rebuy*Number(e.rebuyAdmin||0);
  const prizeBase=totals.buyin*Math.max(0,Number(e.buyinTotal||0)-Number(e.buyinAdmin||0))+totals.rebuy*Math.max(0,Number(e.rebuyTotal||0)-Number(e.rebuyAdmin||0));
  const discounts=totals.early+totals.late+totals.rd+totals.overbuy+totals.other,unit=Math.max(1,Number(e.icmRound||100));
- e.summary={participants:WORKSPACE_PLAYERS.length,rebuyPeople:WORKSPACE_PLAYERS.filter(p=>Number(p.rebuy||0)>0).length,totalEntries:totals.groups,totalGross:totals.gross,earlyDiscount:totals.early,lateDiscount:totals.late,rebuyDiscount:totals.rd,entryDiscount:totals.overbuy,otherDiscount:totals.other,prizePool:Math.floor((prizeBase*(1-Number(e.icmRate||0)/100))/unit)*unit,adminNet:Math.max(0,adminGross-discounts),jp:Math.floor(adminGross*Number(e.jpRate||0)/100)};
+ e.summary={participants:WORKSPACE_PLAYERS.length,rebuyPeople:WORKSPACE_PLAYERS.filter(p=>Number(p.rebuy||0)>0).length,totalEntries:totals.groups,totalGross:totals.gross,earlyDiscount:totals.early,lateDiscount:totals.late,rebuyDiscount:totals.rd,entryDiscount:totals.overbuy,otherDiscount:totals.other,prizePool:Math.floor(Math.max(0,prizeBase-(prizeBase>0?Math.ceil((prizeBase*Number(e.jpRate||0)/100)/100)*100:0))/unit)*unit,adminNet:Math.max(0,adminGross-discounts),jp:(prizeBase>0?Math.ceil((prizeBase*Number(e.jpRate||0)/100)/100)*100:0)};
  const date=e.businessDate||document.querySelector('#eventDate').value||businessDate();
  try{localStorage.setItem('eightEvents:'+date,JSON.stringify(window.EIGHT_EVENTS||[]))}catch(_){}
 }
