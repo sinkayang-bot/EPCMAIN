@@ -4084,9 +4084,21 @@ async function newEvent(){
  db.events.unshift(e); setCurrentEventDevice_(e.id); persist(); showPage('event');
 }
 function openEvent(id){
- const e=(db.events||[]).find(x=>String(x.id)===String(id));
- if(!e){actionMsg('找不到這場賽事',true);return;}
+ const sid=String(id||'');
+ let e=(db.events||[]).find(x=>String(x.id)===sid);
+ // A remote Firestore snapshot can render the row before the legacy db bridge has
+ // finished on this terminal. Hydrate the event directly from the latest snapshot
+ // so a newly-created event is immediately enterable on every computer.
+ if(!e&&Array.isArray(window.EPC_FIRESTORE_LAST_EVENTS)){
+   const v=window.EPC_FIRESTORE_LAST_EVENTS.find(x=>String(x.eventId||'')===sid);
+   if(v){
+     applyFirestoreEventsToLegacy_(window.EPC_FIRESTORE_LAST_EVENTS);
+     e=(db.events||[]).find(x=>String(x.id)===sid);
+   }
+ }
+ if(!e){actionMsg('賽事資料同步中，請再按一次進入',true);return;}
  setCurrentEventDevice_(e.id);
+ db.currentEventId=e.id;
  localStorage.setItem('epcV1',JSON.stringify(db));
  showPage('event');
 }
