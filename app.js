@@ -233,9 +233,11 @@ document.querySelector('#workspaceSettle').addEventListener('click',async()=>{
  const btn=document.querySelector('#workspaceSettle');btn.disabled=true;
  try{
    for(const key of [...WS_PENDING_PATCH.keys()])await flushWorkspacePlayer(key);
-   const r=await api('event.snapshot',{eventId:ACTIVE_EVENT});
+   const current=(window.EIGHT_EVENTS||[]).find(x=>x.eventId===ACTIVE_EVENT);
+   const r=await api('event.settle',{eventId:ACTIVE_EVENT});
    window.EIGHT_SETTLEMENT_SNAPSHOT=r.snapshot;
-   alert('賽事資料已確認同步，可以進入 ICM / 結算。');
+   if(current){current.status='settled';if(r.accounting)current.summary={participants:r.accounting.participants,rebuyPeople:r.accounting.rebuyPeople,totalEntries:r.accounting.totalEntries,totalGross:r.accounting.totalGross,earlyDiscount:r.accounting.earlyDiscount,lateDiscount:r.accounting.lateDiscount,rebuyDiscount:r.accounting.rebuyDiscount,entryDiscount:r.accounting.entryDiscount,otherDiscount:r.accounting.otherDiscount,prizePool:r.accounting.prizePool,adminNet:r.accounting.adminNet,jp:r.accounting.jp};renderEvents(window.EIGHT_EVENTS)}
+   alert('賽事已完成結算，帳務與 JP 已寫入。');
  }catch(err){alert('結算前同步失敗：'+err.message)}
  finally{btn.disabled=false}
 });
