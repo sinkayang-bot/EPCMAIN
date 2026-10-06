@@ -276,3 +276,13 @@ async function openSettlementDayV3(date){
 }
 window.renderSettlementManager=renderSettlementManagerV3;
 window.openSettlementDayV3=openSettlementDayV3;
+
+async function addAccountingItemV3(){
+ const date=document.querySelector('#dailyDate')?.value||document.querySelector('#accountingCreateDate')?.value||businessDate(),name=(document.querySelector('#accountingItemName')?.value||'').trim(),amount=Number(document.querySelector('#accountingItemAmount')?.value||0);let type=document.querySelector('#accountingItemType')?.value||'income';const preset=document.querySelector('#accountingItemPreset')?.value||'';if(!preset){if(/入會費/.test(name))type='membership';else if(/薪資|工資|餐費|水電|耗材|維修|租金|支出|費用/.test(name))type='expense'}if(!name||amount<=0)return alert('請輸入項目名稱與大於 0 的金額');await api('accounting.item.create',{item:{businessDate:date,type,name,amount}});document.querySelector('#accountingItemName').value='';document.querySelector('#accountingItemAmount').value='';await renderDailyAccountingDetailV3(date);await renderDashboardSummaryV3();
+}
+async function deleteAccountingItemV3(id,rev){if(!confirm('確定要刪除這筆收支嗎？'))return;await api('accounting.item.delete',{itemId:id,expectedRevision:rev});await renderDailyAccountingDetailV3(document.querySelector('#dailyDate')?.value||businessDate());await renderDashboardSummaryV3()}
+async function renderDailyAccountingDetailV3(date){
+ date=date||document.querySelector('#dailyDate')?.value||businessDate();const r=await api('dashboard.summary',{startDate:date,endDate:date}),z=r.summary||{},items=r.items||[];const set=(id,v)=>{const e=document.querySelector(id);if(e)e.textContent=v};set('#aAdminGross',money(z.adminGross||0));set('#aMembershipIncome',money(z.membershipIncome||0));set('#aDiscountExpense',money(z.totalDiscount||0));set('#aAdminNet',money(z.adminNet||0));set('#aOtherIncomeTotal',money(z.otherIncome||0));set('#aOtherExpenseTotal',money(z.otherExpense||0));set('#aRevenue',money((z.adminNet||0)+(z.membershipIncome||0)+(z.otherIncome||0)));set('#aExpense',money(z.otherExpense||0));set('#aNet',money(z.netIncome||0));set('#aJP',money(z.jp||0));
+ const body=document.querySelector('#accountingItemRows');if(body)body.innerHTML=items.map(x=>'<tr><td><span class="'+(x.type==='expense'?'neg':'pos')+'">'+(x.type==='membership'?'入會費收入':x.type==='expense'?'其他支出':'其他收入')+'</span></td><td>'+esc(x.name)+'</td><td>'+money(x.amount)+'</td><td><button class="danger" onclick="deleteAccountingItemV3(\''+x.itemId+'\','+x.revision+')">刪除</button></td></tr>').join('')||'<tr><td colspan="4" class="small">尚未新增入會費／其他收支</td></tr>';
+}
+window.addAccountingItem=addAccountingItemV3;window.deleteAccountingItemV3=deleteAccountingItemV3;
