@@ -3609,6 +3609,28 @@ window.addEventListener("epcFirebaseRemoteSnapshot",e=>{
  // Diagnostic mode intentionally observes only; no automatic merge/write.
 });
 
+function firestoreEventPayload_(e){
+ if(!e)return null;
+ return {
+  eventId:e.id,businessDate:businessDateForEvent(e),date:e.date||businessDateForEvent(e),
+  seq:+e.seq||1,name:eventDisplayName_(e),startTime:e.startTime||'',regClose:e.regCloseTime||'',
+  level:+e.level||3400,buyin:+e.poolUnit||0,fee:+e.admin||0,pricingMode:e.pricingMode||'standard',
+  buyinTotal:+e.buyinTotal||0,buyinAdmin:+e.buyinAdmin||0,rebuyTotal:+e.rebuyTotal||0,
+  rebuyAdmin:+e.rebuyAdmin||0,freeAdminFrom:(+e.overbuyThreshold||10)+1,chips:+e.chips||0,
+  jpRate:+e.jp||0,jpRound:+e.jpRound||0,payout:e.payout||'',players:Array.isArray(e.players)?e.players:[],
+  accounting:e.accounting||{},status:e.status==='已結算'?'settled':'open',revision:+e.revision||1,
+  finalJP:e.finalJP,finalAccounting:e.finalAccounting,_eventUpdatedAt:+e._eventUpdatedAt||Date.now()
+ };
+}
+let EPC_FIRESTORE_EVENT_SAVE_TIMERS=new Map();
+function syncEventToFirestore_(e,immediate=false){
+ if(!e?.id||!window.EPCFirestore?.ready)return Promise.resolve(false);
+ const id=String(e.id),run=()=>window.EPCFirestore.upsertEvent(firestoreEventPayload_(e)).then(()=>true);
+ if(immediate){const old=EPC_FIRESTORE_EVENT_SAVE_TIMERS.get(id);if(old)clearTimeout(old);EPC_FIRESTORE_EVENT_SAVE_TIMERS.delete(id);return run();}
+ const old=EPC_FIRESTORE_EVENT_SAVE_TIMERS.get(id);if(old)clearTimeout(old);
+ EPC_FIRESTORE_EVENT_SAVE_TIMERS.set(id,setTimeout(()=>{EPC_FIRESTORE_EVENT_SAVE_TIMERS.delete(id);run().catch(err=>actionMsg('Firebase 賽事同步失敗：'+String(err?.message||err),true))},180));
+ return Promise.resolve(true);
+}
 function persist(){
  const changes=epcCollectFieldChanges_(epcLastPersistSnapshot_,db);
  if(changes.length)window.epcFieldChanges.push(...changes);
@@ -3620,6 +3642,8 @@ function persist(){
  localDirty=true;
  localStorage.setItem('epcLocalDirty','1');
  scheduleCloudSave();
+ // Firestore is authoritative for active event data; mirror every legacy event edit.
+ const active=currentEvent(); if(active)syncEventToFirestore_(active,false);
  
 }
 document.querySelectorAll('#nav button[data-page]').forEach(b=>b.onclick=()=>{document.querySelectorAll('#nav button[data-page]').forEach(x=>x.classList.remove('active'));b.classList.add('active');document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));const target=$(b.dataset.page);if(target)target.classList.add('active');render()});
@@ -3752,7 +3776,7 @@ function togglePricingMode(){
  document.querySelectorAll('.customPricing').forEach(el=>el.style.display=mode==='custom'?'':'none');
 }
 function levelChanged(){let lv=+$('eLevel').value;if(lv===3400){$('ePoolUnit').value=3000;$('eAdmin').value=400}else{$('ePoolUnit').value=6000;$('eAdmin').value=600}}
-function saveEvent(){
+async function saveEvent(){
  let e=requireEvent();if(!e)return;
  
  e.date=$('eDate').value;
@@ -3777,8 +3801,9 @@ function saveEvent(){
  e.jp=+$('eJP').value;
  e.jpRound=+$('eJPRound').value;
  e.payout=$('ePayout').value;
- persist();render();
- alert('賽事設定已儲存');
+ touchEvent_(e);persist();render();
+ try{await syncEventToFirestore_(e,true);}catch(err){return alert('賽事設定 Firebase 同步失敗：'+String(err?.message||err));}
+ alert('賽事設定已儲存並同步');
 }
 function filterAddPlayerMembers(keyword){
  const sel=$('addPlayerMember');if(!sel)return;
@@ -4048,7 +4073,7 @@ async function newEvent(){
  if(window.EPCFirestore?.ready&&typeof window.EPCFirestore.createEvent==='function'){
    try{
      const remote=await window.EPCFirestore.createEvent({
-       eventId:e.id,businessDate:bd,name:eventDisplayName_(e),startTime:e.startTime,
+       eventId:e.id,businessDate:bd,date:bd,seq:e.seq,name:eventDisplayName_(e),startTime:e.startTime,
        level:e.level,buyin:e.poolUnit,fee:e.admin,buyinTotal:e.buyinTotal,buyinAdmin:e.buyinAdmin,
        rebuyTotal:e.rebuyTotal,rebuyAdmin:e.rebuyAdmin,freeAdminFrom:(+e.overbuyThreshold||10)+1,
        jpRate:e.jp,icmRound:e.jpRound,status:'open',revision:1
@@ -4752,6 +4777,7 @@ async function executeFormalSettlement(){
  e.status='已結算';
  touchEvent_(e);
  persist();
+ try{await syncEventToFirestore_(e,true);}catch(err){closeSettlementConfirm();return actionMsg('Firebase 結算同步失敗：'+String(err?.message||err),true);}
  closeSettlementConfirm();
  render();
  if(cloudReady)await saveCloudNow(false);
@@ -4773,6 +4799,7 @@ async function unlockSettledEvent(id){
  delete e.finalAccounting;
  touchEvent_(e);
  persist();
+ try{await syncEventToFirestore_(e,true);}catch(err){return actionMsg('Firebase 解鎖同步失敗：'+String(err?.message||err),true);}
  render();
  if(cloudReady)await saveCloudNow(false);
  actionMsg(`已解鎖：${label}；修改完成後請重新正式結算`);
@@ -4803,9 +4830,8 @@ function applyFirestoreEventsToLegacy_(rows){
    createdAt:+v.createdAt||Date.now()
  }));
  const remoteIds=new Set(remote.map(x=>String(x.id)));
- // During migration, Firestore owns only events it knows; retain legacy-only historical rows.
- const legacyOnly=(db.events||[]).filter(x=>!remoteIds.has(String(x.id)));
- db.events=[...remote,...legacyOnly];
+ // Firestore is authoritative: never re-introduce stale local/legacy event rows.
+ db.events=remote;
  renderEventList();
 }
 window.addEventListener('epcFirestoreEvents',ev=>{try{applyFirestoreEventsToLegacy_(ev.detail?.events||[])}catch(err){console.warn(err)}});
