@@ -12,6 +12,7 @@
   window.EPCFirestore={
    ready:true,
    async upsertEvent(e){if(!e?.eventId)return;await fs.setDoc(fs.doc(col,String(e.eventId)),{...clean(e),updatedAt:fs.serverTimestamp()},{merge:true})},
+   async createEvent(e){const eventId=String(e?.eventId||('EV-'+Date.now()+'-'+Math.random().toString(36).slice(2,8)));const row={...clean(e),eventId,status:e?.status||'open',revision:Number(e?.revision||1),createdAt:Date.now()};await fs.setDoc(fs.doc(col,eventId),{...row,updatedAt:fs.serverTimestamp()});return row},
    async deleteEvent(id){if(id)await fs.deleteDoc(fs.doc(col,String(id)))}
   };
   fs.onSnapshot(col,snap=>{
