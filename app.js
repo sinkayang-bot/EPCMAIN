@@ -233,7 +233,7 @@ document.querySelector('#workspaceSettle').addEventListener('click',async()=>{
  const btn=document.querySelector('#workspaceSettle');btn.disabled=true;
  try{
    for(const key of [...WS_PENDING_PATCH.keys()])await flushWorkspacePlayer(key);
-   const r=await api('event.list',{eventId:ACTIVE_EVENT});
+   const r=await api('event.snapshot',{eventId:ACTIVE_EVENT});
    window.EIGHT_SETTLEMENT_SNAPSHOT=r.snapshot;
    alert('賽事資料已確認同步，可以進入 ICM / 結算。');
  }catch(err){alert('結算前同步失敗：'+err.message)}
