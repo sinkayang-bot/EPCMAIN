@@ -31,10 +31,9 @@ function applyDeltaChange(c){
    else {const i=rows.findIndex(x=>x.eventId===c.entityKey);if(i>=0)rows[i]={...rows[i],...p};else if(!p.businessDate||p.businessDate===(document.querySelector('#eventDate')?.value||businessDate()))rows.push(p)}
    renderEvents(window.EIGHT_EVENTS||[]);
  }
- if(c.entity==='player'&&ACTIVE_EVENT&&p.eventId===ACTIVE_EVENT){
-   if(c.op==='delete')WORKSPACE_PLAYERS=WORKSPACE_PLAYERS.filter(x=>x.memberKey!==p.memberKey);
-   else {const i=WORKSPACE_PLAYERS.findIndex(x=>x.memberKey===p.memberKey);if(i>=0)WORKSPACE_PLAYERS[i]={...WORKSPACE_PLAYERS[i],...p};else WORKSPACE_PLAYERS.push(p)}
-   renderWorkspace();
+ if(c.entity==='player'){
+   if(window.db){const e=(window.db.events||[]).find(x=>String(x.id)===String(p.eventId));if(e){e.players=e.players||[];if(c.op==='delete')e.players=e.players.filter(x=>String(x.memberKey)!==String(p.memberKey));else{const i=e.players.findIndex(x=>String(x.memberKey)===String(p.memberKey));const q={memberId:p.memberId,memberKey:p.memberKey,name:p.name,buyin:p.buyin,rebuy:p.rebuy,entries:p.entries,chips:p.chips,prize:p.prize,group:p.group,earlyDiscount:p.earlyDiscount,lateDiscount:p.lateDiscount,otherDiscount:p.otherDiscount,revision:p.revision};if(i>=0)e.players[i]={...e.players[i],...q};else e.players.push(q)}if(typeof window.renderActivities==='function'&&document.querySelector('#activities')?.classList.contains('active'))window.renderActivities()}}
+   if(ACTIVE_EVENT&&p.eventId===ACTIVE_EVENT){if(c.op==='delete')WORKSPACE_PLAYERS=WORKSPACE_PLAYERS.filter(x=>x.memberKey!==p.memberKey);else {const i=WORKSPACE_PLAYERS.findIndex(x=>x.memberKey===p.memberKey);if(i>=0)WORKSPACE_PLAYERS[i]={...WORKSPACE_PLAYERS[i],...p};else WORKSPACE_PLAYERS.push(p)}renderWorkspace()}
  }
 }
 function startDeltaSync(){
