@@ -3724,31 +3724,19 @@ function editMember(id){
  window.scrollTo({top:0,behavior:'smooth'});
 }
 async function saveMemberEdit(){
+ if(EPC_V3_MODE&&typeof window.epcV3SaveMemberEdit==='function'){
+   return window.epcV3SaveMemberEdit(editingMemberId||$('mId')?.value||'');
+ }
  let m=db.members.find(x=>x.id===editingMemberId); if(!m)return cancelMemberEdit();
  let name=$('mName').value.trim(); if(!name)return alert('請輸入會員名稱');
  m.name=name;
  m.group=$('mGroup').value.trim();
  m.note=$('mNote').value.trim();
- // 先把 EPC 專屬欄位（結帳群組/備註）寫入本機，再立即寫入 EPC_DATA。
  localStorage.setItem('epcV1',JSON.stringify(db));
  cancelMemberEdit();
  renderMemberRows();
  render();
  actionMsg(`會員「${m.name}」資料已修改`);
- if(cloudReady){
-   try{
-     await saveCloudNow();
-     // 資料庫快照完成後才重新抓 Form Responses 1。
-     // mergeFormMembers 會保留 EPC_DATA 的 group / note / history。
-     await refreshFormMembers(false);
-     renderMemberRows();
-   }catch(err){
-     console.error('member edit cloud save failed',err);
-     setCloudState('● 修改已存本機｜資料庫同步失敗',true);
-   }
- }else{
-   setCloudState('● 修改已存本機｜等待資料庫連線');
- }
 }
 function cancelMemberEdit(){
  editingMemberId=null;
