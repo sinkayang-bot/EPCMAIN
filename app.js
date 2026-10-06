@@ -259,7 +259,7 @@ async function renderDashboardSummaryV3(){
  const from=document.querySelector('#dashboardDateFrom')?.value||ym+'-01',to=document.querySelector('#dashboardDateTo')?.value||ym+'-'+String(last).padStart(2,'0');
  const [a,all,jpRange,jpAll]=await Promise.all([api('dashboard.summary',{startDate:from,endDate:to}),api('dashboard.summary',{startDate:'',endDate:''}),api('jp.summary',{startDate:from,endDate:to}),api('jp.summary',{startDate:'',endDate:''})]),z=a.summary||{};
  const az=all.summary||{};const set=(id,v)=>{const e=document.querySelector(id);if(e)e.textContent=v};
- set('#kMembers',Number(MEMBER_ROWS.length).toLocaleString());set('#kProfit',money(az.netIncome||0));set('#kMonthProfit',money(z.netIncome||0));set('#kJP',money(jpAll.total||0));set('#kMonthExpense',money((z.totalDiscount||0)+(z.otherExpense||0)));set('#kMonthEvents',(z.eventCount||0)+' 場');
+ set('#kMembers',Number(MEMBER_ROWS.length).toLocaleString());set('#kProfit',money(az.netIncome||0));set('#kMonthProfit',money(z.netIncome||0));set('#kJP',money(jpAll.total||0));set('#kRangeJP',money(jpRange.total||0));set('#kMonthExpense',money((z.totalDiscount||0)+(z.otherExpense||0)));set('#kMonthEvents',(z.eventCount||0)+' 場');
  const levels=Object.entries(z.levels||{}).map(([k,v])=>k+'：'+v+' 場').join('　｜　')||'尚無已結算賽事';set('#kLevelBreakdown',levels);
 }
 async function renderDashboardDailyReportV3(){
