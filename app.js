@@ -16,7 +16,7 @@ async function api(action,payload={}){
   }catch(err){if(err&&err.name==='AbortError')throw new Error('後端逾時，請重試');throw err}
   finally{clearTimeout(timer)}
 }
-function setSync(t,bad=false){const e=document.querySelector('#syncState');e.textContent=t;e.style.color=bad?'var(--bad)':''}
+function setSync(t,bad=false){const e=document.querySelector('#syncState');if(!e)return;e.textContent=t;e.style.color=bad?'var(--bad)':''}
 function applyDeltaChange(c){
  const p=c.payload||{};
  if(c.entity==='activity'){if(window.db){window.db.activityManagement=p.data||{};window.EPC_ACTIVITY_REVISION=Number(p.revision||c.revision||0);if(typeof window.renderActivities==='function')window.renderActivities()}return;}
@@ -61,7 +61,7 @@ window.eightReloadMembers_=async function(){
 async function boot(force=false){
  if(!CONFIG.apiUrl){setSync('資料庫：等待 Apps Script 部署');return}
  let cached=[];try{cached=JSON.parse(localStorage.getItem('eightMemberCache')||'[]')}catch(_){}
- if(cached.length){MEMBER_ROWS=cached;const k=document.querySelector('#kMembers');if(k)k.textContent=money(cached.length);if(window.db){window.db.members=cached.map(m=>({id:m.memberId,name:m.name,nickname:m.nickname,group:m.group,birth:m.birth,phone:m.phone,address:m.address,memberKey:m.memberKey,revision:m.revision}))}if(typeof window.renderMemberRows==='function')window.renderMemberRows();setSync('資料庫：已連線')}
+ if(cached.length){MEMBER_ROWS=cached;const k=document.querySelector('#kMembers');if(k)k.textContent=money(cached.length);if(window.db){window.db.members=cached.map(m=>({id:m.memberId,name:m.name,nickname:m.nickname,group:m.group,birth:m.birth,phone:m.phone,address:m.address,memberKey:m.memberKey,revision:m.revision}))}if(typeof window.renderMemberRows==='function')window.renderMemberRows();const ss=document.querySelector('#syncState');if(ss)setSync('資料庫：已連線')}
  if(!force&&cached.length)return;
  return window.eightReloadMembers_();
 }
