@@ -22,6 +22,8 @@ function applyDeltaChange(c){
  const p=c.payload||{};
  if(c.entity==='activity'){if(window.db){window.db.activityManagement=p.data||{};window.EPC_ACTIVITY_REVISION=Number(p.revision||c.revision||0);if(typeof window.renderActivities==='function')window.renderActivities()}return;}
  if(c.entity==='member'){
+   const current=MEMBER_ROWS.find(x=>x.memberKey===c.entityKey),incomingRev=Number(c.revision||p.revision||0),currentRev=Number(current?.revision||0);
+   if(current&&incomingRev&&currentRev>incomingRev)return;
    if(c.op==='delete')MEMBER_ROWS=MEMBER_ROWS.filter(x=>x.memberKey!==c.entityKey);
    else {const i=MEMBER_ROWS.findIndex(x=>x.memberKey===c.entityKey);if(i>=0)MEMBER_ROWS[i]={...MEMBER_ROWS[i],...p};else MEMBER_ROWS.unshift(p)}
    try{localStorage.setItem('eightMemberCache',JSON.stringify(MEMBER_ROWS))}catch(_){}
