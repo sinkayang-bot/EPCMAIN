@@ -208,7 +208,7 @@ document.querySelector('#workspaceMemberSearch').addEventListener('keydown',e=>{
 document.querySelector('#workspaceAddPlayer').addEventListener('click',addWorkspacePlayer);
 async function flushWorkspacePlayerForEvent(eventId,key){
  const patch=WS_PENDING_PATCH.get(key);if(!patch||!eventId)return;WS_PENDING_PATCH.delete(key);WS_SAVE_TIMERS.delete(key);
- try{const p=WORKSPACE_PLAYERS.find(x=>x.memberKey===key);if(p&&p.revision)patch.expectedRevision=p.revision;const r=await api('player.update',{eventId:eventId,memberKey:key,patch:patch});if(p&&r.player&&r.player.revision)p.revision=r.player.revision}
+ try{const p=WORKSPACE_PLAYERS.find(x=>x.memberKey===key);const expectedRevision=p?.revision;const r=await api('player.update',{eventId:eventId,memberKey:key,patch:patch,expectedRevision});if(p&&r.player&&r.player.revision)p.revision=r.player.revision}
  catch(err){if(ACTIVE_EVENT===eventId){if(err.message==='STALE_WRITE')alert('資料已被其他裝置更新，已重新載入最新資料');else alert('更新失敗：'+err.message);await loadWorkspacePlayers()}else console.error('背景儲存失敗',err)}
 }
 async function flushWorkspacePlayer(key){return flushWorkspacePlayerForEvent(ACTIVE_EVENT,key)}
@@ -228,7 +228,7 @@ document.querySelector('#workspacePlayerRows').addEventListener('change',e=>{
  else if(e.target.classList.contains('ws-chips')){p.chips=Number(e.target.value||0);patch.chips=p.chips}else return;
  renderWorkspace();syncWorkspaceEventSummaryLocal();try{localStorage.setItem('eightEventPlayers:'+ACTIVE_EVENT,JSON.stringify(WORKSPACE_PLAYERS))}catch(_){}queueWorkspacePlayerSave(key,patch)
 });
-document.querySelector('#workspacePlayerRows').addEventListener('click',async e=>{const b=e.target.closest('.ws-remove');if(!b)return;const tr=b.closest('tr[data-key]');if(!confirm('確定移除此玩家？'))return;const key=tr.dataset.key,old=[...WORKSPACE_PLAYERS];if(WS_SAVE_TIMERS.has(key))clearTimeout(WS_SAVE_TIMERS.get(key));WS_SAVE_TIMERS.delete(key);WS_PENDING_PATCH.delete(key);WORKSPACE_PLAYERS=WORKSPACE_PLAYERS.filter(x=>x.memberKey!==key);renderWorkspace();syncWorkspaceEventSummaryLocal();filterWorkspaceMembers(document.querySelector('#workspaceMemberSearch').value);api('player.delete',{eventId:ACTIVE_EVENT,memberKey:key}).then(()=>{}).catch(err=>{WORKSPACE_PLAYERS=old;renderWorkspace();syncWorkspaceEventSummaryLocal();alert('移除失敗：'+err.message)})});
+document.querySelector('#workspacePlayerRows').addEventListener('click',async e=>{const b=e.target.closest('.ws-remove');if(!b)return;const tr=b.closest('tr[data-key]');if(!confirm('確定移除此玩家？'))return;const key=tr.dataset.key,old=[...WORKSPACE_PLAYERS];if(WS_SAVE_TIMERS.has(key))clearTimeout(WS_SAVE_TIMERS.get(key));WS_SAVE_TIMERS.delete(key);WS_PENDING_PATCH.delete(key);WORKSPACE_PLAYERS=WORKSPACE_PLAYERS.filter(x=>x.memberKey!==key);renderWorkspace();syncWorkspaceEventSummaryLocal();filterWorkspaceMembers(document.querySelector('#workspaceMemberSearch').value);api('player.delete',{eventId:ACTIVE_EVENT,memberKey:key,expectedRevision:old.find(x=>x.memberKey===key)?.revision}).then(()=>{}).catch(err=>{WORKSPACE_PLAYERS=old;renderWorkspace();syncWorkspaceEventSummaryLocal();alert('移除失敗：'+err.message)})});
 document.querySelector('#workspaceSettle').addEventListener('click',async()=>{
  const btn=document.querySelector('#workspaceSettle');btn.disabled=true;
  try{
@@ -240,7 +240,7 @@ document.querySelector('#workspaceSettle').addEventListener('click',async()=>{
  finally{btn.disabled=false}
 });
 
-document.querySelector('#eventList').addEventListener('click',e=>{const b=e.target.closest('.delete-event');if(!b)return;if(!confirm('確定刪除此賽事？'))return;const id=b.dataset.id,old=[...(window.EIGHT_EVENTS||[])];window.EIGHT_EVENTS=old.filter(x=>x.eventId!==id);renderEvents(window.EIGHT_EVENTS);api('event.delete',{eventId:id}).catch(err=>{window.EIGHT_EVENTS=old;renderEvents(old);alert('刪除失敗：'+err.message)})});
+document.querySelector('#eventList').addEventListener('click',e=>{const b=e.target.closest('.delete-event');if(!b)return;if(!confirm('確定刪除此賽事？'))return;const id=b.dataset.id,old=[...(window.EIGHT_EVENTS||[])];window.EIGHT_EVENTS=old.filter(x=>x.eventId!==id);renderEvents(window.EIGHT_EVENTS);api('event.delete',{eventId:id,expectedRevision:old.find(x=>x.eventId===id)?.revision}).catch(err=>{window.EIGHT_EVENTS=old;renderEvents(old);alert('刪除失敗：'+err.message)})});
 
 window.addEventListener('offline',()=>{const el=document.querySelector('#dbStatus');if(el){el.textContent='資料庫：網路離線';el.className='bad'}});
 window.addEventListener('online',()=>{boot(false)});
