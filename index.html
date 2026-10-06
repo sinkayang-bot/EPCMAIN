@@ -2479,6 +2479,7 @@ const $=id=>document.getElementById(id);
 const money=n=>'$'+Math.round(Number(n||0)).toLocaleString('zh-TW');
 const uid=()=>String(Date.now()).slice(-8)+Math.floor(Math.random()*90+10);
 const CLOUD_API='https://script.google.com/macros/s/AKfycbwj-jLaSTiljcw15_UnhUFv4QxVq5HbNyers3ybU-6IAkwSj_A5X36x-852Xu5MxobS/exec';
+const EPC_V3_MODE=true;
 const STACK_API='https://script.google.com/macros/s/AKfycbwJgutjAat9guTMsUgLYymwP0CbOUKpVzWyg5bKe65xa51ysBJas2QMbkjB5B2wpDeJVQ/exec';
 function eightReadCache_(key,fallback){
  try{const value=JSON.parse(localStorage.getItem(key)||'null');return value&&typeof value==='object'&&!Array.isArray(value)?value:fallback;}
@@ -2634,6 +2635,7 @@ async function eightReadCloudJson_(action){
 async function cloudGet(action){return cloudRequest_('GET',action);}
 async function cloudPost(payload){return cloudRequest_('POST',payload);}
 function scheduleCloudReconnect_(){
+ if(EPC_V3_MODE)return;
  if(cloudReconnectTimer)return;
  cloudReconnectTimer=setTimeout(async()=>{
    cloudReconnectTimer=null;
@@ -2979,6 +2981,7 @@ async function eightReloadMembers_(){
  }finally{eightMemberLoadBusy_=false;if(button)button.disabled=false;}
 }
 async function initializeCloud(){
+ if(EPC_V3_MODE)return;
  if(eightCloudLoadBusy_)return;
  eightCloudLoadBusy_=true;
  const button=$('eightMemberRetry');if(button)button.disabled=true;
@@ -3041,6 +3044,7 @@ async function refreshFormMembers(saveAfter=true){
  }catch(err){console.error('member refresh failed',err);return false;}
 }
 function scheduleCloudSave(){
+ if(EPC_V3_MODE)return;
  if(window.EPC_RECOVERY_READONLY){setCloudState('● 唯讀復原模式｜禁止資料庫寫入');return;}
  cloudPending=true;
  clearTimeout(cloudSaveTimer);
@@ -3052,6 +3056,7 @@ function scheduleCloudSave(){
  cloudSaveTimer=setTimeout(saveCloudNow,900);
 }
 async function saveCloudNow(force=false){
+ if(EPC_V3_MODE)return false;
  if(window.EPC_RECOVERY_READONLY){setCloudState('● 唯讀復原模式｜禁止資料庫寫入');return false;}
  const fieldConflict=!!window.epcFirebaseFieldConflict||(window.epcFieldChanges||[]).some(ch=>ch.conflict);
  if((window.epcFirebaseConflicts||[]).length||fieldConflict){
@@ -6234,8 +6239,7 @@ function printEventReport(){
 try{render();}catch(err){console.error('Initial render failed',err);setCloudState('初始畫面錯誤：'+err.message+'｜繼續載入雲端會員',true);}
 window.addEventListener('online',()=>{cloudReady=true;setCloudState('● 網路已恢復｜檢查資料庫同步…');scheduleCloudReconnect_();});
 window.addEventListener('offline',()=>{cloudReady=false;setCloudState('⚠ 網路已離線｜本機資料安全保存',true);});
-setInterval(()=>{if(!cloudSaving && (!cloudReady||localDirty))scheduleCloudReconnect_();},30000);
-initializeCloud();
+if(!EPC_V3_MODE){setInterval(()=>{if(!cloudSaving && (!cloudReady||localDirty))scheduleCloudReconnect_();},30000);initializeCloud();}
 // live polling disabled: avoid repeated Google reads
 // V1.38.4: nickname columns + 12-13px adaptive event-report print; auto member sync preserved.
 // This only refreshes the member list from MAIN API; it never calls full cloud load.
