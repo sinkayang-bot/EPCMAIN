@@ -1,6 +1,7 @@
 (()=>{
 const DEFAULT_V3_API='https://script.google.com/macros/s/AKfycbwZi5bXuFJdtXiE6oxPmn4NZti-wZyOwEfTKZ8VPo5nXP5GK1mPOYrfkxz714AN4UQx9w/exec';
 const CONFIG={apiUrl:localStorage.getItem('epcApiUrl')||DEFAULT_V3_API,businessStart:localStorage.getItem('eightBusinessStart')||'16:00',businessEnd:localStorage.getItem('eightBusinessEnd')||'07:00'};
+const legacyDb_=()=>window.epcDb||window.db||null;
 let MEMBER_ROWS=[];let MEMBER_PAGE=1;const MEMBER_PAGE_SIZE=100;let MEMBER_SEARCH_TIMER=null;
 const pages={dashboard:'總覽',members:'會員資料',events:'賽事管理',settlement:'分帳報表',accounting:'帳務管理',activities:'活動專區',devices:'設備管理',settings:'系統設定'};
 const pad=n=>String(n).padStart(2,'0'),money=n=>new Intl.NumberFormat('zh-TW').format(Number(n||0));
@@ -53,9 +54,9 @@ function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&l
 function memberSearchText(v){return String(v??'').normalize('NFKC').toLowerCase().replace(/\s+/g,'')}
 function renderMembers(rows=MEMBER_ROWS){
  if(window.db){
-  window.db.members=rows.map(m=>({id:m.memberId,name:m.name,nickname:m.nickname,group:m.group,birth:m.birth,phone:m.phone,address:m.address,memberKey:m.memberKey,revision:m.revision,createdAt:m.createdAt,eventCount:m.eventCount,totalEntries:m.totalEntries,pnl:m.pnl,spendShare:m.spendShare,lastVisit:m.lastVisit}));
+  window.db.members=rows.map(m=>({id:m.memberId,name:m.name,nickname:m.nickname,group:m.group,birth:m.birth,phone:m.phone,address:m.address,memberKey:m.memberKey,revision:m.revision,createdAt:m.createdAt,eventCount:m.eventCount,totalEntries:m.totalEntries,pnl:m.pnl,spendShare:m.spendShare,lastVisit:m.lastVisit}));}
   if(typeof window.renderMemberRows==='function'){window.renderMemberRows();return}
- }
+ }}
  const tb=document.querySelector('#members tbody');if(!tb)return;
  const q=memberSearchText(document.querySelector('#memberSearch')?.value||''),filtered=q?rows.filter(m=>[m.memberId,m.name,m.nickname,m.group,m.phone].some(v=>memberSearchText(v).includes(q))):rows;
  tb.innerHTML=filtered.map(m=>'<tr data-key="'+esc(m.memberKey)+'"><td>'+esc(m.memberId)+'</td><td>'+esc(m.name)+'</td><td>'+esc(m.nickname)+'</td><td>'+esc(m.group)+'</td><td>'+money(m.eventCount)+'</td><td>'+money(m.totalEntries)+'</td><td>'+money(m.pnl)+'</td><td>'+esc(m.spendShare||'—')+'</td><td>'+esc(m.lastVisit||'—')+'</td></tr>').join('')||'<tr><td colspan="10" class="empty">目前沒有符合的會員資料</td></tr>';
@@ -67,7 +68,7 @@ async function saveMember(e){e.preventDefault();const btn=document.querySelector
 window.eightReloadMembers_=async function(){
  const state=document.querySelector('#eightMemberState'),btn=document.querySelector('#eightMemberRetry');
  if(btn)btn.disabled=true;if(state)state.textContent='正在從 V3 API 讀取會員…';
- try{let r;try{r=await api('member.list')}catch(e){if(!/UNKNOWN_ACTION|unknow action/i.test(String(e.message||e)))throw e;r=await api('bootstrap')}MEMBER_ROWS=r.members||[];if(Number.isFinite(Number(r.cursor))){localStorage.setItem('epcCursor',String(Number(r.cursor)));if(window.EPCSync)window.EPCSync.state.cursor=Number(r.cursor)}localStorage.setItem('eightMemberCache',JSON.stringify(MEMBER_ROWS));if(window.db){window.db.members=MEMBER_ROWS.map(m=>({id:m.memberId,name:m.name,nickname:m.nickname,group:m.group,birth:m.birth,phone:m.phone,address:m.address,memberKey:m.memberKey,revision:m.revision}))}const k=document.querySelector('#kMembers');if(k)k.textContent=money(MEMBER_ROWS.length);const ms=document.querySelector('#memberSearch');if(ms)ms.value='';const mf=document.querySelector('#memberFilterBy');if(mf)mf.value='all';if(typeof window.renderMemberRows==='function')window.renderMemberRows();
+ try{let r;try{r=await api('member.list')}catch(e){if(!/UNKNOWN_ACTION|unknow action/i.test(String(e.message||e)))throw e;r=await api('bootstrap')}MEMBER_ROWS=r.members||[];if(Number.isFinite(Number(r.cursor))){localStorage.setItem('epcCursor',String(Number(r.cursor)));if(window.EPCSync)window.EPCSync.state.cursor=Number(r.cursor)}localStorage.setItem('eightMemberCache',JSON.stringify(MEMBER_ROWS));{const ldb=legacyDb_();if(ldb){ldb.members=MEMBER_ROWS.map(m=>({id:m.memberId,name:m.name,nickname:m.nickname,group:m.group,birth:m.birth,phone:m.phone,address:m.address,memberKey:m.memberKey,revision:m.revision}))}const k=document.querySelector('#kMembers');if(k)k.textContent=money(MEMBER_ROWS.length);const ms=document.querySelector('#memberSearch');if(ms)ms.value='';const mf=document.querySelector('#memberFilterBy');if(mf)mf.value='all';if(typeof window.renderMemberRows==='function')window.renderMemberRows();
  const tail=MEMBER_ROWS.slice(-5).map(x=>String(x.name||'')+'('+String(x.memberId||'')+')').join('、');
  const has84458=MEMBER_ROWS.some(x=>String(x.memberId||'').trim().toUpperCase()==='A84458');
  if(state)state.textContent='會員已載入 '+MEMBER_ROWS.length+' 人｜V3｜A84458:'+(has84458?'API有':'API無')+'｜末5筆：'+tail;
@@ -81,7 +82,7 @@ async function boot(force=false){
  if(cached.length){
   MEMBER_ROWS=cached;
   const k=document.querySelector('#kMembers');if(k)k.textContent=money(cached.length);
-  if(window.db)window.db.members=cached.map(m=>({id:m.memberId,name:m.name,nickname:m.nickname,group:m.group,birth:m.birth,phone:m.phone,address:m.address,memberKey:m.memberKey,revision:m.revision}));
+  {const ldb=legacyDb_();if(ldb)ldb.members=cached.map(m=>({id:m.memberId,name:m.name,nickname:m.nickname,group:m.group,birth:m.birth,phone:m.phone,address:m.address,memberKey:m.memberKey,revision:m.revision}));}
   if(typeof window.renderMemberRows==='function')window.renderMemberRows();
   if(state)state.textContent='會員已載入 '+cached.length+' 人｜V3 同步中';
   const ss=document.querySelector('#syncState');if(ss)setSync('資料庫：已連線');
