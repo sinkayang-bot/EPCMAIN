@@ -5202,9 +5202,14 @@ function actRangeEditor_(kind){
  const names={weekly:'每週任務卡',pioneer:'開桌先鋒',rank:'週排行榜',hunter:'獵人排行榜',umbrella:'保護傘',boss:'雙十狩主'},r=actActivityRange_(kind);
  return `<div class="card" style="margin-bottom:12px;border-color:#9b7a35"><h3>${names[kind]||'活動'}｜活動區間</h3><div class="small" style="margin-bottom:8px">此區間決定本活動實際計算資料；上方「查詢開始日／查詢結束日」只用於歷史查詢，不會改變活動計算。</div><div class="formgrid" style="grid-template-columns:1fr 1fr"><div><label>活動開始日</label><input type="date" value="${r.from}" onchange="actSetActivityRange_('${kind}','from',this.value)"></div><div><label>活動結束日</label><input type="date" value="${r.to}" onchange="actSetActivityRange_('${kind}','to',this.value)"></div></div></div>`;
 }
+function actBusinessDate_(e){return businessDateForEvent(e)||String(e?.businessDate||e?.date||'')}
+function actNeedsSettled_(kind){return ['rank','hunter'].includes(String(kind||''))}
 function actEvents_(kind=actTab_){
- const {from,to}=actActivityRange_(kind);
- return (db.events||[]).filter(e=>(!from||String(e.date||'')>=from)&&(!to||String(e.date||'')<=to));
+ const {from,to}=actActivityRange_(kind),needsSettled=actNeedsSettled_(kind);
+ return (db.events||[]).filter(e=>{
+  const d=actBusinessDate_(e),settled=e.status==='已結算'||e.status==='settled';
+  return !!d&&(!from||d>=from)&&(!to||d<=to)&&(!needsSettled||settled);
+ });
 }
 function actMember_(id){return (db.members||[]).find(m=>String(m.id)===String(id))||{}}
 
@@ -5227,14 +5232,14 @@ function actResolveMember_(inputId){
 }
 
 function actEventOptions_(){return actEvents_(actTab_).map(e=>`<option value="${e.id}">${e.date||''}｜${eventDisplayName_(e)}｜${e.level||''}</option>`).join('')}
-function actEventLabel_(e){return `${e.date||''} ${eventDisplayName_(e)} ${e.level||''}`}
+function actEventLabel_(e){return `${actBusinessDate_(e)} ${eventDisplayName_(e)} ${e.level||''}`}
 function actGroups_(p,e){try{return +calcPlayerForEvent(p,e).groups||0}catch(_){return (+p.buyin||0)+(+p.rebuy||0)+(+p.addon||0)}}
 function actPlayerStats_(kind=actTab_){
  const {q}=actRange_(),map={};
  actEvents_(kind).forEach(e=>(e.players||[]).forEach(p=>{
   const m=actMember_(p.memberId),id=String(p.memberId||'');if(!id)return;
   if(!map[id])map[id]={id,name:m.name||id,games:0,dates:new Set(),groups:0};
-  map[id].games++;map[id].dates.add(e.date);map[id].groups+=actGroups_(p,e);
+  map[id].games++;map[id].dates.add(actBusinessDate_(e));map[id].groups+=actGroups_(p,e);
  }));
  return Object.values(map).map(x=>({...x,days:x.dates.size})).filter(x=>!q||x.name.toLowerCase().includes(q)||x.id.toLowerCase().includes(q));
 }
