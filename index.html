@@ -4218,7 +4218,13 @@ function applyFirestoreDailyAccounting_(rows){
    const rr=byDate.get(date);
    const remoteIds=new Set((rr?.items||[]).map(x=>String(x?.id||'')));
    const pendingIds=(pending.items||[]).map(x=>String(x?.id||'')).filter(Boolean);
-   if(rr && pendingIds.every(id=>remoteIds.has(id))){
+   // A save may also be a deletion. Item-ID containment alone is not enough:
+   // an older remote row could still contain the item we just deleted. Require
+   // exact item-ID equality before releasing the pending write guard.
+   const remoteList=[...remoteIds].filter(Boolean).sort();
+   const pendingList=[...new Set(pendingIds)].sort();
+   const sameIds=rr && remoteList.length===pendingList.length && remoteList.every((id,i)=>id===pendingList[i]);
+   if(sameIds){
      epcAccountingPending_.delete(date);
    }else{
      byDate.set(date,{date,items:Array.isArray(pending.items)?pending.items:[],createdAt:pending.createdAt||null});
