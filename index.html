@@ -5604,10 +5604,11 @@ function pioneerTotals_(){
  const totals={},A=db.activityManagement||{};
  actEvents_('pioneer').forEach(e=>{
   const P=(A.pioneer||{})[e.id],defaults=[5,4,3,2];
+  if(!P?.confirmed)return;
   const ids=new Set((e.players||[]).map(p=>p.memberId).filter(Boolean));
   ids.forEach(id=>{
    const pos=(P?.first4||[]).indexOf(id);
-   const score=P?.confirmed && pos>=0?defaults[pos]:1;
+   const score=pos>=0&&pos<4?defaults[pos]:1;
    totals[id]=(totals[id]||0)+score;
   });
  });
@@ -5671,7 +5672,7 @@ function actPioneer_(){
   <table style="margin-top:10px"><thead><tr><th>會員</th><th>是否前4</th><th>本場積分（自動）</th></tr></thead><tbody>${(e.players||[]).map(p=>`<tr><td>${epcPlayerDisplayHtml_(p.memberId)}</td><td>${P.first4.includes(p.memberId)?'是':'否'}</td><td><input id="pioneerScore_${e.id}_${p.memberId}" type="number" style="width:90px" readonly value="${P.first4.includes(p.memberId)?[5,4,3,2][P.first4.indexOf(p.memberId)]:1}" onchange="pioneerScore_('${e.id}','${p.memberId}',this.value)"></td></tr>`).join('')}</tbody></table><div style="display:flex;gap:12px;align-items:center;margin-top:12px"><button onclick="pioneerConfirm_('${e.id}')">${P.confirmed?'更新本場排名':'確認本場排名'}</button><span class="small">${P.confirmed?'✓ 已儲存':'尚未確認儲存'}</span></div></div></div>`}).join('');
  const totals=pioneerTotals_();
  const ranking=Object.entries(totals).map(([id,score])=>({id,name:epcPlayerDisplayName_(id),score})).sort((a,b)=>b.score-a.score);
- return `<div class="card"><h3>開桌先鋒｜排行榜</h3><div class="small">登記前4名後，系統預設第1~4位為 5／4／3／2 分；同場其他參賽者預設 1 分。積分依前4名位置自動計算，取消前4名會回到 1 分；可標註排行榜資格。</div><table><thead><tr><th>排名</th><th>會員</th><th>總分</th><th>有排行資格</th></tr></thead><tbody>${ranking.map((x,i)=>`<tr><td>${i+1}</td><td>${epcDisplayEscape_(x.name)}</td><td>${x.score}</td><td><input type="checkbox" ${A.pioneerQualify[x.id]?'checked':''} onchange="actAdj_('pioneerQual','${x.id}','q',this.checked)"></td></tr>`).join('')||'<tr><td colspan="4">尚無積分</td></tr>'}</tbody></table></div>${cards}`;
+ return `<div class="card"><h3>開桌先鋒｜排行榜</h3><div class="small">本場按「確認本場排名」後才納入排行榜；尚未建立或尚未確認的場次不計分。系統預設第1~4位為 5／4／3／2 分；同場其他參賽者預設 1 分。積分依前4名位置自動計算，取消前4名會回到 1 分；可標註排行榜資格。</div><table><thead><tr><th>排名</th><th>會員</th><th>總分</th><th>有排行資格</th></tr></thead><tbody>${ranking.map((x,i)=>`<tr><td>${i+1}</td><td>${epcDisplayEscape_(x.name)}</td><td>${x.score}</td><td><input type="checkbox" ${A.pioneerQualify[x.id]?'checked':''} onchange="actAdj_('pioneerQual','${x.id}','q',this.checked)"></td></tr>`).join('')||'<tr><td colspan="4">尚無積分</td></tr>'}</tbody></table></div>${cards}`;
 }
 
 function rankDayNum_(dateStr){
