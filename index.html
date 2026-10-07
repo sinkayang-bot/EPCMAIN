@@ -2445,8 +2445,8 @@ window.addEventListener('error',function(e){
 <section id="displays" class="page">
  <h2>顯示設備</h2>
  <div class="card">
-  <h3>Display API 設定</h3>
-  <div class="small">顯示器使用獨立 API，不修改 EPC_DATA。第一次部署後，把 Apps Script /exec 網址貼在這裡即可。</div>
+  <h3>顯示連線設定</h3><p>電視開啟：<a href="./tv/" target="_blank" rel="noopener">EPCMAIN/tv/</a></p><button onclick="enableBuiltinDisplay_()">使用內建顯示連線</button>
+  <div class="small">新設備按「使用內建顯示連線」即可配對；既有 Apps Script 顯示器仍可使用下方原網址。</div>
   <div class="formgrid" style="grid-template-columns:1fr auto;margin-top:10px">
    <div><label>Display API URL</label><input id="displayApiUrl" placeholder="https://script.google.com/macros/s/.../exec"></div>
    <div style="align-self:end"><button onclick="saveDisplayApi_()">儲存並測試</button></div>
@@ -2455,7 +2455,7 @@ window.addEventListener('error',function(e){
  </div>
  <div class="card">
   <h3>配對新顯示器</h3>
-  <div class="small">先在電視開啟 display.html，畫面會出現 6 位數配對碼。</div>
+  <div class="small">先在電視開啟 EPCMAIN/tv/，畫面會出現 6 位數配對碼。</div>
   <div class="formgrid" style="grid-template-columns:1fr 1fr auto;margin-top:10px">
    <div><label>6 位數配對碼</label><input id="displayPairCode" inputmode="numeric" maxlength="6" placeholder="例如 483921"></div>
    <div><label>設備名稱</label><input id="displayPairName" placeholder="例如：主電視、包廂電視"></div>
@@ -6565,10 +6565,13 @@ function displayPref_(id){return displayPrefsAll_()[id]||{}}
 function saveDisplayPref_(id,pref){const all=displayPrefsAll_();all[id]=pref;localStorage.setItem(DISPLAY_PREFS_KEY,JSON.stringify(all))}
 function removeDisplayPref_(id){const all=displayPrefsAll_();delete all[id];localStorage.setItem(DISPLAY_PREFS_KEY,JSON.stringify(all))}
 
-function displayApi_(){return String(localStorage.getItem(DISPLAY_API_KEY)||'').trim()}
+function displayApi_(){return String(localStorage.getItem(DISPLAY_API_KEY)||'firebase').trim()}
 function displayApiSetInput_(){const el=$('displayApiUrl');if(el&&!el.value)el.value=displayApi_()}
+let displayCloudPromise_;
+async function enableBuiltinDisplay_(){localStorage.setItem(DISPLAY_API_KEY,'firebase');$('displayApiUrl').value='firebase';await saveDisplayApi_()}
 async function displayFetch_(params={},post=false){
- const base=displayApi_();if(!base)throw new Error('請先設定 Display API URL');
+ const base=displayApi_();
+ if(base==='firebase'){displayCloudPromise_=displayCloudPromise_||import('./display-cloud.js').then(m=>m.displayCloud()).catch(e=>{displayCloudPromise_=null;throw e});return (await displayCloudPromise_).request(params)}if(!base)throw new Error('請先設定 Display API URL');
  if(post){
   const r=await fetch(base,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(params),redirect:'follow'});
   const t=await r.text();let j;try{j=JSON.parse(t)}catch(_){throw new Error('Display API 回傳格式錯誤')}
@@ -6844,4 +6847,4 @@ async function epcShowRecoveryAudit_(){
 <script src="firebase-config.js?v=20261007-0780"></script>
 <script src="firebase-events.js?v=20261007-admin-auth"></script>
 <script src="sync-v3.js?v=20261007-0780"></script>
-<script src="app.js?v=20261007-boss-cycles"></script></body></html>
+<script src="app.js?v=20261007-builtin-tv"></script></body></html>
