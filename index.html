@@ -1880,7 +1880,7 @@ window.addEventListener('error',function(e){
   <div class="card kpi"><div class="l">總 JP 累計</div><div class="v" id="kJP">$0</div></div>
   <div class="card kpi"><div class="l">區間 JP</div><div class="v" id="kRangeJP">$0</div></div>
   <div class="card kpi"><div class="l">區間總支出</div><div class="v" id="kMonthExpense">$0</div></div>
-  <div class="card kpi" style="grid-column:span 2"><div class="l">區間賽事場次</div><div class="v" id="kMonthEvents">0 場</div><div class="small" id="kLevelBreakdown">尚無賽事</div></div>
+  <div class="card kpi"><div class="l">區間賽事場次</div><div class="v" id="kMonthEvents">0 場</div><div class="small" id="kLevelBreakdown">尚無賽事</div></div>
  </div>
 
  <div class="card" style="margin-top:14px">
@@ -5307,7 +5307,8 @@ function renderDashboardSummary(){
  if($('kNewMembers'))$('kNewMembers').textContent=newMembers;
  if($('kProfit')){$('kProfit').textContent=money(allLedger.net);$('kProfit').className='v '+(allLedger.net>=0?'pos':'neg');}
  if($('kMonthProfit')){$('kMonthProfit').textContent=money(rangeLedger.net);$('kMonthProfit').className='v '+(rangeLedger.net>=0?'pos':'neg');}
- if($('kJP'))$('kJP').textContent=money(rangeLedger.jp);
+ if($('kJP'))$('kJP').textContent=money(allLedger.jp);
+ if($('kRangeJP'))$('kRangeJP').textContent=money(rangeLedger.jp);
  if($('kMonthExpense'))$('kMonthExpense').textContent=money(rangeLedger.expense);
  if($('kMonthEvents'))$('kMonthEvents').textContent=`${rangeLedger.events} 場`;
  if($('ledgerDateFrom') && !$('ledgerDateFrom').value)$('ledgerDateFrom').value=from;
@@ -6802,4 +6803,4 @@ async function epcShowRecoveryAudit_(){
 <script src="firebase-config.js?v=20261007-0780"></script>
 <script src="firebase-events.js?v=20261007-admin-auth"></script>
 <script src="sync-v3.js?v=20261007-0780"></script>
-<script src="app.js?v=20261007-nickname-unified"></script></body></html>
+<script src="app.js?v=20261007-dashboard-jp"></script></body></html>
