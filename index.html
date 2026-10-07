@@ -1906,7 +1906,7 @@ window.addEventListener('error',function(e){
  <h2>會員管理</h2>
  <div class="card">
   <div class="formgrid">
-   <div><label>會員名稱 / 暱稱</label><input id="mName"></div>
+   <div><label>會員名稱</label><input id="mName"></div>\n   <div><label>綽號</label><input id="mNickname" placeholder="可留白"></div>
    <div><label>會員 ID（可留白自動產生）</label><input id="mId"></div>
    <div><label>預設結帳群組</label><input id="mGroup" placeholder="例如 A組"></div>
    <div><label style="font-size:16px;font-weight:700">備註</label><input id="mNote"></div>
@@ -1920,7 +1920,7 @@ window.addEventListener('error',function(e){
   <div class="formgrid" style="grid-template-columns:1fr 1fr 1.25fr .8fr 1.05fr auto auto">
    <div><label>查詢開始營業日</label><input type="date" id="memberDateFrom" onchange="renderMemberRows()"></div>
    <div><label>查詢結束營業日</label><input type="date" id="memberDateTo" onchange="renderMemberRows()"></div>
-   <div><label>搜尋會員</label><input id="memberSearch" type="search" autocomplete="off" placeholder="姓名、會員 ID 或結帳群組" oninput="renderMemberRows()"></div>
+   <div><label>搜尋會員</label><input id="memberSearch" type="search" autocomplete="off" placeholder="姓名、綽號、會員 ID 或結帳群組" oninput="renderMemberRows()"></div>
    <div><label>快速篩選</label><select id="memberFilterBy" onchange="renderMemberRows()"><option value="all">全部會員</option><option value="profit">獲利會員</option><option value="loss">虧損會員</option><option value="played">有參賽</option><option value="none">無參賽</option></select></div>
    <div><label>排序方式</label><select id="memberSortBy" onchange="renderMemberRows()">
     <option value="eventsDesc">參賽場次：高 → 低</option><option value="eventsAsc">參賽場次：低 → 高</option>
@@ -3654,17 +3654,17 @@ async function addMember(){
  const id=String($('mId').value.trim()||uid());
  if(Object.prototype.hasOwnProperty.call(memberDeletionMap_(db),id))return alert('此會員編號已有刪除紀錄，請使用新的會員編號，避免舊資料重新出現。');
  if((db.members||[]).some(m=>String(m.id||'').trim()===id))return alert('此會員 ID 已存在，請確認後再新增。');
- const group=$('mGroup').value.trim(), note=$('mNote').value.trim();
+ const nickname=$('mNickname')?.value.trim()||'', group=$('mGroup').value.trim(), note=$('mNote').value.trim();
  const btn=$('memberSaveBtn'); if(btn){btn.disabled=true;btn.textContent='新增中…';}
  try{
-   let member={id,name,group,note,history:[],createdAt:Date.now(),createdDate:new Date().toISOString(),source:'EPC'};
+   let member={id,name,nickname,group,note,history:[],createdAt:Date.now(),createdDate:new Date().toISOString(),source:'EPC'};
    if(cloudReady){
      setCloudState('● 正在新增會員…');
      const res=await cloudPost({action:'addMember',member:{id,name}});
      if(res.member)member={...member,...res.member,group,note,history:[]};
    }
    db.members.push(member);
-   ['mName','mId','mGroup','mNote'].forEach(x=>$(x).value='');
+   ['mName','mNickname','mId','mGroup','mNote'].forEach(x=>$(x).value='');
    // 新增成功後清除會員搜尋條件，避免新會員被既有搜尋條件隱藏
    if($('memberSearch'))$('memberSearch').value='';
    persist();
@@ -3739,6 +3739,7 @@ function editMember(id){
  let m=db.members.find(x=>x.id===id); if(!m)return;
  editingMemberId=id;
  $('mName').value=m.name||'';
+ $('mNickname').value=m.nickname||'';
  $('mId').value=m.id||'';
  $('mId').disabled=true;
  $('mGroup').value=m.group||'';
@@ -3755,6 +3756,7 @@ async function saveMemberEdit(){
  let m=db.members.find(x=>x.id===editingMemberId); if(!m)return cancelMemberEdit();
  let name=$('mName').value.trim(); if(!name)return alert('請輸入會員名稱');
  m.name=name;
+ m.nickname=$('mNickname').value.trim();
  m.group=$('mGroup').value.trim();
  m.note=$('mNote').value.trim();
  localStorage.setItem('epcV1',JSON.stringify(db));
