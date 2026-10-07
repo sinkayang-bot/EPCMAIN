@@ -966,6 +966,16 @@ textarea[id*="prize" i], input[id*="prize" i]{font-size:16px!important;line-heig
 .settlement-group-card .member-summary-title{
   color:#eef5fb!important;
 }
+/* Daily settlement stronger financial contrast */
+#settlementDetailView .settlement-group-card{border:1px solid #3b5268!important}
+#settlementDetailView .settlement-group-title{background:#142a3d!important;border-bottom:2px solid #49647d!important}
+#settlementDetailView .member-summary-title{background:#1c2f40!important;border-left:4px solid #d6a23d!important}
+#settlementDetailView .expense,#settlementDetailView .paid-expense{color:#ff525d!important;font-weight:900!important}
+#settlementDetailView .pos{color:#35d98b!important;font-weight:900!important}
+#settlementDetailView .neg{color:#ff525d!important;font-weight:900!important}
+#settlementDetailView .settlement-prize{color:#58b8ff!important;font-weight:900!important}
+#settlementDetailView .settlement-discount{color:#ffd166!important;font-weight:900!important}
+#settlementDetailView table tbody tr:hover{background:rgba(88,184,255,.08)!important}
 /* Daily settlement readability */
 #settlementDetailView{font-size:17px}
 #settlementDetailView .small{font-size:14px}
@@ -6052,7 +6062,7 @@ function renderDailySettlement(){
    <h3 class="settlement-group-title" style="display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap">
      <span>${g.name==='未分組'?'未分組':'群組 '+g.name}</span>
      <span style="font-size:16px;font-weight:900">
-      <span class="expense">總實付 ${money(g.paid)}</span>　｜　總領回 ${money(g.prize)}　｜　總折扣 ${money(g.discount)}　｜　
+      <span class="expense">總實付 ${money(g.paid)}</span>　｜　<span class="settlement-prize">總領回 ${money(g.prize)}</span>　｜　<span class="settlement-discount">總折扣 ${money(g.discount)}</span>　｜　
       <span class="${g.net>=0?'pos':'neg'}">總輸贏 ${money(g.net)}</span>
      </span>
     </h3>
@@ -6062,7 +6072,7 @@ function renderDailySettlement(){
       <div class="member-summary-title" style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:6px;padding:7px 10px;background:#17222d;border-radius:6px">
        <span style="font-size:17px;font-weight:900">${m.member}</span>
        <span style="font-size:14px;font-weight:800">
-        當日總結｜<span class="expense">實付 ${money(m.paid)}</span>　｜　領回 ${money(m.prize)}　｜　折扣 ${money(m.discount)}　｜　
+        當日總結｜<span class="expense">實付 ${money(m.paid)}</span>　｜　<span class="settlement-prize">領回 ${money(m.prize)}</span>　｜　<span class="settlement-discount">折扣 ${money(m.discount)}</span>　｜　
         <span class="${m.net>=0?'pos':'neg'}">輸贏 ${money(m.net)}</span>
        </span>
       </div>
