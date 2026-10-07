@@ -4498,7 +4498,14 @@ function addAccountingItem(){
  }
  if(!name)return alert('請輸入收支項目名稱');
  if(amount<=0)return alert('請輸入大於 0 的金額');
- let rec=db.dailyAccounting.find(x=>x.date===date);if(!rec)return;
+ let rec=db.dailyAccounting.find(x=>x&&x.date===date);
+ // Some accounting detail views are generated directly from event data and may not yet
+ // have a dailyAccounting row. Create it on first manual income/expense entry.
+ if(!rec){
+   rec={date:date,items:[],createdAt:new Date().toISOString()};
+   db.dailyAccounting.push(rec);
+   db.dailyAccounting.sort((a,b)=>String(b.date||'').localeCompare(String(a.date||'')));
+ }
  if(!Array.isArray(rec.items))rec.items=[];
  const category=preset?name:(type==='membership'?'入會費收入':type==='expense'?'其他支出':'其他收入');
  rec.items.push({id:Date.now().toString(36)+Math.random().toString(36).slice(2,6),type,name,category,amount});
