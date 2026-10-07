@@ -3614,7 +3614,7 @@ function firestoreEventPayload_(e){
  if(!e)return null;
  return {
   eventId:e.id,businessDate:businessDateForEvent(e),date:e.date||businessDateForEvent(e),
-  seq:+e.seq||1,name:eventDisplayName_(e),startTime:e.startTime||'',regClose:e.regCloseTime||'',
+  seq:+e.seq||1,name:eventDisplayName_(e),startTime:e.startTime||'',regClose:e.regCloseTime||'',endTime:e.endTime||'',
   level:+e.level||3400,buyin:+e.poolUnit||0,fee:+e.admin||0,pricingMode:e.pricingMode||'standard',
   buyinTotal:+e.buyinTotal||0,buyinAdmin:+e.buyinAdmin||0,rebuyTotal:+e.rebuyTotal||0,
   rebuyAdmin:+e.rebuyAdmin||0,freeAdminFrom:(+e.overbuyThreshold||10)+1,chips:+e.chips||0,
@@ -3918,7 +3918,7 @@ function renderReportSettings(){
 }
 function setReportColumn(k,v){ensureReportColumns();db.reportColumns[k]=!!v;persist();renderReportSettings();if(document.querySelector('#eventreport')?.classList.contains('active'))renderEventReport();}
 function visibleReportCols(){ensureReportColumns();return REPORT_COLUMNS.filter(([k])=>db.reportColumns[k]);}
-function saveEndTime(v){let e=currentEvent();if(!e)return;e.endTime=v||'';persist();}
+function saveEndTime(v){let e=currentEvent();if(!e)return;e.endTime=String(v||'').trim();touchEvent_(e);persist();syncEventToFirestore_(e,true).catch(err=>actionMsg('結束時間同步失敗：'+String(err?.message||err),true));}
 function goICM(){
  if(!requireEvent())return;
  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
@@ -4851,7 +4851,7 @@ function setEventName_(id,value){
 }
 function applyFirestoreEventsToLegacy_(rows){
  const remote=(rows||[]).map(v=>({
-   id:v.eventId,date:v.businessDate||v.date,name:v.name||'',startTime:v.startTime||'',regCloseTime:v.regClose||'',
+   id:v.eventId,date:v.businessDate||v.date,name:v.name||'',startTime:v.startTime||'',regCloseTime:v.regClose||'',endTime:v.endTime||'',
    seq:+v.seq||1,level:+v.level||3400,poolUnit:+v.buyin||Math.max(0,(+v.buyinTotal||3400)-(+v.buyinAdmin||400)),
    admin:+v.fee||+v.buyinAdmin||400,pricingMode:(v.pricingMode||'standard'),buyinTotal:+v.buyinTotal||3400,
    buyinAdmin:+v.buyinAdmin||400,rebuyTotal:+v.rebuyTotal||3400,rebuyAdmin:+v.rebuyAdmin||400,
