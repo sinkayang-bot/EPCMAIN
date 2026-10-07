@@ -6245,7 +6245,7 @@ function renderEventReport(){
    let m=db.members.find(x=>String(x.id)===String(p.memberId))||{name:'未知',id:p.memberId};
    let c=calcPlayerForEvent(p,e), growth=chipGrowthFor(p,e);
    let vals={
-     seat:p.seat||'',player:m.name||'未知',
+     seat:p.seat||'',player:(p.nickname||m.nickname||'').trim()||(m.name||'未知'),
      nickname:p.nickname||m.nickname||'',
      memberId:m.id||p.memberId||'',
      groups:c.groups,
