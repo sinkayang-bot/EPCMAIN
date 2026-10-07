@@ -4204,10 +4204,27 @@ function ensureDailyAccountingStore(){
  db.dailyAccounting.forEach(x=>{if(!Array.isArray(x.items))x.items=[];});
  if(db.currentAccountingDate===undefined)db.currentAccountingDate=null;
 }
+const epcAccountingPending_=new Map();
 function applyFirestoreDailyAccounting_(rows){
  if(!Array.isArray(rows))return;
  const selected=db.currentAccountingDate;
- db.dailyAccounting=rows.map(r=>({date:String(r.date||''),items:Array.isArray(r.items)?r.items:[],createdAt:r.createdAt||null})).filter(r=>r.date);
+ const remote=rows.map(r=>({date:String(r.date||''),items:Array.isArray(r.items)?r.items:[],createdAt:r.createdAt||null})).filter(r=>r.date);
+ const byDate=new Map(remote.map(r=>[r.date,r]));
+ // Firestore listeners may briefly deliver the pre-write snapshot while a local
+ // accounting write is in flight. Never let that stale snapshot erase the item
+ // the operator just added. Once the remote row contains the pending item IDs,
+ // the pending guard is released and Firestore becomes authoritative again.
+ for(const [date,pending] of epcAccountingPending_){
+   const rr=byDate.get(date);
+   const remoteIds=new Set((rr?.items||[]).map(x=>String(x?.id||'')));
+   const pendingIds=(pending.items||[]).map(x=>String(x?.id||'')).filter(Boolean);
+   if(rr && pendingIds.every(id=>remoteIds.has(id))){
+     epcAccountingPending_.delete(date);
+   }else{
+     byDate.set(date,{date,items:Array.isArray(pending.items)?pending.items:[],createdAt:pending.createdAt||null});
+   }
+ }
+ db.dailyAccounting=Array.from(byDate.values()).sort((a,b)=>String(b.date).localeCompare(String(a.date)));
  localStorage.setItem('epcV1',JSON.stringify(db));
  if(selected && $('accountingDetailView')?.style.display!=='none')renderDailyAccountingDetail();
  else renderAccountingManager();
@@ -4216,11 +4233,19 @@ window.addEventListener('epcFirestoreAccounting',ev=>{try{applyFirestoreDailyAcc
 
 async function saveDailyAccountingV3_(rec){
  if(!rec?.date)return false;
- localStorage.setItem('epcV1',JSON.stringify(db));
- if(window.EPCFirestore?.upsertDailyAccounting){
-   await window.EPCFirestore.upsertDailyAccounting({date:rec.date,items:Array.isArray(rec.items)?rec.items:[],createdAt:rec.createdAt||new Date().toISOString()});
+ if(!window.EPCFirestore?.ready || typeof window.EPCFirestore.upsertDailyAccounting!=='function'){
+   throw new Error('Firestore 帳務服務尚未連線，請稍後再試');
  }
- return true;
+ const payload={date:String(rec.date),items:Array.isArray(rec.items)?rec.items.map(x=>({...x})):[],createdAt:rec.createdAt||new Date().toISOString()};
+ epcAccountingPending_.set(payload.date,payload);
+ localStorage.setItem('epcV1',JSON.stringify(db));
+ try{
+   await window.EPCFirestore.upsertDailyAccounting(payload);
+   return true;
+ }catch(err){
+   epcAccountingPending_.delete(payload.date);
+   throw err;
+ }
 }
 function accountingAllEventsForDate(date){
  return (db.events||[]).filter(e=>businessDateForEvent(e)===date);
