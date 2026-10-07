@@ -1954,7 +1954,7 @@ window.addEventListener('error',function(e){
   <div class="small" style="margin-top:8px">消費占比＝該會員區間實際買入 ÷ 全部會員區間實際買入。</div>
  </div>
  <div class="card tablewrap" style="margin-top:12px"><table>
-  <thead><tr><th>會員</th><th>ID</th><th>結帳群組</th><th>參賽場次</th><th>消費占比</th><th>買入</th><th>領回</th><th>盈虧</th><th>操作</th></tr></thead>
+  <thead><tr><th>會員</th><th>綽號</th><th>ID</th><th>結帳群組</th><th>參賽場次</th><th>消費占比</th><th>買入</th><th>領回</th><th>盈虧</th><th>最後來店</th><th>操作</th></tr></thead>
   <tbody id="memberRows"></tbody><tfoot id="memberTotals"></tfoot>
  </table></div>
 </section>
@@ -4983,6 +4983,8 @@ function applyFirestoreEventsToLegacy_(rows){
  // Firestore is authoritative: never re-introduce stale local/legacy event rows.
  db.events=remote;
  renderEventList();
+ renderMemberRows();
+ renderDashboardSummary();
  if(db.currentAccountingDate && $('accountingDetailView')?.style.display!=='none')renderDailyAccountingDetail();
 }
 window.addEventListener('epcFirestoreEvents',ev=>{try{applyFirestoreEventsToLegacy_(ev.detail?.events||[])}catch(err){console.warn(err)}});
@@ -5092,8 +5094,20 @@ function calcPlayerForEvent(p,e){
 }
 
 function memberHistoryInRange(m,from,to){
- const h=memberHistory_(m);
- return h.filter(x=>{const d=String(x.date||'');return d&&(!from||d>=from)&&(!to||d<=to);});
+ const sid=String(m.id||m.memberId||'');
+ const events=Array.isArray(db.events)?db.events:[];
+ // Firestore event records are authoritative; derive settlement totals on every render.
+ const h=events.filter(e=>e.status==='已結算'||e.status==='settled').flatMap(e=>(e.players||[]).filter(p=>String(p.memberId)===sid).map(p=>{
+  const c=calcPlayerForEvent(p,e);return {eventId:e.id,date:businessDateForEvent(e),paid:c.paid,prize:+p.prize||0};
+ }));
+ const source=window.EPCFirestore?.ready?h:(h.length?h:memberHistory_(m));
+ return source.filter(x=>{const d=String(x.date||'');return d&&(!from||d>=from)&&(!to||d<=to)});
+}
+function memberLastVisit_(m){
+ const sid=String(m.id||m.memberId||'');
+ const dates=(db.events||[]).filter(e=>(e.players||[]).some(p=>String(p.memberId)===sid)).map(e=>businessDateForEvent(e)).filter(Boolean).sort();
+ if(window.EPCFirestore?.ready)return dates.at(-1)||'—';
+ return dates.at(-1)||m.lastVisit||'—';
 }
 function renderMemberRows(){
  const tbody=$('memberRows');if(!tbody)return;
@@ -5125,8 +5139,8 @@ function renderMemberRows(){
    return b.events-a.events||share(b)-share(a)||epcPlayerDisplayName_(a.m).localeCompare(epcPlayerDisplayName_(b.m),'zh-Hant');
  };
  const list=filtered.sort(cmp);
- tbody.innerHTML=list.map(({m,events,paid,prize,net})=>{const pct=totalPaid>0?paid/totalPaid*100:0;return `<tr><td>${epcPlayerDisplayHtml_(m)}</td><td>${m.id||''}</td><td>${m.group||'-'}</td><td>${events}</td><td>${pct.toFixed(1)}%</td><td>${money(paid)}</td><td>${money(prize)}</td><td class="${net>=0?'pos':'neg'}">${money(net)}</td><td><button onclick="editMember('${m.id}')">編輯</button> <button class="danger" onclick="delMember('${m.id}')">刪除</button></td></tr>`;}).join('')||'<tr><td colspan="9" class="small">找不到符合條件的會員</td></tr>';
- const foot=$('memberTotals');if(foot)foot.innerHTML=`<tr style="font-weight:800;border-top:2px solid #52677b"><td>區間總計</td><td colspan="2">${from||'全部'} ～ ${to||'全部'}</td><td>${totalEntries}</td><td>${totalPaid>0?'100.0%':'0.0%'}</td><td>${money(totalPaid)}</td><td>${money(totalPrize)}</td><td class="${totalNet>=0?'pos':'neg'}">${money(totalNet)}</td><td></td></tr>`;
+ tbody.innerHTML=list.map(({m,events,paid,prize,net})=>{const pct=totalPaid>0?paid/totalPaid*100:0;return `<tr><td>${epcPlayerDisplayHtml_(m)}</td><td>${epcDisplayEscape_(m.nickname||'—')}</td><td>${epcDisplayEscape_(m.id||'')}</td><td>${m.group||'-'}</td><td>${events}</td><td>${pct.toFixed(1)}%</td><td>${money(paid)}</td><td>${money(prize)}</td><td class="${net>=0?'pos':'neg'}">${money(net)}</td><td>${epcDisplayEscape_(memberLastVisit_(m))}</td><td><button onclick="editMember('${m.id}')">編輯</button> <button class="danger" onclick="delMember('${m.id}')">刪除</button></td></tr>`;}).join('')||'<tr><td colspan="11" class="small">找不到符合條件的會員</td></tr>';
+ const foot=$('memberTotals');if(foot)foot.innerHTML=`<tr style="font-weight:800;border-top:2px solid #52677b"><td>區間總計</td><td colspan="3">${from||'全部'} ～ ${to||'全部'}</td><td>${totalEntries}</td><td>${totalPaid>0?'100.0%':'0.0%'}</td><td>${money(totalPaid)}</td><td>${money(totalPrize)}</td><td class="${totalNet>=0?'pos':'neg'}">${money(totalNet)}</td><td></td><td></td></tr>`;
 }
 function setMemberRangeThisMonth(){const now=new Date(),y=now.getFullYear(),m=String(now.getMonth()+1).padStart(2,'0'),last=new Date(y,now.getMonth()+1,0).getDate();$('memberDateFrom').value=`${y}-${m}-01`;$('memberDateTo').value=`${y}-${m}-${String(last).padStart(2,'0')}`;renderMemberRows();}
 function clearMemberSearch(){
@@ -6847,4 +6861,4 @@ async function epcShowRecoveryAudit_(){
 <script src="firebase-config.js?v=20261007-0780"></script>
 <script src="firebase-events.js?v=20261007-admin-auth"></script>
 <script src="sync-v3.js?v=20261007-0780"></script>
-<script src="app.js?v=20261007-event-range"></script></body></html>
+<script src="app.js?v=20261007-member-stats"></script></body></html>
