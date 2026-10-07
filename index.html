@@ -4980,7 +4980,7 @@ function setEventName_(id,value){
    level:e.level,buyin:e.poolUnit,fee:e.admin,buyinTotal:e.buyinTotal,buyinAdmin:e.buyinAdmin,
    rebuyTotal:e.rebuyTotal,rebuyAdmin:e.rebuyAdmin,freeAdminFrom:(+e.overbuyThreshold||10)+1,
    jpRate:e.jp,jpRound:e.jpRound,status:(e.status==='已結算'||e.status==='settled')?'settled':'open',revision:+e.revision||1
- }).catch(err=>actionMsg('Firebase 更新失敗：'+String(err?.message||err),true));
+ },{rename:true}).catch(err=>actionMsg('Firebase 更新失敗：'+String(err?.message||err),true));
 }
 function applyFirestoreEventsToLegacy_(rows){
  const previousById=new Map((db.events||[]).map(e=>[String(e.id),e]));
@@ -6194,6 +6194,7 @@ function dailySettlementData(date){
      mr.events.push({
        eventId:e.id,
        eventSeq:e.seq||eventIndex+1,
+       eventLabel:eventDisplayName_(e),
        eventName:`${Number(e.level||0).toLocaleString()} 賽事`,
        paid,prize,discount,net
      });
@@ -6289,7 +6290,7 @@ function renderDailySettlement(){
         </tr></thead>
         <tbody>
          ${m.events.map(ev=>`<tr>
-          <td>第${ev.eventSeq}場｜${ev.eventName}</td>
+          <td>${epcDisplayEscape_(ev.eventLabel||`第${ev.eventSeq}場`)}｜${epcDisplayEscape_(ev.eventName)}</td>
           <td class="paid-expense">${money(ev.paid)}</td>
           <td>${money(ev.prize)}</td>
           <td>${money(ev.discount)}</td>
@@ -6333,7 +6334,7 @@ function printDailySettlement(groupNames=null){
      <table>
       <thead><tr><th>參加賽事</th><th>實付</th><th>領回</th><th>折扣</th><th>輸贏</th></tr></thead>
       <tbody>${m.events.map(ev=>`<tr>
-       <td>第${ev.eventSeq}場｜${ev.eventName}</td>
+       <td>${epcDisplayEscape_(ev.eventLabel||`第${ev.eventSeq}場`)}｜${epcDisplayEscape_(ev.eventName)}</td>
        <td>${money(ev.paid)}</td><td>${money(ev.prize)}</td>
        <td>${money(ev.discount)}</td><td class="${epcPnlClass_(ev.net)}">${money(ev.net)}</td>
       </tr>`).join('')}</tbody>
@@ -6900,6 +6901,6 @@ async function epcShowRecoveryAudit_(){
 }
 </script>
 <script src="firebase-config.js?v=20261007-0780"></script>
-<script src="firebase-events.js?v=20261007-reversion-guard"></script>
+<script src="firebase-events.js?v=20261008-event-label"></script>
 <script src="sync-v3.js?v=20261007-0780"></script>
 <script src="app.js?v=20261007-reversion-guard"></script></body></html>

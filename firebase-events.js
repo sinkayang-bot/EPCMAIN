@@ -20,6 +20,7 @@
     await fs.runTransaction(db,async tx=>{
      const snap=await tx.get(ref),old=snap.exists()?snap.data():{};
      const settled=x=>x==='settled'||x==='已結算';
+     if(options.rename&&snap.exists()){tx.update(ref,{name:String(e.name||''),updatedAt:fs.serverTimestamp()});return;}
      if(settled(old.status)&&!options.unlock){
       if(!settled(e.status))throw Error('這場賽事已結算，已阻止舊資料覆蓋；請重新整理');
       // A settled event is immutable until explicitly unlocked.
