@@ -2037,7 +2037,7 @@ window.addEventListener('error',function(e){
    <label class="player-col-chip"><input type="checkbox" data-player-col="paid" onchange="setPlayerColumnPreference('paid',this.checked)">實收</label> 
    <label class="player-col-chip"><input type="checkbox" data-player-col="settleGroup" onchange="setPlayerColumnPreference('settleGroup',this.checked)">結帳群組</label>
   </div>
-  <div class="small" style="margin-top:8px">座位、玩家、實收可自行勾選顯示；買入、重買、總組數固定顯示；結帳群組僅供後台分帳使用。</div>
+  <div class="small" style="margin-top:8px">座位、玩家、實收可自行勾選顯示；買入、重買、總組數固定顯示；結帳群組僅供後台分帳使用。綽號輸入完成離開欄位後，會同步到會員資料。<button type="button" onclick="syncEventNicknames_()">本場綽號同步會員</button></div>
  </div>
  <div class="card">
   <table id="eventPlayerTable" style="width:100%;table-layout:auto">
@@ -3880,6 +3880,18 @@ function addPlayer(){
  if($('addPlayerSearch'))$('addPlayerSearch').value='';
  persist();renderEventFast_();actionMsg('已加入本場');
 }
+async function syncPlayerNickname_(memberId,value){
+ const nickname=String(value||'').trim();if(!nickname)return;
+ try{if(!window.epcUpdateMemberNickname)throw Error('會員服務尚未載入');await window.epcUpdateMemberNickname(memberId,nickname);actionMsg('綽號已同步到會員資料')}
+ catch(err){actionMsg('綽號同步失敗：'+String(err.message||err),true)}
+}
+async function syncEventNicknames_(){
+ const e=currentEvent();if(!e)return;
+ const entries=(e.players||[]).filter(p=>String(p.nickname||'').trim());
+ let count=0,failed=[];
+ for(const p of entries){try{await window.epcUpdateMemberNickname(p.memberId,p.nickname);count++}catch(err){failed.push(String(p.memberId)+': '+String(err.message||err))}}
+ actionMsg(`本場綽號同步完成 ${count} 位`+(failed.length?'；失敗 '+failed.join('、'):''),failed.length>0);
+}
 function setP(i,k,v){
  let e=currentEvent();if(!e)return;
  if(e.status==='已結算')return alert('此賽事已完成結算並鎖定，不能再修改。');
@@ -5384,7 +5396,7 @@ function renderEventFast_(){
    const cell={
     seat:`<td><input value="${epcDisplayEscape_(p.seat||'')}" oninput="setP(${i},'seat',this.value)"></td>`,
     name:`<td>${epcPlayerDisplayHtml_(p,m)}</td>`,memberId:`<td>${p.memberId||''}</td>`,
-    nickname:`<td><input value="${epcDisplayEscape_(p.nickname||'')}" oninput="setP(${i},'nickname',this.value)"></td>`,
+    nickname:`<td><input value="${epcDisplayEscape_(p.nickname||'')}" oninput="setP(${i},'nickname',this.value)" onchange="syncPlayerNickname_('${p.memberId}',this.value)"></td>`,
     buyin:`<td><input type="number" min="0" value="${+p.buyin||0}" oninput="setP(${i},'buyin',this.value)"></td>`,
     rebuy:`<td><input type="number" min="0" value="${+p.rebuy||0}" oninput="setP(${i},'rebuy',this.value)"></td>`,
     groups:`<td>${cc.groups}</td>`,rebuyDiscount:`<td>${money(cc.rebuyDiscount)}</td>`,overbuyDiscount:`<td>${money(cc.overbuyDiscount)}</td>`,
@@ -5994,7 +6006,7 @@ function render(){
     seat:`<input value="${p.seat??''}" placeholder="座位" inputmode="numeric" style="width:100%;min-width:0" onchange="setP(${i},'seat',this.value)">`,
     name:`<span style="white-space:nowrap">${epcPlayerDisplayHtml_(p,m)}</span>`,
     memberId:`<span style="white-space:nowrap">${m.id||p.memberId||''}</span>`,
-    nickname:`<input value="${p.nickname??m.nickname??''}" placeholder="綽號" style="width:100%;min-width:0" onchange="setP(${i},'nickname',this.value)">`,
+    nickname:`<input value="${p.nickname??m.nickname??''}" placeholder="綽號" style="width:100%;min-width:0" onchange="setP(${i},'nickname',this.value);syncPlayerNickname_('${p.memberId}',this.value)">`,
     buyin:`<input type="number" min="0" value="${p.buyin}" style="width:100%;min-width:0" onchange="setP(${i},'buyin',this.value)">`,
     rebuy:`<input type="number" min="0" value="${p.rebuy}" style="width:100%;min-width:0" onchange="setP(${i},'rebuy',this.value)">`,
     groups:`<span style="white-space:nowrap">${c.groups}</span>`,
@@ -6882,4 +6894,4 @@ async function epcShowRecoveryAudit_(){
 <script src="firebase-config.js?v=20261007-0780"></script>
 <script src="firebase-events.js?v=20261007-admin-auth"></script>
 <script src="sync-v3.js?v=20261007-0780"></script>
-<script src="app.js?v=20261007-player-input-focus"></script></body></html>
+<script src="app.js?v=20261007-member-nickname-sync"></script></body></html>

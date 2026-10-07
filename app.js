@@ -69,6 +69,20 @@ function playerDisplayName(p){
  const m=MEMBER_ROWS.find(x=>p?.memberKey&&String(x.memberKey||'')===String(p.memberKey))||MEMBER_ROWS.find(x=>id&&String(x.memberId||'')===id);
  return window.epcPlayerDisplayName_(p,m);
 }
+const memberNicknameQueues=new Map();
+window.epcUpdateMemberNickname= function(memberId,value){
+ const id=String(memberId||''),nickname=String(value||'').trim();
+ if(!nickname)return Promise.resolve({skipped:true});
+ const previous=memberNicknameQueues.get(id)||Promise.resolve();
+ const job=previous.catch(()=>{}).then(async()=>{
+  const m=MEMBER_ROWS.find(x=>String(x.memberId)===id);if(!m?.memberKey)throw Error('找不到對應會員，請重新讀取會員後再試');
+  if(String(m.nickname||'').trim()===nickname)return {member:m};
+  const r=await api('member.update',{memberKey:m.memberKey,patch:{nickname},expectedRevision:m.revision});
+  if(!r.member)throw Error('會員綽號更新未確認');
+  const i=MEMBER_ROWS.findIndex(x=>x.memberKey===m.memberKey);if(i>=0)MEMBER_ROWS[i]={...MEMBER_ROWS[i],...r.member};
+  localStorage.setItem('eightMemberCache',JSON.stringify(MEMBER_ROWS));renderMembers();return r;
+ });memberNicknameQueues.set(id,job);job.finally(()=>{if(memberNicknameQueues.get(id)===job)memberNicknameQueues.delete(id)}).catch(()=>{});return job;
+};
 function memberSearchText(v){return String(v??'').normalize('NFKC').toLowerCase().replace(/\s+/g,'')}
 function renderMembers(rows=MEMBER_ROWS){
  const ldb=legacyDb_();
