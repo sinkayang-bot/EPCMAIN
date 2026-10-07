@@ -6747,7 +6747,9 @@ function displayPayload_(type){
   const B=A.boss||{},S=bossStats_(),b=activeBoss_(),hp=b?bossCurrentHp_():0,attacks=(b?.attacks||[]);
   return {type,title:'雙十狩王',activityFrom:range.from,activityTo:range.to,
    participants:(+S.np||0)+(+S.hp||0),participantAmount:(+S.npb||0)+(+S.hpb||0),groups:(+S.ng||0)+(+S.hg||0),groupAmount:(+S.ngb||0)+(+S.hgb||0),groupQualifyingEvents:(+S.normalQualifyingEvents||0)+(+S.huntQualifyingEvents||0),groupBonusRule:'組數加碼採每場獨立計算，不同場次組數不合併累計',personStep:+B.normalPersonStep||1,personAmount:+B.normalPersonAmount||100,personIgnore:+B.normalPersonIgnore||0,groupStep:+B.normalGroupStep||8,groupBonus:+B.normalGroupAmount||200,groupIgnore:+B.normalGroupIgnore||0,
-   pool:S.pool||0,cap:+B.cap||14000,attackActive:!!S.active,
+   startPrize:+(b?.startPrize??B.startPrize)||0,normalParticipantAmount:+S.npb||0,huntPersonEnabled:!!B.huntPersonEnabled,
+   huntGroupStep:+B.huntGroupStep||8,huntGroupBonus:+B.huntGroupAmount||200,huntGroupIgnore:+B.huntGroupIgnore||0,
+   pool:S.pool||0,cap:+B.cap||14000,attackThreshold:+B.attackThreshold||10000,attackActive:!!S.active,
    boss:b?{name:b.name||'魔王',initialHp:+b.initialHp||0,hp,killed:!!b.killed}:null,
    attacks:attacks.slice(0,12).map(x=>({date:x.date||'',memberId:x.memberId||'',name:epcPlayerDisplayName_(x.memberId),member:epcPlayerDisplayName_(x.memberId),method:x.method||'',damage:+x.damage||0,success:!!x.success,execute:+x.execute||0})),
    latest:attacks[0]?{member:epcPlayerDisplayName_(attacks[0].memberId),method:attacks[0].method,damage:+attacks[0].damage||0,success:!!attacks[0].success}:null};
