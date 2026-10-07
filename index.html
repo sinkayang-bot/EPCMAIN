@@ -5670,12 +5670,17 @@ function rankDayNum_(dateStr){
  return isNaN(d)?null:d.getDay();
 }
 function rankEventSeqOfDay_(e){
- const same=(db.events||[]).filter(x=>String(x.date||'')===String(e.date||''))
-   .sort((a,b)=>{
-     const ta=String(a.startTime||'99:99'),tb=String(b.startTime||'99:99');
-     if(ta!==tb)return ta.localeCompare(tb);
-     return (+a.seq||999)-(+b.seq||999);
-   });
+ const day=actBusinessDate_(e),opening=hmMinutes(db.settings?.businessStart||'16:00','16:00');
+ const offset=x=>{
+  const t=String(x.startTime||'');
+  if(!/^\d{1,2}:\d{2}$/.test(t))return null;
+  const m=hmMinutes(t,'00:00');return (m-opening+1440)%1440;
+ };
+ const same=(db.events||[]).filter(x=>actBusinessDate_(x)===day).slice().sort((a,b)=>{
+  const ta=offset(a),tb=offset(b);
+  if(ta!==null&&tb!==null&&ta!==tb)return ta-tb;
+  return bossEventOrder_(a)-bossEventOrder_(b)||String(a.id).localeCompare(String(b.id));
+ });
  return Math.max(1,same.findIndex(x=>String(x.id)===String(e.id))+1);
 }
 function rankTimeMatch_(time,from,to){
@@ -5687,7 +5692,7 @@ function rankTimeMatch_(time,from,to){
 }
 function rankRuleMatch_(e,r){
  if(!r||!r.enabled)return false;
- const day=rankDayNum_(e.date);
+ const day=rankDayNum_(actBusinessDate_(e));
  if(Array.isArray(r.days)&&r.days.length&&!r.days.includes(day))return false;
  if(r.mode==='firstN')return rankEventSeqOfDay_(e)<=Math.max(1,+r.firstN||1);
  if(r.mode==='time')return rankTimeMatch_(e.startTime,r.from,r.to);
@@ -5738,7 +5743,7 @@ function eventTopScores_(e){
 }
 function actRank_(){
  const A=db.activityManagement,tot={},dayNames=['日','一','二','三','四','五','六'];
- const detail=actEvents_('rank').map(e=>{const top=eventTopScores_(e);top.forEach(x=>tot[x.id]=(tot[x.id]||0)+x.score);return `<div class="card" style="margin-top:10px"><b>${actEventLabel_(e)}</b> <span class="small">當日第 ${rankEventSeqOfDay_(e)} 場｜倍率 ×${rankMultiplier_(e)}</span><table><thead><tr><th>名次</th><th>會員</th><th>籌碼淨勝值</th><th>下桌籌碼</th><th>得分</th></tr></thead><tbody>${top.map(x=>`<tr><td>${x.rank}</td><td>${epcDisplayEscape_(x.name)}</td><td class="${epcPnlClass_(x.net)}">${x.net.toFixed(1)}</td><td>${(+x.stack).toLocaleString()}</td><td>${x.score}</td></tr>`).join('')||'<tr><td colspan="5">無資料</td></tr>'}</tbody></table></div>`}).join('');
+ const detail=actEvents_('rank').map(e=>{const top=eventTopScores_(e);top.forEach(x=>tot[x.id]=(tot[x.id]||0)+x.score);return `<div class="card" style="margin-top:10px"><b>${actEventLabel_(e)}</b> <span class="small">營業日第 ${rankEventSeqOfDay_(e)} 場｜開桌 ${epcDisplayEscape_(e.startTime||'未設定')}｜倍率 ×${rankMultiplier_(e)}｜${epcDisplayEscape_((A.rankRecurringRules||[]).filter(r=>rankRuleMatch_(e,r)).map(r=>r.name||'加倍規則').join('、')||'未命中加倍規則')}</span><table><thead><tr><th>名次</th><th>會員</th><th>籌碼淨勝值</th><th>下桌籌碼</th><th>得分</th></tr></thead><tbody>${top.map(x=>`<tr><td>${x.rank}</td><td>${epcDisplayEscape_(x.name)}</td><td class="${epcPnlClass_(x.net)}">${x.net.toFixed(1)}</td><td>${(+x.stack).toLocaleString()}</td><td>${x.score}</td></tr>`).join('')||'<tr><td colspan="5">無資料</td></tr>'}</tbody></table></div>`}).join('');
  const ranking=Object.entries(tot).map(([id,auto])=>({id,name:epcPlayerDisplayName_(id),auto,adj:+A.rankAdjust[id]||0})).map(x=>({...x,total:x.auto+x.adj})).sort((a,b)=>b.total-a.total);
  const rules=(A.rankRecurringRules||[]).map(r=>`<div class="card" style="margin-top:8px;padding:12px">
    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
@@ -5758,7 +5763,7 @@ function actRank_(){
     <button class="danger" onclick="delRankRecurringRule_('${r.id}')">刪除</button>
    </div></div>`).join('');
  return `<div class="card"><h3>週排行榜｜自動計分</h3>
- <div class="small">每場依「籌碼淨勝值」排序；相同時以下桌籌碼較高者優先；兩者都相同則同名次、都得分。前三名 3／2／1 分。加倍規則依星期、當日場次順序或開桌時間自動判斷；同一場同時命中多條規則時採最高倍率，不重複相乘。</div>
+ <div class="small">每場依「籌碼淨勝值」排序；相同時以下桌籌碼較高者優先；兩者都相同則同名次、都得分。前三名 3／2／1 分。加倍規則依星期、營業日場次順序或開桌時間自動判斷；同一場同時命中多條規則時採最高倍率，不重複相乘。</div>
  <h3 style="margin-top:14px">固定加倍規則</h3>
  ${rules}
  <div class="card" style="margin-top:10px;padding:12px"><b>＋新增規則</b>
