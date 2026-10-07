@@ -1,0 +1,28 @@
+rules_version = '2';
+service cloud.firestore {
+ match /databases/{database}/documents {
+  function accountingAdmin() {
+   return request.auth != null
+    && request.auth.token.email_verified == true
+    && request.auth.token.firebase.sign_in_provider == 'google.com'
+    && exists(/databases/$(database)/documents/epc_accounting_admins/$(request.auth.uid))
+    && get(/databases/$(database)/documents/epc_accounting_admins/$(request.auth.uid)).data.active == true;
+  }
+  // Existing event access from the supplied production rules. This change does
+  // not secure the event collection; changing event access needs a separate rollout.
+  match /epc_events/{document=**} {
+   allow read, write: if true;
+  }
+  match /epc_daily_accounting/{date} {
+   allow read, delete: if accountingAdmin();
+   allow create, update: if accountingAdmin()
+    && request.resource.data.date == date
+    && request.resource.data.items is list;
+  }
+  // Only a privileged project administrator can provision/revoke these through
+  // Firebase Console or Admin SDK. Web clients cannot grant themselves access.
+  match /epc_accounting_admins/{uid} {
+   allow read, write: if false;
+  }
+ }
+}

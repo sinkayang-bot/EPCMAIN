@@ -1848,6 +1848,13 @@ button.epc-clicked-now,.btn.epc-clicked-now{transform:scale(.985);filter:brightn
  <div style="flex:1;min-width:220px"><strong id="eightMemberState">會員資料準備載入…</strong><div id="saveState" class="small" style="margin-top:5px">正在啟動系統</div></div>
  <button id="eightMemberRetry" type="button" onclick="eightReloadMembers_()">重新讀取會員</button>
 </div>
+<div class="card" style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+ <div id="epcAccountingAuthState" role="status" aria-live="polite" style="flex:1">帳務：正在載入管理員登入…</div>
+ <button id="epcAccountingLogin" type="button" disabled>Google 管理員登入</button>
+ <button id="epcAccountingRetry" type="button" hidden>重試帳務連線</button>
+ <button id="epcAccountingLogout" type="button" hidden>登出帳務</button>
+ <details id="epcAccountingSetup" hidden style="width:100%"><summary>首次啟用帳務管理員</summary><div class="small">管理員識別碼：<code id="epcAccountingUid"></code><br>請由專案管理員在 Firebase 設定此帳號的帳務權限，再按「重試帳務連線」。</div></details>
+</div>
 <script>
 window.addEventListener('error',function(e){
  if(!e.message)return;
@@ -6780,9 +6787,8 @@ async function epcShowRecoveryAudit_(){
 }
 </script>
 <script src="firebase-config.js?v=20261007-0780"></script>
-<script src="firebase-events.js?v=20261007-0800"></script>
+<script src="firebase-events.js?v=20261007-admin-auth"></script>
 <script src="sync-v3.js?v=20261007-0780"></script>
 <script src="app.js?v=20261007-ledger-handler-fix"></script></body></html>
-
 
 

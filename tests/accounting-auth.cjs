@@ -1,0 +1,57 @@
+const assert=require('node:assert/strict');
+const fs=require('node:fs');
+const path=require('node:path');
+(async()=>{
+ const source=fs.readFileSync(path.join(__dirname,'../firebase-accounting-auth.js'),'utf8');
+ const {setupAccountingAuth}=await import('data:text/javascript;base64,'+Buffer.from(source).toString('base64'));
+ const nodes=new Map();
+ const node=id=>{if(!nodes.has(id))nodes.set(id,{hidden:false,disabled:true,textContent:'',handlers:{},addEventListener(type,fn){this.handlers[type]=fn;}});return nodes.get(id);};
+ const published=[],listeners=[],currentUser={uid:'TEST-ADMIN',emailVerified:true,displayName:'Test Admin'};
+ global.document={getElementById:node};
+ global.window={dispatchEvent:ev=>published.push(ev)};
+ global.CustomEvent=class{constructor(type,args){this.type=type;this.detail=args.detail;}};
+ const auth={currentUser:null};let authChange;
+ const bridge={accountingReady:false};
+ const authMod={getAuth:()=>auth,onAuthStateChanged:(_auth,fn)=>{authChange=fn;fn(null);return ()=>{};},
+  GoogleAuthProvider:class{setCustomParameters(){}},
+  async signInWithPopup(){auth.currentUser=currentUser;authChange(currentUser);},
+  async signOut(){auth.currentUser=null;authChange(null);}};
+ const firestore={onSnapshot:(_col,options,ok,fail)=>{const row={ok,fail,closed:false,options};listeners.push(row);return ()=>{row.closed=true;};}};
+ setupAccountingAuth({app:{},fs:firestore,accountingCol:{},bridge,authMod});
+ assert.equal(listeners.length,0,'no unauthenticated accounting read');
+ assert.throws(()=>bridge.requireAccountingAccess(),/Google 管理員登入/);
+ assert.equal(node('epcAccountingLogin').disabled,false);
+ await node('epcAccountingLogin').handlers.click();
+ assert.equal(listeners.length,1);
+ assert.equal(node('epcAccountingUid').textContent,'TEST-ADMIN');
+ listeners[0].ok({metadata:{fromCache:true},forEach(){}});
+ assert.equal(bridge.accountingReady,false,'cached data must not grant access');
+ assert.equal(published.length,0);
+ listeners[0].fail({code:'permission-denied'});
+ assert.equal(bridge.accountingReady,false);
+ assert.equal(node('epcAccountingSetup').hidden,false);
+ assert.throws(()=>bridge.requireAccountingAccess(),/管理員權限/);
+ node('epcAccountingRetry').handlers.click();
+ assert.equal(listeners[0].closed,true);
+ assert.equal(listeners.length,2);
+ listeners[0].ok({metadata:{fromCache:false},forEach(){}});
+ assert.equal(bridge.accountingReady,false,'ignore callbacks from a replaced subscription');
+ listeners[1].ok({metadata:{fromCache:false},forEach(fn){fn({id:'2026-10-06',data:()=>({items:[{id:'test',amount:100}]})});}});
+ assert.equal(bridge.accountingReady,true);
+ assert.doesNotThrow(()=>bridge.requireAccountingAccess());
+ assert.equal(published[0].detail.rows[0].date,'2026-10-06');
+ await node('epcAccountingLogout').handlers.click();
+ assert.equal(listeners[1].closed,true);
+ assert.equal(bridge.accountingReady,false);
+ assert.throws(()=>bridge.requireAccountingAccess(),/Google 管理員登入/);
+ listeners[1].ok({metadata:{fromCache:false},forEach(){}});
+ assert.equal(published.length,1,'signed-out callbacks must not publish or clear the ledger');
+ auth.currentUser={...currentUser,emailVerified:false};authChange(auth.currentUser);
+ assert.equal(listeners.length,2,'unverified users must not subscribe');
+ authChange(null);auth.currentUser=null;
+ authMod.signInWithPopup=async()=>{throw {code:'auth/operation-not-allowed'};};
+ await node('epcAccountingLogin').handlers.click();
+ assert.match(node('epcAccountingAuthState').textContent,/啟用 Google 登入/);
+ assert.equal(node('epcAccountingLogin').disabled,false);
+ console.log('PASS: auth gating, denied access, server confirmation, retry, stale callbacks, logout and provider errors.');
+})().catch(e=>{console.error(e);process.exitCode=1;});
