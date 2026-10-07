@@ -2560,6 +2560,13 @@ function memberHistory_(member){
  member.history=rows;
  return rows;
 }
+function epcAcceptLegacyDb_(incoming){
+ // Legacy backups own settings/activities, never current Firestore events or V3 members.
+ if(window.EPCFirestore?.ready && Array.isArray(window.EPC_FIRESTORE_LAST_EVENTS))incoming.events=db.events;
+ const members=window.epcAuthoritativeMembers_?.();
+ if(Array.isArray(members))incoming.members=members.map(m=>({...m,id:m.memberId}));
+ return incoming;
+}
 function mergeFormMembers(baseMembers,formMembers){
  const base=Array.isArray(baseMembers)?baseMembers:[];
  const forms=Array.isArray(formMembers)?formMembers:[];
@@ -2943,7 +2950,7 @@ function startLiveSync_(){
 
      if(!localDirty){
        backupLocal('before-live-remote-apply-v2');
-       db=remote;
+       db=epcAcceptLegacyDb_(remote);
        epcLastPersistSnapshot_=cloneCloud_(db);
        cloudRevision=loadedRev;
        setCloudBase_(remote);
@@ -2963,7 +2970,7 @@ function startLiveSync_(){
      merged=preserveActivityEdits_(localBeforeMerge,merged);
      merged=preserveEventEdits_(localBeforeMerge,merged);
      merged=preserveMembers_(localBeforeMerge,merged,res.members);
-     db=merged;
+     db=epcAcceptLegacyDb_(merged);
      epcLastPersistSnapshot_=cloneCloud_(db);
      cloudRevision=loadedRev;
      setCloudBase_(remote);
@@ -3001,7 +3008,7 @@ async function eightReloadMembers_(){
    const members=result.members.filter(m=>m&&String(m.id||'').trim());
    if(result.members.length&&!members.length)throw new Error('會員資料缺少會員編號');
    db.memberDeletions=memberDeletionMap_(db,result.data);
-   db=preserveMembers_(db,db,members);
+   db=epcAcceptLegacyDb_(preserveMembers_(db,db,members));
    epcLastPersistSnapshot_=cloneCloud_(db);
    eightRenderMembers_();
    try{localStorage.setItem('epcV1',JSON.stringify(db));}catch(err){setCloudState('會員已載入，但此瀏覽器無法保存快取：'+err.message,true);}
@@ -3030,7 +3037,7 @@ async function initializeCloud(){
    if(!remote.settings.businessEnd)remote.settings.businessEnd='07:00';
    for(const key of ['members','events','dailyAccounting','dailySettlementReports'])if(!Array.isArray(remote[key]))remote[key]=[];
    const pendingLocal=localDirty&&cloudBase;
-   db=pendingLocal?preserveMembers_(db,mergeCloud3_(cloudBase,db,remote),res.members):remote;
+   db=epcAcceptLegacyDb_(pendingLocal?preserveMembers_(db,mergeCloud3_(cloudBase,db,remote),res.members):remote);
    cloudRevision=Number(res.revision||0);
    setCloudBase_(remote);
    localDirty=!!pendingLocal;cloudPending=!!pendingLocal;cloudReady=true;eightFullLoadVerified_=true;
@@ -3062,7 +3069,7 @@ async function refreshFormMembers(saveAfter=true){
    const res=await cloudGet('load');
    db.memberDeletions=memberDeletionMap_(db,res.data);
    const before=JSON.stringify((db.members||[]).map(m=>[m.id,m.name,m.group,m.note,m.createdDate]));
-   db=preserveMembers_(db,db,res.members);
+   db=epcAcceptLegacyDb_(preserveMembers_(db,db,res.members));
    localStorage.setItem('epcV1',JSON.stringify(db));
    const after=JSON.stringify((db.members||[]).map(m=>[m.id,m.name,m.group,m.note,m.createdDate]));
    if(before!==after){
@@ -3142,21 +3149,21 @@ async function saveCloudNow(force=false){
    // new local edits on top of the confirmed server snapshot and immediately queue them.
    const changedDuringSave=!sameCloud_(db,localAtStart);
    if(changedDuringSave){
-     db=mergeCloud3_(localAtStart,db,server);
-     db=preserveManualDiscountEdits_(db,server);
-     db=preserveActivityEdits_(db,server);
-     db=preserveEventEdits_(db,server);
-     db=preserveMembers_(db,db,latest.members);
+     db=epcAcceptLegacyDb_(mergeCloud3_(localAtStart,db,server));
+     db=epcAcceptLegacyDb_(preserveManualDiscountEdits_(db,server));
+     db=epcAcceptLegacyDb_(preserveActivityEdits_(db,server));
+     db=epcAcceptLegacyDb_(preserveEventEdits_(db,server));
+     db=epcAcceptLegacyDb_(preserveMembers_(db,db,latest.members));
      localDirty=true;
      localStorage.setItem('epcLocalDirty','1');
      cloudPending=true;
    }else{
      // Server response is authoritative after a successful save. Explicit manual
      // discount timestamps are preserved so a stale zero can never win later.
-     db=preserveManualDiscountEdits_(candidate,server);
-     db=preserveActivityEdits_(candidate,db);
-     db=preserveEventEdits_(candidate,db);
-     db=preserveMembers_(candidate,db,latest.members);
+     db=epcAcceptLegacyDb_(preserveManualDiscountEdits_(candidate,server));
+     db=epcAcceptLegacyDb_(preserveActivityEdits_(candidate,db));
+     db=epcAcceptLegacyDb_(preserveEventEdits_(candidate,db));
+     db=epcAcceptLegacyDb_(preserveMembers_(candidate,db,latest.members));
      localDirty=false;
      localStorage.removeItem('epcLocalDirty');
    }
@@ -3247,7 +3254,7 @@ async function loadVerifiedRecovery_(){
   if(!audit||audit.snapshotHashOk!==true)throw new Error('SNAPSHOT_HASH_NOT_VERIFIED');
   if(audit.memberCount!==1667||audit.eventCount!==24||audit.latestEventDate!=='2026-10-03')throw new Error('VERIFIED_BASELINE_CHANGED');
   backupLocal('before-verified-recovery');
-  db=cloneCloud_(data);
+  db=epcAcceptLegacyDb_(cloneCloud_(data));
   localStorage.setItem('epcV1',JSON.stringify(db));
   localStorage.setItem('epcVerifiedOct3Restored','1');
   location.reload();
@@ -3264,8 +3271,8 @@ async function manualCloudLoad(){
    backupLocal('before-manual-cloud-load');
    const res=await cloudGet('load');
    if(!res.data || typeof res.data!=='object')throw new Error('CLOUD_EMPTY');
-   db=res.data;
-   db=preserveMembers_(db,db,res.members);
+   db=epcAcceptLegacyDb_(res.data);
+   db=epcAcceptLegacyDb_(preserveMembers_(db,db,res.members));
    cloudRevision=Number(res.revision||0);
    setCloudBase_(db);
    localStorage.setItem('epcV1',JSON.stringify(db));
@@ -3397,7 +3404,7 @@ window.epcFirebaseApplyRemote=function(remote,meta){
    suppressMirrorUntil=Date.now()+5000;
    clearTimeout(timer);
    backupLocal('before-firebase-safe-apply-v1');
-   db=cloneCloud_(remote);
+   db=epcAcceptLegacyDb_(cloneCloud_(remote));
    epcLastPersistSnapshot_=cloneCloud_(db);
    const rev=Number(meta&&meta.legacyRevision||0);
    if(rev>cloudRevision)cloudRevision=rev;
@@ -3612,11 +3619,11 @@ function scheduleFirebaseConflictDrain_(){
          console.warn('Firebase same-field conflicts',conflicts);
          return; // Never silently choose a winner.
        }
-       db=mergeCloud3_(base,localNow,remote);
-       db=preserveManualDiscountEdits_(localNow,db);
-       db=preserveActivityEdits_(localNow,db);
-       db=preserveEventEdits_(localNow,db);
-       db=preserveMembers_(localNow,db);
+       db=epcAcceptLegacyDb_(mergeCloud3_(base,localNow,remote));
+       db=epcAcceptLegacyDb_(preserveManualDiscountEdits_(localNow,db));
+       db=epcAcceptLegacyDb_(preserveActivityEdits_(localNow,db));
+       db=epcAcceptLegacyDb_(preserveEventEdits_(localNow,db));
+       db=epcAcceptLegacyDb_(preserveMembers_(localNow,db));
        localStorage.setItem('epcV1',JSON.stringify(db));
        localDirty=true;cloudPending=true;
        localStorage.setItem('epcLocalDirty','1');
@@ -3650,14 +3657,14 @@ function firestoreEventPayload_(e){
   buyinTotal:+e.buyinTotal||0,buyinAdmin:+e.buyinAdmin||0,rebuyTotal:+e.rebuyTotal||0,
   rebuyAdmin:+e.rebuyAdmin||0,freeAdminFrom:(+e.overbuyThreshold||10)+1,chips:+e.chips||0,
   jpRate:+e.jp||0,jpRound:+e.jpRound||0,payout:e.payout||'',reportRule:e.reportRule||'',reportFields:e.reportFields||{},players:Array.isArray(e.players)?e.players:[],
-  accounting:e.accounting||{},accountingGroup:accountingGroupForEvent(e),accountingItems:Array.isArray(e.accountingItems)?e.accountingItems:[],status:e.status==='已結算'?'settled':'open',revision:+e.revision||1,
+  accounting:e.accounting||{},accountingGroup:accountingGroupForEvent(e),accountingItems:Array.isArray(e.accountingItems)?e.accountingItems:[],status:(e.status==='已結算'||e.status==='settled')?'settled':'open',revision:+e.revision||1,
   finalJP:e.finalJP,finalAccounting:e.finalAccounting,_eventUpdatedAt:+e._eventUpdatedAt||Date.now()
  };
 }
 let EPC_FIRESTORE_EVENT_SAVE_TIMERS=new Map();
-function syncEventToFirestore_(e,immediate=false){
+function syncEventToFirestore_(e,immediate=false,options={}){
  if(!e?.id||!window.EPCFirestore?.ready)return Promise.resolve(false);
- const id=String(e.id),run=()=>window.EPCFirestore.upsertEvent(firestoreEventPayload_(e)).then(()=>true);
+ const id=String(e.id),run=()=>window.EPCFirestore.upsertEvent(firestoreEventPayload_(e),options).then(()=>true);
  if(immediate){const old=EPC_FIRESTORE_EVENT_SAVE_TIMERS.get(id);if(old)clearTimeout(old);EPC_FIRESTORE_EVENT_SAVE_TIMERS.delete(id);return run();}
  const old=EPC_FIRESTORE_EVENT_SAVE_TIMERS.get(id);if(old)clearTimeout(old);
  EPC_FIRESTORE_EVENT_SAVE_TIMERS.set(id,setTimeout(()=>{EPC_FIRESTORE_EVENT_SAVE_TIMERS.delete(id);run().catch(err=>actionMsg('Firebase 賽事同步失敗：'+String(err?.message||err),true))},180));
@@ -3741,7 +3748,7 @@ async function performDelMember(id){
    await cloudPost({action:'deleteMember',memberId:sid});
    db.memberDeletions=memberDeletionMap_(db);
    db.memberDeletions[sid]={deletedAt:Date.now()};
-   db=preserveMembers_(db,db,[]);
+   db=epcAcceptLegacyDb_(preserveMembers_(db,db,[]));
    deletionPending=true;
    persist();
    clearTimeout(cloudSaveTimer);
@@ -3752,7 +3759,7 @@ async function performDelMember(id){
    const deletions=memberDeletionMap_(verified.data);
    if(!Object.prototype.hasOwnProperty.call(deletions,sid))throw new Error('雲端尚未確認刪除紀錄');
    db.memberDeletions=memberDeletionMap_(db,verified.data);
-   db=preserveMembers_(db,db,verified.members);
+   db=epcAcceptLegacyDb_(preserveMembers_(db,db,verified.members));
    localStorage.setItem('epcV1',JSON.stringify(db));
    epcLastPersistSnapshot_=cloneCloud_(db);
    eightRenderMembers_();
@@ -4956,7 +4963,7 @@ async function unlockSettledEvent(id){
  delete e.finalAccounting;
  touchEvent_(e);
  persist();
- try{await syncEventToFirestore_(e,true);}catch(err){return actionMsg('Firebase 解鎖同步失敗：'+String(err?.message||err),true);}
+ try{await syncEventToFirestore_(e,true,{unlock:true});}catch(err){return actionMsg('Firebase 解鎖同步失敗：'+String(err?.message||err),true);}
  render();
  if(cloudReady)await saveCloudNow(false);
  actionMsg(`已解鎖：${label}；修改完成後請重新正式結算`);
@@ -4972,7 +4979,7 @@ function setEventName_(id,value){
    eventId:e.id,businessDate:businessDateForEvent(e),name:eventDisplayName_(e),startTime:e.startTime||'',
    level:e.level,buyin:e.poolUnit,fee:e.admin,buyinTotal:e.buyinTotal,buyinAdmin:e.buyinAdmin,
    rebuyTotal:e.rebuyTotal,rebuyAdmin:e.rebuyAdmin,freeAdminFrom:(+e.overbuyThreshold||10)+1,
-   jpRate:e.jp,jpRound:e.jpRound,status:e.status==='已結算'?'settled':'open',revision:+e.revision||1
+   jpRate:e.jp,jpRound:e.jpRound,status:(e.status==='已結算'||e.status==='settled')?'settled':'open',revision:+e.revision||1
  }).catch(err=>actionMsg('Firebase 更新失敗：'+String(err?.message||err),true));
 }
 function applyFirestoreEventsToLegacy_(rows){
@@ -4986,7 +4993,8 @@ function applyFirestoreEventsToLegacy_(rows){
    buyinAdmin:+v.buyinAdmin||400,rebuyTotal:+v.rebuyTotal||3400,rebuyAdmin:+v.rebuyAdmin||400,
    overbuyThreshold:Math.max(1,(+v.freeAdminFrom||11)-1),chips:+v.chips||300000,jp:+v.jpRate||3,
    jpRound:+v.jpRound||100,payout:v.payout||'50,30,20',reportRule:v.reportRule||'',reportFields:v.reportFields||{},players:Array.isArray(v.players)?v.players:[],
-   status:v.status==='settled'?'已結算':'進行中',accounting:v.accounting||prev.accounting||{otherIncome:0,venueIncome:0,laborExpense:0,otherExpense:0},
+   revision:+v.revision||1,_eventUpdatedAt:+v._eventUpdatedAt||0,finalJP:v.finalJP,finalAccounting:v.finalAccounting,
+   status:(v.status==='settled'||v.status==='已結算')?'已結算':'進行中',accounting:v.accounting||prev.accounting||{otherIncome:0,venueIncome:0,laborExpense:0,otherExpense:0},
    // Preserve local accounting-only metadata that is not part of the Firestore event schema.
    accountingGroup:Object.prototype.hasOwnProperty.call(v,'accountingGroup')?v.accountingGroup:(prev.accountingGroup||''),
    accountingItems:Array.isArray(v.accountingItems)?v.accountingItems:(Array.isArray(prev.accountingItems)?prev.accountingItems:[]),
@@ -6892,6 +6900,6 @@ async function epcShowRecoveryAudit_(){
 }
 </script>
 <script src="firebase-config.js?v=20261007-0780"></script>
-<script src="firebase-events.js?v=20261007-admin-auth"></script>
+<script src="firebase-events.js?v=20261007-reversion-guard"></script>
 <script src="sync-v3.js?v=20261007-0780"></script>
-<script src="app.js?v=20261007-member-nickname-sync"></script></body></html>
+<script src="app.js?v=20261007-reversion-guard"></script></body></html>

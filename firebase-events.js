@@ -14,7 +14,23 @@
    ready:true,
    accountingReady:false,
    requireAccountingAccess(){throw new Error('帳務登入服務尚未載入，請稍後再試')},
-   async upsertEvent(e){if(!e?.eventId)return;await fs.setDoc(fs.doc(col,String(e.eventId)),{...clean(e),updatedAt:fs.serverTimestamp()},{merge:true})},
+   async upsertEvent(e,options={}){
+    if(!e?.eventId)return;
+    const ref=fs.doc(col,String(e.eventId));
+    await fs.runTransaction(db,async tx=>{
+     const snap=await tx.get(ref),old=snap.exists()?snap.data():{};
+     const settled=x=>x==='settled'||x==='已結算';
+     if(settled(old.status)&&!options.unlock){
+      if(!settled(e.status))throw Error('這場賽事已結算，已阻止舊資料覆蓋；請重新整理');
+      // A settled event is immutable until explicitly unlocked.
+      return;
+     }
+     if(old._eventUpdatedAt&&e._eventUpdatedAt&&Number(old._eventUpdatedAt)>Number(e._eventUpdatedAt))throw Error('賽事已有較新修改，請重新整理後再編輯');
+     const row={...clean(e),status:settled(e.status)?'settled':'open',updatedAt:fs.serverTimestamp()};
+     if(options.unlock){row.finalJP=fs.deleteField();row.finalAccounting=fs.deleteField();}
+     tx.set(ref,row,{merge:true});
+    });
+   },
    async createEvent(e){const eventId=String(e?.eventId||('EV-'+Date.now()+'-'+Math.random().toString(36).slice(2,8)));const row={...clean(e),eventId,status:e?.status||'open',revision:Number(e?.revision||1),createdAt:Date.now()};await fs.setDoc(fs.doc(col,eventId),{...row,updatedAt:fs.serverTimestamp()});return row},
    async deleteEvent(id){if(id)await fs.deleteDoc(fs.doc(col,String(id)))},
    async upsertDailyAccounting(row){

@@ -69,6 +69,11 @@ function playerDisplayName(p){
  const m=MEMBER_ROWS.find(x=>p?.memberKey&&String(x.memberKey||'')===String(p.memberKey))||MEMBER_ROWS.find(x=>id&&String(x.memberId||'')===id);
  return window.epcPlayerDisplayName_(p,m);
 }
+window.epcAuthoritativeMembers_=()=>MEMBER_ROWS.length?MEMBER_ROWS.map(m=>({...m})):null;
+function mergeMemberSnapshot_(incoming){
+ const current=new Map(MEMBER_ROWS.map(m=>[m.memberKey,m]));
+ return (incoming||[]).map(m=>{const old=current.get(m.memberKey);return old&&Number(old.revision||0)>Number(m.revision||0)?old:m});
+}
 const memberNicknameQueues=new Map();
 window.epcUpdateMemberNickname= function(memberId,value){
  const id=String(memberId||''),nickname=String(value||'').trim();
@@ -104,7 +109,7 @@ window.eightReloadMembers_=async function(){
  try{
   let r;
   try{r=await api('member.list')}catch(e){if(!/UNKNOWN_ACTION|unknow action/i.test(String(e.message||e)))throw e;r=await api('bootstrap')}
-  MEMBER_ROWS=r.members||[];
+  MEMBER_ROWS=mergeMemberSnapshot_(r.members);
   if(Number.isFinite(Number(r.cursor))){localStorage.setItem('epcCursor',String(Number(r.cursor)));if(window.EPCSync)window.EPCSync.state.cursor=Number(r.cursor)}
   localStorage.setItem('eightMemberCache',JSON.stringify(MEMBER_ROWS));
   const ldb=legacyDb_();
@@ -163,7 +168,7 @@ document.querySelector('#eventTodayBtn')?.addEventListener('click',()=>document.
 document.querySelector('#createEventBtn')?.addEventListener('click',openEventModal);
 document.querySelectorAll('[data-close-event]').forEach(x=>x.addEventListener('click',closeEventModal));
 document.querySelector('#eventLevel')?.addEventListener('change',e=>{const p=EVENT_PRESETS[e.target.value];if(p){document.querySelector('#eventBuyinTotal').value=p[0];document.querySelector('#eventBuyinAdmin').value=p[1];document.querySelector('#eventRebuyTotal').value=p[2];document.querySelector('#eventRebuyAdmin').value=p[3]}const n=document.querySelector('#eventName'),count=(window.EIGHT_EVENTS||[]).length+1;if(/^EPC#\d+\s/.test(n.value)||!n.value.trim())n.value='EPC#'+count+' '+(e.target.value==='custom'?'自訂':e.target.value)+' 限時錦標賽'});
-function bridgeV3Activities_(events,playersByEvent){if(!window.db)return;window.db.events=window.db.events||[];(events||[]).forEach(v=>{let e=window.db.events.find(x=>String(x.id)===String(v.eventId));if(!e){e={id:v.eventId,players:[]};window.db.events.push(e)}Object.assign(e,{id:v.eventId,date:v.businessDate,businessDate:v.businessDate,name:v.name,startTime:v.startTime,level:v.level,status:v.status,buyin:v.buyin,fee:v.fee,buyinTotal:v.buyinTotal,buyinAdmin:v.buyinAdmin,rebuyTotal:v.rebuyTotal,rebuyAdmin:v.rebuyAdmin,freeAdminFrom:v.freeAdminFrom,jpRate:v.jpRate,icmRate:v.icmRate,icmRound:v.icmRound,revision:v.revision});if(playersByEvent&&playersByEvent[v.eventId])e.players=playersByEvent[v.eventId].map(p=>({memberId:p.memberId,memberKey:p.memberKey,name:p.name,buyin:p.buyin,rebuy:p.rebuy,entries:p.entries,chips:p.chips,prize:p.prize,group:p.group,earlyDiscount:p.earlyDiscount,lateDiscount:p.lateDiscount,otherDiscount:p.otherDiscount,revision:p.revision}))})}
+function bridgeV3Activities_(events,playersByEvent){if(window.EPCFirestore?.ready||!window.db)return;window.db.events=window.db.events||[];(events||[]).forEach(v=>{let e=window.db.events.find(x=>String(x.id)===String(v.eventId));if(!e){e={id:v.eventId,players:[]};window.db.events.push(e)}Object.assign(e,{id:v.eventId,date:v.businessDate,businessDate:v.businessDate,name:v.name,startTime:v.startTime,level:v.level,status:v.status,buyin:v.buyin,fee:v.fee,buyinTotal:v.buyinTotal,buyinAdmin:v.buyinAdmin,rebuyTotal:v.rebuyTotal,rebuyAdmin:v.rebuyAdmin,freeAdminFrom:v.freeAdminFrom,jpRate:v.jpRate,icmRate:v.icmRate,icmRound:v.icmRound,revision:v.revision});if(playersByEvent&&playersByEvent[v.eventId])e.players=playersByEvent[v.eventId].map(p=>({memberId:p.memberId,memberKey:p.memberKey,name:p.name,buyin:p.buyin,rebuy:p.rebuy,entries:p.entries,chips:p.chips,prize:p.prize,group:p.group,earlyDiscount:p.earlyDiscount,lateDiscount:p.lateDiscount,otherDiscount:p.otherDiscount,revision:p.revision}))})}
 
 // Firestore phase-1 event realtime bridge. Apps Script remains persistence fallback during migration.
 window.addEventListener('epcFirestoreEvents',e=>{
