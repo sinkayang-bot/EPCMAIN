@@ -26,7 +26,7 @@ function setup() {
     askDeleteConfirm:(_message, cb)=>cb(),
     businessDateForEvent:e=>e.date,
     renderDashboardSummary(){}, renderDashboardDailyReport(){},
-    db:{members:[],events:[{id:'TEST-EVENT',date:'2026-10-06',seq:1,level:3400,admin:400,poolUnit:3000,finalJP:200,players:[{buyin:1},{buyin:1}]}], dailyAccounting:[{date:'2026-10-06',items:[]}],currentAccountingDate:'2026-10-06'},
+    db:{members:[],events:[{id:'TEST-EVENT',date:'2026-10-06',seq:1,status:'已結算',level:3400,admin:400,poolUnit:3000,finalJP:200,players:[{buyin:1},{buyin:1}]}], dailyAccounting:[{date:'2026-10-06',items:[]}],currentAccountingDate:'2026-10-06'},
     EPCFirestore:{ready:true,async upsertDailyAccounting(row){saves.push(JSON.parse(JSON.stringify(row)));}},
     async fetch(_url, options){const req=JSON.parse(options.body);requests.push(req);return {status:200,text:async()=>JSON.stringify({ok:true,item:{itemId:'SHEET-ITEM'},items:[],summary:{},total:0})};},
   });
@@ -49,6 +49,17 @@ function setup() {
 (async()=>{
   const t=setup();
   assert.equal(t.node('aAdminGross').textContent,'$800');
+  const settled=t.context.db.events[0];
+  t.context.db.events.push({...settled,id:'OPEN-EVENT',status:'進行中',players:[{buyin:10}]});
+  assert.equal(t.context.dailyAccountingInfo('2026-10-06').events.length,1);
+  assert.equal(t.context.dailyAccountingInfo('2026-10-06').gross,800,'open event must not affect ledger');
+  t.context.db.events[1].status='settled';
+  assert.equal(t.context.dailyAccountingInfo('2026-10-06').events.length,2,'English settled status is included');
+  assert.equal(t.context.dailyAccountingInfo('2026-10-06').gross,4800);
+  t.context.db.events[1].status='進行中';
+  assert.equal(t.context.dailyAccountingInfo('2026-10-06').gross,800,'unlock removes event from totals');
+  t.context.db.events.pop();
+
   if(process.env.REPRODUCE_OLD_BUG==='1') {
     await t.context.addAccountingItem();
     assert.equal(t.node('aAdminGross').textContent,'0');

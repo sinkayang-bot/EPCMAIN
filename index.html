@@ -2144,7 +2144,7 @@ window.addEventListener('error',function(e){
   </div>
   <div class="card tablewrap">
    <table>
-    <thead><tr><th>營業日</th><th>賽事數</th><th>行政費收入</th><th>入會費收入</th><th>折扣支出</th><th>其他收入</th><th>其他支出</th><th>淨收入</th><th>狀態</th><th>操作</th></tr></thead>
+    <thead><tr><th>營業日</th><th>已結算場次</th><th>行政費收入</th><th>入會費收入</th><th>折扣支出</th><th>其他收入</th><th>其他支出</th><th>淨收入</th><th>狀態</th><th>操作</th></tr></thead>
     <tbody id="accountingDayRows"></tbody>
     <tfoot id="accountingDayTotals"></tfoot>
    </table>
@@ -4307,12 +4307,15 @@ function accountingGroupForEvent(e){
 function isIndependentAccountingEvent(e){
  return !!accountingGroupForEvent(e);
 }
+function isSettledAccountingEvent_(e){
+ return e?.status==='已結算'||e?.status==='settled';
+}
 function accountingEventsForDate(date){
  // Main daily accounting must use the same event set as the visible event-detail table.
  // Only explicitly named independent ledgers are excluded; legacy/display labels are normalized above.
  return accountingAllEventsForDate(date).filter(e=>{
    const g=accountingGroupForEvent(e);
-   return !g;
+   return !g && isSettledAccountingEvent_(e);
  });
 }
 function setEventAccountingGroup(eventId,value){
@@ -4453,7 +4456,7 @@ function safeDomId(s){return String(s||'').replace(/[^a-zA-Z0-9_\u4e00-\u9fff-]/
 
 function accountingIndependentGroups(date){
  const map={};
- accountingAllEventsForDate(date).forEach(e=>{
+ accountingAllEventsForDate(date).filter(isSettledAccountingEvent_).forEach(e=>{
    const g=accountingGroupForEvent(e); if(!g)return;
    (map[g]||(map[g]=[])).push(e);
  });
@@ -4651,7 +4654,7 @@ function renderIndependentAccountingSummary(){
  (db.events||[]).forEach(e=>{
    const date=businessDateForEvent(e);
    const group=accountingGroupForEvent(e);
-   if(!group||!date||from&&date<from||to&&date>to)return;
+   if(!isSettledAccountingEvent_(e)||!group||!date||from&&date<from||to&&date>to)return;
    const key=group;
    if(!map.has(key))map.set(key,{name:group,events:[],dates:new Set()});
    const g=map.get(key);g.events.push(e);g.dates.add(date);
@@ -4722,7 +4725,7 @@ function renderDailyAccountingDetail(){
  const ai=dailyAccountingInfo(date),rec=ai.rec;
  const allEvents=accountingAllEventsForDate(date);
  const mainEvents=ai.events;
- if($('accountingDetailDate'))$('accountingDetailDate').textContent=`營業日：${date}｜一般帳 ${mainEvents.length} 場｜全部 ${allEvents.length} 場`;
+ if($('accountingDetailDate'))$('accountingDetailDate').textContent=`營業日：${date}｜一般帳已結算 ${mainEvents.length} 場｜全部登記 ${allEvents.length} 場`;
  if($('accountingItemRows'))$('accountingItemRows').innerHTML=(rec.items||[]).map(x=>`<tr>
    <td>${x.category?`<span class="${x.type==='expense'?'neg':'pos'}">${x.category}</span>`:(x.type==='membership'?'<span class="pos">入會費收入</span>':(x.type==='income'?'<span class="pos">其他收入</span>':'<span class="neg">其他支出</span>'))}</td>
    <td>${x.name}</td><td>${money(+x.amount||0)}</td>
@@ -5202,7 +5205,7 @@ function reportingLedgerEntries(){
  // Event-level items are included only for normal/general-ledger events.
  // Events assigned to an independent accounting group stay outside the main ledger and reports.
  (db.events||[]).forEach(e=>{
-   if(isIndependentAccountingEvent(e))return;
+   if(isIndependentAccountingEvent(e)||!isSettledAccountingEvent_(e))return;
    const date=businessDateForEvent(e);
    (Array.isArray(e.accountingItems)?e.accountingItems:[]).forEach(item=>{
      pushItem(date,item,`第${e.seq||1}場｜${Number(e.level||0).toLocaleString()} 賽事`);
@@ -5301,7 +5304,7 @@ function renderDashboardSummary(){
  if($('dashboardDateFrom')&&!$('dashboardDateFrom').value)$('dashboardDateFrom').value=from;
  if($('dashboardDateTo')&&!$('dashboardDateTo').value)$('dashboardDateTo').value=to;
 
- const settled=(db.events||[]).filter(e=>e.status==='已結算');
+ const settled=(db.events||[]).filter(isSettledAccountingEvent_);
  const inRange=settled.filter(e=>{
    const d=businessDateForEvent(e);
    return (!from||d>=from)&&(!to||d<=to);
