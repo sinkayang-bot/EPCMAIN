@@ -6204,14 +6204,28 @@ const EVENT_REPORT_FIELDS=[
  ['player','玩家'],['nickname','綽號'],['memberId','會員ID'],['groups','總組數'],['paid','總支付'],
  ['stack','最終籌碼'],['growth','籌碼淨勝值'],['prize','ICM獎金'],['net','個人盈虧'],['signature','簽名'],['note','備註']
 ];
+const EVENT_REPORT_PREF_KEY='epcEventReportFieldPrefsV1';
+function loadEventReportFieldPrefs_(){
+ try{const v=JSON.parse(localStorage.getItem(EVENT_REPORT_PREF_KEY)||'{}');return v&&typeof v==='object'?v:{}}catch(_){return {}}
+}
+function saveEventReportFieldPrefs_(prefs){
+ try{localStorage.setItem(EVENT_REPORT_PREF_KEY,JSON.stringify(prefs||{}))}catch(_){}
+}
 function ensureEventReportSettings(e){
  if(!e.reportFields)e.reportFields={};
- EVENT_REPORT_FIELDS.forEach(([k])=>{if(e.reportFields[k]===undefined)e.reportFields[k]=true;});
+ const prefs=loadEventReportFieldPrefs_();
+ EVENT_REPORT_FIELDS.forEach(([k])=>{
+   if(Object.prototype.hasOwnProperty.call(prefs,k))e.reportFields[k]=!!prefs[k];
+   else if(e.reportFields[k]===undefined)e.reportFields[k]=true;
+ });
 }
 function setEventReportField(key,checked){
  let e=currentEvent();if(!e)return;
  ensureEventReportSettings(e);
- if(e.reportRule===undefined){e.reportRule=db.defaultReportRule||'';persist();}e.reportFields[key]=checked;persist();renderEventReport();
+ const prefs=loadEventReportFieldPrefs_();prefs[key]=!!checked;saveEventReportFieldPrefs_(prefs);
+ if(e.reportRule===undefined){e.reportRule=db.defaultReportRule||'';persist();}
+ e.reportFields[key]=!!checked;
+ touchEvent_(e);persist();syncEventToFirestore_(e,false);renderEventReport();
 }
 function saveDefaultReportRule(value){
  db.defaultReportRule=value||'';persist();
