@@ -3630,7 +3630,7 @@ function firestoreEventPayload_(e){
   buyinTotal:+e.buyinTotal||0,buyinAdmin:+e.buyinAdmin||0,rebuyTotal:+e.rebuyTotal||0,
   rebuyAdmin:+e.rebuyAdmin||0,freeAdminFrom:(+e.overbuyThreshold||10)+1,chips:+e.chips||0,
   jpRate:+e.jp||0,jpRound:+e.jpRound||0,payout:e.payout||'',reportRule:e.reportRule||'',reportFields:e.reportFields||{},players:Array.isArray(e.players)?e.players:[],
-  accounting:e.accounting||{},status:e.status==='已結算'?'settled':'open',revision:+e.revision||1,
+  accounting:e.accounting||{},accountingGroup:accountingGroupForEvent(e),accountingItems:Array.isArray(e.accountingItems)?e.accountingItems:[],status:e.status==='已結算'?'settled':'open',revision:+e.revision||1,
   finalJP:e.finalJP,finalAccounting:e.finalAccounting,_eventUpdatedAt:+e._eventUpdatedAt||Date.now()
  };
 }
@@ -4244,7 +4244,8 @@ function setEventAccountingGroup(eventId,value){
  const e=(db.events||[]).find(x=>x.id===eventId);
  if(!e)return;
  e.accountingGroup=String(value||'').trim();
- persist();
+ localStorage.setItem('epcV1',JSON.stringify(db));
+ syncEventToFirestore_(e,true).catch(err=>actionMsg('帳務群組同步失敗：'+String(err?.message||err),true));
  renderDailyAccountingDetail();
 }
 function accountingTotalsForEvents(events){
@@ -4258,8 +4259,8 @@ function accountingTotalsForEvents(events){
      gross+=x.grossAdmin||0;
      auto+=x.auto||0;
      manual+=x.manual||0;
-     rebuyDiscount+=x.rebuyDiscount||0;
-     groupDiscount+=x.overbuyDiscount||0;
+     rebuyDiscount+=x.accountingRebuyDiscount??(x.rebuyDiscount||0);
+     groupDiscount+=x.accountingGroupDiscount??(x.overbuyDiscount||0);
    });
    jp+=eventOwnJP(e);
  });
@@ -4339,12 +4340,12 @@ function addEventAccountingItem(){
  const category=preset?name:(type==='membership'?'入會費收入':type==='expense'?'其他支出':'其他收入');
  ensureEventAccountingItems(e).push({id:uid(),type,name,category,amount});
  $('eaItemName').value=''; $('eaItemAmount').value=''; if($('eaItemPreset'))$('eaItemPreset').value=''; if($('eaItemType'))$('eaItemType').value='income';
- persist(); renderDailyAccountingDetail(); renderEventAccountingEditor();
+ localStorage.setItem('epcV1',JSON.stringify(db));syncEventToFirestore_(e,true).catch(err=>actionMsg('單場帳務同步失敗：'+String(err?.message||err),true)); renderDailyAccountingDetail(); renderEventAccountingEditor();
 }
 function deleteEventAccountingItem(i){
  const e=(db.events||[]).find(x=>x.id===editingAccountingEventId); if(!e)return;
  ensureEventAccountingItems(e).splice(i,1);
- persist(); renderDailyAccountingDetail(); renderEventAccountingEditor();
+ localStorage.setItem('epcV1',JSON.stringify(db));syncEventToFirestore_(e,true).catch(err=>actionMsg('單場帳務同步失敗：'+String(err?.message||err),true)); renderDailyAccountingDetail(); renderEventAccountingEditor();
 }
 
 function ensureIndependentAccountingStore(){
@@ -4459,7 +4460,7 @@ function bindAccountingControls(){
    });
  }
 }
-function createDailyAccounting(){
+async function createDailyAccounting(){
  const dateInput=document.getElementById('accountingCreateDate');
  const date=(dateInput&&dateInput.value?dateInput.value:'').trim();
  if(!date){
@@ -4475,7 +4476,8 @@ function createDailyAccounting(){
    db.dailyAccounting.sort((a,b)=>String(b.date).localeCompare(String(a.date)));
  }
  db.currentAccountingDate=date;
- persist();
+ localStorage.setItem('epcV1',JSON.stringify(db));
+ try{await saveDailyAccountingV3_(rec)}catch(err){alert('建立帳務失敗：'+String(err?.message||err));return false;}
 
  const list=document.getElementById('accountingListView');
  const detail=document.getElementById('accountingDetailView');
@@ -4488,13 +4490,13 @@ function createDailyAccounting(){
 function openDailyAccounting(date){
  ensureDailyAccountingStore();
  db.currentAccountingDate=date;
- persist();
+ localStorage.setItem('epcV1',JSON.stringify(db));
  if($('accountingListView'))$('accountingListView').style.display='none';
  if($('accountingDetailView'))$('accountingDetailView').style.display='block';
  renderDailyAccountingDetail();
 }
 function backToAccountingList(){
- db.currentAccountingDate=null;persist();
+ db.currentAccountingDate=null;localStorage.setItem('epcV1',JSON.stringify(db));
  if($('accountingDetailView'))$('accountingDetailView').style.display='none';
  if($('accountingListView'))$('accountingListView').style.display='block';
  renderAccountingManager();
@@ -4550,15 +4552,20 @@ function deleteAccountingItem(id){
    try{await saveDailyAccountingV3_(rec)}catch(err){rec.items=old;localStorage.setItem('epcV1',JSON.stringify(db));renderDailyAccountingDetail();alert('刪除收支失敗：'+String(err?.message||err));}
  });
 }
-function saveDailyAccounting(){
- persist();renderDailyAccountingDetail();
+async function saveDailyAccounting(){
+ const rec=(db.dailyAccounting||[]).find(x=>x.date===db.currentAccountingDate);
+ if(rec)await saveDailyAccountingV3_(rec);
+ renderDailyAccountingDetail();
 }
 function deleteDailyAccounting(date){
  const rec=(db.dailyAccounting||[]).find(x=>x.date===date);if(!rec)return;
- askDeleteConfirm(`確定要刪除 ${date} 的帳務資料嗎？`,()=>{
-   db.dailyAccounting=db.dailyAccounting.filter(x=>x.date!==date);
-   if(db.currentAccountingDate===date)db.currentAccountingDate=null;
-   persist();renderAccountingManager();
+ askDeleteConfirm(`確定要刪除 ${date} 的帳務資料嗎？`,async()=>{
+   try{
+     if(window.EPCFirestore?.deleteDailyAccounting)await window.EPCFirestore.deleteDailyAccounting(date);
+     db.dailyAccounting=db.dailyAccounting.filter(x=>x.date!==date);
+     if(db.currentAccountingDate===date)db.currentAccountingDate=null;
+     localStorage.setItem('epcV1',JSON.stringify(db));renderAccountingManager();
+   }catch(err){alert('刪除帳務失敗：'+String(err?.message||err));}
  });
 }
 function renderIndependentAccountingSummary(){
