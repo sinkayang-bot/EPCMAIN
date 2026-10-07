@@ -4904,20 +4904,28 @@ function setEventName_(id,value){
  }).catch(err=>actionMsg('Firebase 更新失敗：'+String(err?.message||err),true));
 }
 function applyFirestoreEventsToLegacy_(rows){
- const remote=(rows||[]).map(v=>({
+ const previousById=new Map((db.events||[]).map(e=>[String(e.id),e]));
+ const remote=(rows||[]).map(v=>{
+   const prev=previousById.get(String(v.eventId))||{};
+   return ({
    id:v.eventId,date:v.businessDate||v.date,name:v.name||'',startTime:v.startTime||'',regCloseTime:v.regClose||'',endTime:v.endTime||'',
    seq:+v.seq||1,level:+v.level||3400,poolUnit:+v.buyin||Math.max(0,(+v.buyinTotal||3400)-(+v.buyinAdmin||400)),
    admin:+v.fee||+v.buyinAdmin||400,pricingMode:(v.pricingMode||'standard'),buyinTotal:+v.buyinTotal||3400,
    buyinAdmin:+v.buyinAdmin||400,rebuyTotal:+v.rebuyTotal||3400,rebuyAdmin:+v.rebuyAdmin||400,
    overbuyThreshold:Math.max(1,(+v.freeAdminFrom||11)-1),chips:+v.chips||300000,jp:+v.jpRate||3,
    jpRound:+v.jpRound||100,payout:v.payout||'50,30,20',reportRule:v.reportRule||'',reportFields:v.reportFields||{},players:Array.isArray(v.players)?v.players:[],
-   status:v.status==='settled'?'已結算':'進行中',accounting:v.accounting||{otherIncome:0,venueIncome:0,laborExpense:0,otherExpense:0},
-   createdAt:+v.createdAt||Date.now()
- }));
+   status:v.status==='settled'?'已結算':'進行中',accounting:v.accounting||prev.accounting||{otherIncome:0,venueIncome:0,laborExpense:0,otherExpense:0},
+   // Preserve local accounting-only metadata that is not part of the Firestore event schema.
+   accountingGroup:Object.prototype.hasOwnProperty.call(v,'accountingGroup')?v.accountingGroup:(prev.accountingGroup||''),
+   accountingItems:Array.isArray(v.accountingItems)?v.accountingItems:(Array.isArray(prev.accountingItems)?prev.accountingItems:[]),
+   createdAt:+v.createdAt||+prev.createdAt||Date.now()
+   });
+ });
  const remoteIds=new Set(remote.map(x=>String(x.id)));
  // Firestore is authoritative: never re-introduce stale local/legacy event rows.
  db.events=remote;
  renderEventList();
+ if(db.currentAccountingDate && $('accountingDetailView')?.style.display!=='none')renderDailyAccountingDetail();
 }
 window.addEventListener('epcFirestoreEvents',ev=>{try{applyFirestoreEventsToLegacy_(ev.detail?.events||[])}catch(err){console.warn(err)}});
 function renderEventList(){
