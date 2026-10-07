@@ -2360,6 +2360,7 @@ window.addEventListener('error',function(e){
  <div style="display:flex;justify-content:space-between;align-items:end;gap:12px;flex-wrap:wrap">
   <div><h2 style="margin-bottom:4px">活動管理</h2><div class="small">依活動分頁管理；所有統計都可依區間查詢，並保留人工調整值。</div></div>
  </div>
+ <div class="card" style="margin-bottom:12px"><label for="activityIdentityMode">活動會員顯示</label><select id="activityIdentityMode" onchange="setActivityIdentityMode_(this.value)" style="max-width:220px;margin-left:10px"><option value="name">姓名（綽號優先）</option><option value="id">會員編號</option></select></div>
  <div id="actActivityRangeTop"></div>
  <div class="card" style="margin-top:12px">
   <div class="formgrid" style="grid-template-columns:1fr 1fr 1.2fr auto">
@@ -2505,6 +2506,7 @@ function epcPlayerDisplayName_(playerOrId,member){
  const id=String(p.memberId||p.id||(typeof playerOrId==='string'||typeof playerOrId==='number'?playerOrId:''));
  const members=Array.isArray(db.members)?db.members:[];
  const m=member||members.find(x=>p.memberKey&&String(x.memberKey||'')===String(p.memberKey))||members.find(x=>id&&String(x.id||x.memberId||'')===id)||{};
+ if(typeof window!=='undefined'&&window.epcActivityIdentityMode_==='id')return id||'未知';
  const text=v=>String(v??'').trim();
  return text(p.nickname)||text(m.nickname)||text(m.name)||text(p.name)||text(p.member)||id||'未知';
 }
@@ -5447,6 +5449,13 @@ function playerVisibleCols(){
 }
 
 
+function activityIdentityMode_(){
+ try{return localStorage.getItem('epcActivityIdentityModeV1')==='id'?'id':'name'}catch(_){return 'name'}
+}
+function setActivityIdentityMode_(value){
+ try{localStorage.setItem('epcActivityIdentityModeV1',value==='id'?'id':'name')}catch(_){}
+ renderActivities();
+}
 let actTab_='weekly';
 function ensureActDb_(){
  if(!db.activityManagement||typeof db.activityManagement!=='object')db.activityManagement={};
@@ -5524,8 +5533,8 @@ function actMemberSearchOptions_(members){
  return (members||db.members||[]).map(m=>{
   const id=String(m.id||m.memberId||'');
   const mm=m.id?m:actMember_(id);
-  const name=epcPlayerDisplayHtml_(m,mm);
-  return '<option value="'+name+' ('+id+')"></option>';
+  const name=activityIdentityMode_()==='id'?epcDisplayEscape_(id):epcPlayerDisplayHtml_(m,mm);
+  return '<option value="'+(name===epcDisplayEscape_(id)?name:name+' ('+epcDisplayEscape_(id)+')')+'"></option>';
  }).join('');
 }
 function actResolveMember_(inputId){
@@ -5549,7 +5558,7 @@ function actPlayerStats_(kind=actTab_){
   if(!map[id])map[id]={id,name:epcPlayerDisplayName_(id,m),games:0,dates:new Set(),groups:0};
   map[id].games++;map[id].dates.add(actBusinessDate_(e));map[id].groups+=actGroups_(p,e);
  }));
- return Object.values(map).map(x=>({...x,days:x.dates.size})).filter(x=>!q||[x.name,x.id,actMember_(x.id).name].some(v=>String(v||'').toLowerCase().includes(q)));
+ return Object.values(map).map(x=>({...x,days:x.dates.size})).filter(x=>!q||[x.name,x.id,actMember_(x.id).name,actMember_(x.id).nickname].some(v=>String(v||'').toLowerCase().includes(q)));
 }
 function actSave_(){persist();if(window.saveActivityCloudV3)window.saveActivityCloudV3();renderActivities()}
 function actAdj_(kind,id,field,v){
@@ -5575,7 +5584,7 @@ function actWeekly_(){
  const qualified=rows.filter(x=>x.qualified),progress=rows.filter(x=>!x.qualified);
  const lvl=(n,type)=>n?'<b style="color:#27ae60">第 '+n+' 階</b>':'<span class="small">未達標</span>';
  const rowHtml=x=>`<tr style="${x.qualified?'background:rgba(38,166,91,.08)':''}"><td><b>${epcDisplayEscape_(x.name)}</b></td><td>${x.id}</td><td><b>${x.totalDays}</b> 天<br>${lvl(x.dayLevel)}</td><td>${x.dayReward.label}</td><td><b>${x.totalGames}</b> 場<br>${lvl(x.gameLevel)}</td><td>${x.gameReward.label}</td><td><b>${x.totalCoupon?money(x.totalCoupon)+' 折價卡':'—'}</b></td><td><b style="color:${x.totalCash?'#27ae60':'inherit'}">${x.totalCash?money(x.totalCash)+' 獎金':'—'}</b></td><td>${x.qualified?`<label style="display:flex;gap:6px;align-items:center;white-space:nowrap"><input type="checkbox" ${x.claimed?'checked':''} onchange="actWeeklyClaim_('${x.id}',this.checked)"> 已領取</label>`:'—'}</td></tr>`;
- const tier=(title,items)=>`<div class="card" style="margin:8px 0;padding:10px 12px"><b>${title}</b><div class="small" style="margin-top:5px">${items.length?items.map(x=>epcDisplayEscape_(x.name)+'（'+x.id+'）').join('、'):'目前無'}</div></div>`;
+ const tier=(title,items)=>`<div class="card" style="margin:8px 0;padding:10px 12px"><b>${title}</b><div class="small" style="margin-top:5px">${items.length?items.map(x=>epcDisplayEscape_(x.name)+(x.name===x.id?'':'（'+epcDisplayEscape_(x.id)+'）')).join('、'):'目前無'}</div></div>`;
  return `<div class="card"><h3 style="margin-bottom:4px">每週任務卡｜雙線三階自動統計</h3>
  <div class="small">簽到線：3 / 5 / 7 天；場次線：5 / 10 / 15 場。每條線第 1 階 $200 折價卡、第 2 階累計 $400 折價卡；到第 3 階時，前兩階 $400 折價卡直接轉為現金，再加 $600 獎金，因此該線最終為 $1,000 獎金。</div>
  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:8px;margin:12px 0">
@@ -5941,6 +5950,10 @@ function actBoss_(){const B=db.activityManagement.boss,S=bossStats_(),b=activeBo
 function enhanceSearchCombos_(){document.querySelectorAll('input[list]').forEach(inp=>{if(inp.dataset.comboDone)return;inp.dataset.comboDone='1';const dl=document.getElementById(inp.getAttribute('list'));if(!dl)return;const wrap=document.createElement('div');wrap.className='searchCombo';inp.parentNode.insertBefore(wrap,inp);wrap.appendChild(inp);const menu=document.createElement('div');menu.className='searchComboMenu';wrap.appendChild(menu);const draw=()=>{const q=(inp.value||'').toLowerCase();const a=[...dl.querySelectorAll('option')].filter(o=>!q||o.value.toLowerCase().includes(q)).slice(0,150);menu.innerHTML=a.map(o=>'<div class="searchComboItem" data-v="'+o.value.replace(/"/g,'&quot;')+'">'+o.value+'</div>').join('');menu.classList.toggle('open',a.length>0&&document.activeElement===inp)};inp.addEventListener('input',draw);inp.addEventListener('focus',draw);menu.addEventListener('mousedown',e=>{const x=e.target.closest('.searchComboItem');if(!x)return;e.preventDefault();inp.value=x.dataset.v;menu.classList.remove('open');inp.dispatchEvent(new Event('change',{bubbles:true}))});inp.addEventListener('blur',()=>setTimeout(()=>menu.classList.remove('open'),100))})}
 function renderActivities(){
  if(!$('activities'))return;ensureActDb_();
+ const previous=window.epcActivityIdentityMode_,mode=activityIdentityMode_();
+ if($('activityIdentityMode'))$('activityIdentityMode').value=mode;
+ window.epcActivityIdentityMode_=mode;
+ try{ 
  if($('actActivityRangeTop'))$('actActivityRangeTop').innerHTML=actRangeEditor_(actTab_);
  const panes={weekly:'actWeekly',pioneer:'actPioneer',rank:'actRank',hunter:'actHunter',umbrella:'actUmbrella',boss:'actBoss'};
  document.querySelectorAll('.act-pane').forEach(x=>x.style.display='none');
@@ -5951,6 +5964,7 @@ function renderActivities(){
  if($('actHunter'))$('actHunter').innerHTML=actHunter_();
  if($('actUmbrella'))$('actUmbrella').innerHTML=actUmbrella_();
  if($('actBoss'))$('actBoss').innerHTML=actBoss_();
+ }finally{window.epcActivityIdentityMode_=previous;}
 }
 function render(){
  if(epcPlayerEditing_()){epcFullRenderPending_=true;return}

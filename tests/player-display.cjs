@@ -15,6 +15,7 @@ function setup(source){
  if(source.includes('function eventOrdinalName_'))vm.runInContext(section(source,'function eventOrdinalName_','async function newEvent('),ctx);
  vm.runInContext(section(source,'function calcPlayerForEvent(p,e)','function memberHistoryInRange'),ctx);
  vm.runInContext(section(source,'function normalizeSettlementGroupName','function renderDailySettlement'),ctx);
+ if(source.includes('function activityIdentityMode_'))vm.runInContext(section(source,'function activityIdentityMode_','let actTab_='),ctx);
  vm.runInContext(section(source,'function actMember_(id)','function actEventOptions_'),ctx);
  vm.runInContext(section(source,'function actGroups_(p,e)','function actSave_'),ctx);
  vm.runInContext(section(source,'function eventTopScores_(e)','function actRank_'),ctx);
