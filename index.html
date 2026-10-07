@@ -5679,7 +5679,7 @@ function delRankRecurringRule_(id){
 function eventTopScores_(e){
  const arr=(e.players||[]).map(p=>({id:String(p.memberId),name:epcPlayerDisplayName_(p.memberId),net:chipGrowthFor(p,e),stack:+p.stack||0})).sort((a,b)=>b.net-a.net||b.stack-a.stack);
  let last=null,rank=0,seen=0;const mult=rankMultiplier_(e),out=[];
- for(const x of arr){seen++;const key=`${x.net}|${x.stack}`;if(key!==last){rank=seen;last=key}if(rank>3)break;out.push({...x,rank,base:rank===1?3:rank===2?2:1,score:(rank===1?3:rank===2?2:1)*mult,mult})}
+ for(const x of arr){seen++;const key=`${x.net}|${x.stack}`;if(key!==last){rank=seen;last=key}if(rank>3)break;const base=x.stack>0?(rank===1?3:rank===2?2:1):0;out.push({...x,rank,base,score:base*mult,mult})}
  return out;
 }
 function actRank_(){
@@ -6817,4 +6817,4 @@ async function epcShowRecoveryAudit_(){
 <script src="firebase-config.js?v=20261007-0780"></script>
 <script src="firebase-events.js?v=20261007-admin-auth"></script>
 <script src="sync-v3.js?v=20261007-0780"></script>
-<script src="app.js?v=20261007-pioneer-current-players"></script></body></html>
+<script src="app.js?v=20261007-rank-zero-stack"></script></body></html>
