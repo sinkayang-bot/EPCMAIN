@@ -1822,6 +1822,7 @@ main{margin-left:0!important;width:auto!important;max-width:none!important;paddi
 }
 button.epc-clicked-now,.btn.epc-clicked-now{transform:scale(.985);filter:brightness(1.28);transition:transform .04s,filter .04s}
 </style>
+<style>@media screen{.pos{color:var(--good,#35d98b)!important}.neg{color:var(--bad,#ff525d)!important}.pnl-zero{color:var(--text,#e8eef5)!important;font-weight:700}}</style>
 </head>
 <script>
 (function(){
@@ -2498,6 +2499,7 @@ const $=id=>document.getElementById(id);
 const money=n=>'$'+Math.round(Number(n||0)).toLocaleString('zh-TW');
 const uid=()=>String(Date.now()).slice(-8)+Math.floor(Math.random()*90+10);
 // A display label never replaces the stored name, member ID or settlement group.
+function epcPnlClass_(value){const n=Number(value)||0;return n>0?'pos':n<0?'neg':'pnl-zero';}
 function epcPlayerDisplayName_(playerOrId,member){
  const p=playerOrId&&typeof playerOrId==='object'?playerOrId:{};
  const id=String(p.memberId||p.id||(typeof playerOrId==='string'||typeof playerOrId==='number'?playerOrId:''));
@@ -4368,7 +4370,7 @@ function renderEventAccountingEditor(){
  $('eaRevenue').textContent=money(ai.revenue);
  $('eaExpense').textContent=money(ai.expense);
  $('eaJP').textContent=money(ai.jp);
- $('eaNet').textContent=money(ai.net);
+ $('eaNet').textContent=money(ai.net);$('eaNet').className='v '+epcPnlClass_(ai.net);
  $('eaItemRows').innerHTML=ai.items.map((x,i)=>`<tr><td>${x.category||(x.type==='membership'?'入會費收入':x.type==='income'?'其他收入':'其他支出')}</td><td>${x.name||''}</td><td>${money(+x.amount||0)}</td><td><button type="button" class="danger" onclick="deleteEventAccountingItem(${i})">刪除</button></td></tr>`).join('')||'<tr><td colspan="4" class="small">本場目前沒有其他收支</td></tr>';
 }
 function useEventAccountingPreset(){
@@ -4652,7 +4654,7 @@ function renderIndependentAccountingSummary(){
    <td><b>${g.name}</b><div class="small">${[...g.dates].sort().join('、')}</div></td>
    <td>${g.events.length}</td><td>${g.groups}</td><td>${money(g.gross)}</td><td>${money(g.discountExpense)}</td>
    <td>${money(g.netAdmin)}</td><td>${money(g.membershipIncome)}</td><td>${money(g.otherIncome)}</td>
-   <td>${money(g.otherExpense)}</td><td class="${g.net>=0?'pos':'neg'}">${money(g.net)}</td><td>${money(g.jp)}</td>
+   <td>${money(g.otherExpense)}</td><td class="${epcPnlClass_(g.net)}">${money(g.net)}</td><td>${money(g.jp)}</td>
  </tr>`).join('')||'<tr><td colspan="11" class="small">目前查詢區間沒有獨立帳務群組</td></tr>';
  const totals=groups.reduce((a,g)=>{
    a.events+=g.events.length;a.groups+=g.groups;a.gross+=g.gross;a.discount+=g.discountExpense;a.netAdmin+=g.netAdmin;
@@ -4662,7 +4664,7 @@ function renderIndependentAccountingSummary(){
    <td>獨立帳務合計</td><td>${totals.events}</td><td>${totals.groups}</td><td>${money(totals.gross)}</td>
    <td>${money(totals.discount)}</td><td>${money(totals.netAdmin)}</td><td>${money(totals.membership)}</td>
    <td>${money(totals.income)}</td><td>${money(totals.expense)}</td>
-   <td class="${totals.net>=0?'pos':'neg'}">${money(totals.net)}</td><td>${money(totals.jp)}</td>
+   <td class="${epcPnlClass_(totals.net)}">${money(totals.net)}</td><td>${money(totals.jp)}</td>
  </tr>`:'';
 }
 function renderAccountingManager(){
@@ -4681,7 +4683,7 @@ function renderAccountingManager(){
    return `<tr>
     <td>${rec.date}</td><td>${ai.events.length}</td><td>${money(ai.gross)}</td><td>${money(ai.membershipIncome)}</td>
     <td>${money(ai.discountExpense)}</td><td>${money(ai.itemIncome)}</td><td>${money(ai.itemExpense)}</td>
-    <td class="${ai.net>=0?'pos':'neg'}">${money(ai.net)}</td><td><span class="badge">已建立</span></td>
+    <td class="${epcPnlClass_(ai.net)}">${money(ai.net)}</td><td><span class="badge">已建立</span></td>
     <td><button onclick="openDailyAccounting('${rec.date}')">進入</button>
     <button onclick="openDailyAccounting('${rec.date}');setTimeout(printDailyAccounting,50)">列印</button>
     <button class="danger" onclick="deleteDailyAccounting('${rec.date}')">刪除</button></td>
@@ -4691,7 +4693,7 @@ function renderAccountingManager(){
  if(foot)foot.innerHTML=`<tr style="font-weight:800;border-top:2px solid #52677b">
    <td>期間合計</td><td>${totalEvents}</td><td>${money(totalGross)}</td><td>${money(totalMembership)}</td>
    <td>${money(totalDiscount)}</td><td>${money(totalIncome)}</td><td>${money(totalExpense)}</td>
-   <td class="${totalNet>=0?'pos':'neg'}">${money(totalNet)}</td><td colspan="2">${rows.length} 個營業日</td>
+   <td class="${epcPnlClass_(totalNet)}">${money(totalNet)}</td><td colspan="2">${rows.length} 個營業日</td>
  </tr>`;
  renderIndependentAccountingSummary();
 }
@@ -4717,8 +4719,8 @@ function renderDailyAccountingDetail(){
  $('aOtherIncomeTotal').textContent=money(ai.itemIncome);
  $('aOtherExpenseTotal').textContent=money(ai.itemExpense);
  $('aRevenue').textContent=money(ai.revenue);$('aExpense').textContent=money(ai.expense);
- $('aNet').textContent=money(ai.net);$('aJP').textContent=money(ai.jp);
- $('aNet').className='v '+(ai.net>=0?'pos':'neg');
+ $('aNet').textContent=money(ai.net);$('aNet').className='v '+epcPnlClass_(ai.net);$('aJP').textContent=money(ai.jp);
+ $('aNet').className='v '+(epcPnlClass_(ai.net));
  $('accountingEventRows').innerHTML=mainEvents.map(e=>{
    let g=0,gross=0,rebuy=0,group=0,manual=0,net=0;
    (Array.isArray(e.players)?e.players:[]).forEach(p=>{
@@ -4730,7 +4732,7 @@ function renderDailyAccountingDetail(){
    });
    const disc=rebuy+group+manual;
    const ag=accountingGroupForEvent(e);
-   return `<tr><td>第${e.seq||1}場</td><td>${Number(e.level||0).toLocaleString()} 賽事</td><td><input value="${ag}" placeholder="一般帳" style="min-width:110px" onchange="setEventAccountingGroup('${e.id}',this.value)"></td><td>${g}</td><td>${money(gross)}</td><td>${money(rebuy)}</td><td>${money(group)}</td><td>${money(manual)}</td><td>${money(disc)}</td><td>${money(net)}</td><td>${money(eventOwnJP(e))}</td><td><button type="button" onclick="openEventAccounting('${e.id}')">編輯帳務</button></td></tr>`;
+   return `<tr><td>第${e.seq||1}場</td><td>${Number(e.level||0).toLocaleString()} 賽事</td><td><input value="${ag}" placeholder="一般帳" style="min-width:110px" onchange="setEventAccountingGroup('${e.id}',this.value)"></td><td>${g}</td><td>${money(gross)}</td><td>${money(rebuy)}</td><td>${money(group)}</td><td>${money(manual)}</td><td>${money(disc)}</td><td class="${epcPnlClass_(net)}">${money(net)}</td><td>${money(eventOwnJP(e))}</td><td><button type="button" onclick="openEventAccounting('${e.id}')">編輯帳務</button></td></tr>`;
  }).join('');
  const independent=accountingIndependentGroups(date);
  if($('accountingGroupRows'))$('accountingGroupRows').innerHTML=independent.map(g=>`<tr>
@@ -4742,7 +4744,7 @@ function renderDailyAccountingDetail(){
    <td>${money(g.netAdmin)}</td>
    <td>${money(g.otherIncome+g.membershipIncome)}</td>
    <td>${money(g.otherExpense)}</td>
-   <td>${money(g.net)}</td>
+   <td class="${epcPnlClass_(g.net)}">${money(g.net)}</td>
    <td>${money(g.jp)}</td>
  </tr>`).join('')||'<tr><td colspan="10" class="small">目前沒有獨立帳務群組</td></tr>';
 }
@@ -5143,8 +5145,8 @@ function renderMemberRows(){
    return b.events-a.events||share(b)-share(a)||epcPlayerDisplayName_(a.m).localeCompare(epcPlayerDisplayName_(b.m),'zh-Hant');
  };
  const list=filtered.sort(cmp);
- tbody.innerHTML=list.map(({m,events,settledEvents,paid,prize,net})=>{const pct=totalPaid>0?paid/totalPaid*100:0;return `<tr><td>${epcPlayerDisplayHtml_(m)}</td><td>${epcDisplayEscape_(m.nickname||'—')}</td><td>${epcDisplayEscape_(m.id||'')}</td><td>${m.group||'-'}</td><td>${events}</td><td>${settledEvents}</td><td>${pct.toFixed(1)}%</td><td>${money(paid)}</td><td>${money(prize)}</td><td class="${net>=0?'pos':'neg'}">${money(net)}</td><td>${epcDisplayEscape_(memberLastVisit_(m))}</td><td><button onclick="editMember('${m.id}')">編輯</button> <button class="danger" onclick="delMember('${m.id}')">刪除</button></td></tr>`;}).join('')||'<tr><td colspan="12" class="small">找不到符合條件的會員</td></tr>';
- const foot=$('memberTotals');if(foot)foot.innerHTML=`<tr style="font-weight:800;border-top:2px solid #52677b"><td>區間總計</td><td colspan="3">${from||'全部'} ～ ${to||'全部'}</td><td>${totalEntries}</td><td>${stats.reduce((sum,x)=>sum+x.settledEvents,0)}</td><td>${totalPaid>0?'100.0%':'0.0%'}</td><td>${money(totalPaid)}</td><td>${money(totalPrize)}</td><td class="${totalNet>=0?'pos':'neg'}">${money(totalNet)}</td><td></td><td></td></tr>`;
+ tbody.innerHTML=list.map(({m,events,settledEvents,paid,prize,net})=>{const pct=totalPaid>0?paid/totalPaid*100:0;return `<tr><td>${epcPlayerDisplayHtml_(m)}</td><td>${epcDisplayEscape_(m.nickname||'—')}</td><td>${epcDisplayEscape_(m.id||'')}</td><td>${m.group||'-'}</td><td>${events}</td><td>${settledEvents}</td><td>${pct.toFixed(1)}%</td><td>${money(paid)}</td><td>${money(prize)}</td><td class="${epcPnlClass_(net)}">${money(net)}</td><td>${epcDisplayEscape_(memberLastVisit_(m))}</td><td><button onclick="editMember('${m.id}')">編輯</button> <button class="danger" onclick="delMember('${m.id}')">刪除</button></td></tr>`;}).join('')||'<tr><td colspan="12" class="small">找不到符合條件的會員</td></tr>';
+ const foot=$('memberTotals');if(foot)foot.innerHTML=`<tr style="font-weight:800;border-top:2px solid #52677b"><td>區間總計</td><td colspan="3">${from||'全部'} ～ ${to||'全部'}</td><td>${totalEntries}</td><td>${stats.reduce((sum,x)=>sum+x.settledEvents,0)}</td><td>${totalPaid>0?'100.0%':'0.0%'}</td><td>${money(totalPaid)}</td><td>${money(totalPrize)}</td><td class="${epcPnlClass_(totalNet)}">${money(totalNet)}</td><td></td><td></td></tr>`;
 }
 function setMemberRangeThisMonth(){const now=new Date(),y=now.getFullYear(),m=String(now.getMonth()+1).padStart(2,'0'),last=new Date(y,now.getMonth()+1,0).getDate();$('memberDateFrom').value=`${y}-${m}-01`;$('memberDateTo').value=`${y}-${m}-${String(last).padStart(2,'0')}`;renderMemberRows();}
 function clearMemberSearch(){
@@ -5213,7 +5215,7 @@ function renderDashboardDailyReport(){
  $('drDiscount').textContent=money(d.discountExpense);
  $('drOtherIncome').textContent=money(d.otherIncome);
  $('drOtherExpense').textContent=money(d.otherExpense);
- $('drNet').textContent=money(d.net); $('drNet').className='v '+(d.net>=0?'pos':'neg');
+ $('drNet').textContent=money(d.net); $('drNet').className='v '+(epcPnlClass_(d.net));
  $('drJP').textContent=money(d.jp);
  const rows=$('dashboardDailyItemRows'); if(rows)rows.innerHTML=d.entries.map(x=>`<tr>
    <td>${x.direction==='expense'?'<span class="neg">支出</span>':'<span class="pos">收入</span>'}</td>
@@ -5323,8 +5325,8 @@ function renderDashboardSummary(){
 
  if($('kMembers'))$('kMembers').textContent=(db.members||[]).length;
  if($('kNewMembers'))$('kNewMembers').textContent=newMembers;
- if($('kProfit')){$('kProfit').textContent=money(allLedger.net);$('kProfit').className='v '+(allLedger.net>=0?'pos':'neg');}
- if($('kMonthProfit')){$('kMonthProfit').textContent=money(rangeLedger.net);$('kMonthProfit').className='v '+(rangeLedger.net>=0?'pos':'neg');}
+ if($('kProfit')){$('kProfit').textContent=money(allLedger.net);$('kProfit').className='v '+(epcPnlClass_(allLedger.net));}
+ if($('kMonthProfit')){$('kMonthProfit').textContent=money(rangeLedger.net);$('kMonthProfit').className='v '+(epcPnlClass_(rangeLedger.net));}
  if($('kJP'))$('kJP').textContent=money(allLedger.jp);
  if($('kRangeJP'))$('kRangeJP').textContent=money(rangeLedger.jp);
  if($('kMonthExpense'))$('kMonthExpense').textContent=money(rangeLedger.expense);
@@ -5702,7 +5704,7 @@ function eventTopScores_(e){
 }
 function actRank_(){
  const A=db.activityManagement,tot={},dayNames=['日','一','二','三','四','五','六'];
- const detail=actEvents_('rank').map(e=>{const top=eventTopScores_(e);top.forEach(x=>tot[x.id]=(tot[x.id]||0)+x.score);return `<div class="card" style="margin-top:10px"><b>${actEventLabel_(e)}</b> <span class="small">當日第 ${rankEventSeqOfDay_(e)} 場｜倍率 ×${rankMultiplier_(e)}</span><table><thead><tr><th>名次</th><th>會員</th><th>籌碼淨勝值</th><th>下桌籌碼</th><th>得分</th></tr></thead><tbody>${top.map(x=>`<tr><td>${x.rank}</td><td>${epcDisplayEscape_(x.name)}</td><td>${x.net.toFixed(1)}</td><td>${(+x.stack).toLocaleString()}</td><td>${x.score}</td></tr>`).join('')||'<tr><td colspan="5">無資料</td></tr>'}</tbody></table></div>`}).join('');
+ const detail=actEvents_('rank').map(e=>{const top=eventTopScores_(e);top.forEach(x=>tot[x.id]=(tot[x.id]||0)+x.score);return `<div class="card" style="margin-top:10px"><b>${actEventLabel_(e)}</b> <span class="small">當日第 ${rankEventSeqOfDay_(e)} 場｜倍率 ×${rankMultiplier_(e)}</span><table><thead><tr><th>名次</th><th>會員</th><th>籌碼淨勝值</th><th>下桌籌碼</th><th>得分</th></tr></thead><tbody>${top.map(x=>`<tr><td>${x.rank}</td><td>${epcDisplayEscape_(x.name)}</td><td class="${epcPnlClass_(x.net)}">${x.net.toFixed(1)}</td><td>${(+x.stack).toLocaleString()}</td><td>${x.score}</td></tr>`).join('')||'<tr><td colspan="5">無資料</td></tr>'}</tbody></table></div>`}).join('');
  const ranking=Object.entries(tot).map(([id,auto])=>({id,name:epcPlayerDisplayName_(id),auto,adj:+A.rankAdjust[id]||0})).map(x=>({...x,total:x.auto+x.adj})).sort((a,b)=>b.total-a.total);
  const rules=(A.rankRecurringRules||[]).map(r=>`<div class="card" style="margin-top:8px;padding:12px">
    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
@@ -6044,17 +6046,17 @@ function render(){
    paid:`<td>${money(c.paid)}</td>`,
    stack:`<td><input type="number" min="0" value="${p.stack||0}" oninput="setStackFast_(${i},this.value)" style="min-width:110px"></td>`,
    prize:`<td><input type="number" min="0" step="100" value="${Math.round(+p.prize||0)}" onchange="setManualPrize(${i},this.value)" style="min-width:105px;text-align:right" ${(+p.stack||0)<=0?'disabled':''}></td>`,
-   chipNet:`<td>${chip.toFixed(1)}</td>`,
-   cashNet:`<td class="${cash>=0?'pos':'neg'}">${money(cash)}</td>`,
+   chipNet:`<td class="${epcPnlClass_(chip)}">${chip.toFixed(1)}</td>`,
+   cashNet:`<td class="${epcPnlClass_(cash)}">${money(cash)}</td>`,
    group:`<td>${p.group||m.name}</td>`
   };return `<tr>${reportCols.map(([k])=>cells[k]).join('')}</tr>`}).join('');
  let groups={};currentEvent().players.forEach(p=>{let m=db.members.find(x=>x.id===p.memberId)||{name:'未知'},g=p.group||m.name,c=calcPlayer(p),net=(p.prize||0)-c.paid;if(!groups[g])groups[g]={names:[],net:0};groups[g].names.push(epcPlayerDisplayName_(p,m));groups[g].net+=net});
- $('groupRows').innerHTML=Object.entries(groups).map(([g,x])=>`<tr><td>${g}</td><td>${x.names.map(epcDisplayEscape_).join('、')}</td><td class="${x.net>=0?'pos':'neg'}">${money(x.net)}</td></tr>`).join('');
+ $('groupRows').innerHTML=Object.entries(groups).map(([g,x])=>`<tr><td>${g}</td><td>${x.names.map(epcDisplayEscape_).join('、')}</td><td class="${epcPnlClass_(x.net)}">${money(x.net)}</td></tr>`).join('');
  let meta=`日期：${currentEvent().date}　賽事：${currentEvent().level}　原始獎池：${money(info.pool)}　JP：${money(info.jp)}　可發獎金：${money(info.avail)}　玩家：${currentEvent().players.length} 人`;
  if($('prizeMeta'))$('prizeMeta').textContent=meta;if($('accountMeta'))$('accountMeta').textContent=meta;
  if($('prizeRows'))$('prizeRows').innerHTML=currentEvent().players.map(p=>{let m=db.members.find(x=>x.id===p.memberId)||{name:'未知',id:''},c=calcPlayer(p);return `<tr><td>${epcPlayerDisplayHtml_(p,m)}</td><td>${m.id}</td><td>${c.groups}</td><td>${money(c.paid)}</td><td>${(+p.stack||0).toLocaleString()}</td><td>${money(p.prize||0)}</td><td style="height:34px"></td></tr>`}).join('');
  let first={};Object.entries(groups).forEach(([g,x])=>first[g]=true);
- $('accountRows').innerHTML=currentEvent().players.map(p=>{let m=db.members.find(x=>x.id===p.memberId)||{name:'未知'},c=calcPlayer(p),net=(p.prize||0)-c.paid,g=p.group||m.name,show=first[g];if(show)first[g]=false;return `<tr><td>${g}</td><td>${epcPlayerDisplayHtml_(p,m)}</td><td>${money(c.paid)}</td><td>${money(p.prize||0)}</td><td>${money(net)}</td><td>${show?money(groups[g].net):''}</td></tr>`}).join('');
+ $('accountRows').innerHTML=currentEvent().players.map(p=>{let m=db.members.find(x=>x.id===p.memberId)||{name:'未知'},c=calcPlayer(p),net=(p.prize||0)-c.paid,g=p.group||m.name,show=first[g];if(show)first[g]=false;return `<tr><td>${g}</td><td>${epcPlayerDisplayHtml_(p,m)}</td><td>${money(c.paid)}</td><td>${money(p.prize||0)}</td><td class="${epcPnlClass_(net)}">${money(net)}</td><td class="${show?epcPnlClass_(groups[g].net):''}">${show?money(groups[g].net):''}</td></tr>`}).join('');
 
  renderDailySettlement();
 }
@@ -6107,7 +6109,7 @@ function renderSettlementManager(){
  tbody.innerHTML=db.dailySettlementReports.filter(r=>(!from||r.date>=from)&&(!to||r.date<=to)).map(r=>{
    const d=dailySettlementData(r.date);
    const paid=d.groups.reduce((n,g)=>n+g.paid,0),prize=d.groups.reduce((n,g)=>n+g.prize,0),net=prize-paid;
-   return `<tr><td>${r.date}</td><td>${d.events.length}</td><td>${d.memberCount}</td><td>${money(paid)}</td><td>${money(prize)}</td><td class="${net>=0?'pos':'neg'}">${money(net)}</td><td><button onclick="openDailySettlementReport('${r.date}')">進入</button> <button onclick="openDailySettlementReport('${r.date}');setTimeout(printDailySettlement,50)">列印</button> <button class="danger" onclick="deleteDailySettlementReport('${r.date}')">刪除</button></td></tr>`;
+   return `<tr><td>${r.date}</td><td>${d.events.length}</td><td>${d.memberCount}</td><td>${money(paid)}</td><td>${money(prize)}</td><td class="${epcPnlClass_(net)}">${money(net)}</td><td><button onclick="openDailySettlementReport('${r.date}')">進入</button> <button onclick="openDailySettlementReport('${r.date}');setTimeout(printDailySettlement,50)">列印</button> <button class="danger" onclick="deleteDailySettlementReport('${r.date}')">刪除</button></td></tr>`;
  }).join('')||'<tr><td colspan="7" class="small">尚未建立分帳報表</td></tr>';
 }
 function normalizeSettlementGroupName(value){
@@ -6235,7 +6237,7 @@ function renderDailySettlement(){
      <span>${g.name==='未分組'?'未分組':'群組 '+g.name}</span>
      <span style="font-size:16px;font-weight:900">
       <span class="expense">總實付 ${money(g.paid)}</span>　｜　<span class="settlement-prize">總領回 ${money(g.prize)}</span>　｜　<span class="settlement-discount">總折扣 ${money(g.discount)}</span>　｜　
-      <span class="${g.net>=0?'pos':'neg'}">總輸贏 ${money(g.net)}</span>
+      <span class="${epcPnlClass_(g.net)}">總輸贏 ${money(g.net)}</span>
      </span>
     </h3>
    <div style="padding:12px">
@@ -6245,7 +6247,7 @@ function renderDailySettlement(){
        <span style="font-size:17px;font-weight:900">${epcDisplayEscape_(m.member)}</span>
        <span style="font-size:14px;font-weight:800">
         當日總結｜<span class="expense">實付 ${money(m.paid)}</span>　｜　<span class="settlement-prize">領回 ${money(m.prize)}</span>　｜　<span class="settlement-discount">折扣 ${money(m.discount)}</span>　｜　
-        <span class="${m.net>=0?'pos':'neg'}">輸贏 ${money(m.net)}</span>
+        <span class="${epcPnlClass_(m.net)}">輸贏 ${money(m.net)}</span>
        </span>
       </div>
       <div class="tablewrap">
@@ -6259,7 +6261,7 @@ function renderDailySettlement(){
           <td class="paid-expense">${money(ev.paid)}</td>
           <td>${money(ev.prize)}</td>
           <td>${money(ev.discount)}</td>
-          <td class="${ev.net>=0?'pos':'neg'}">${money(ev.net)}</td>
+          <td class="${epcPnlClass_(ev.net)}">${money(ev.net)}</td>
          </tr>`).join('')}
         </tbody>
        </table>
@@ -6288,20 +6290,20 @@ function printDailySettlement(groupNames=null){
   <section class="group">
    <h2>
     <span>${g.name==='未分組'?'未分組':'群組 '+g.name}</span>
-    <span class="group-head-total">總實付 ${money(g.paid)} ｜ 總領回 ${money(g.prize)} ｜ 總折扣 ${money(g.discount)} ｜ <b class="${g.net>=0?'pos':'neg'}">總輸贏 ${money(g.net)}</b></span>
+    <span class="group-head-total">總實付 ${money(g.paid)} ｜ 總領回 ${money(g.prize)} ｜ 總折扣 ${money(g.discount)} ｜ <b class="${epcPnlClass_(g.net)}">總輸贏 ${money(g.net)}</b></span>
    </h2>
    ${g.rows.map(m=>`
     <div class="member">
      <h3 class="member-head">
       <span>${epcDisplayEscape_(m.member)}</span>
-      <span class="member-total">當日總結｜實付 ${money(m.paid)} ｜ 領回 ${money(m.prize)} ｜ 折扣 ${money(m.discount)} ｜ <b class="${m.net>=0?'pos':'neg'}">輸贏 ${money(m.net)}</b></span>
+      <span class="member-total">當日總結｜實付 ${money(m.paid)} ｜ 領回 ${money(m.prize)} ｜ 折扣 ${money(m.discount)} ｜ <b class="${epcPnlClass_(m.net)}">輸贏 ${money(m.net)}</b></span>
      </h3>
      <table>
       <thead><tr><th>參加賽事</th><th>實付</th><th>領回</th><th>折扣</th><th>輸贏</th></tr></thead>
       <tbody>${m.events.map(ev=>`<tr>
        <td>第${ev.eventSeq}場｜${ev.eventName}</td>
        <td>${money(ev.paid)}</td><td>${money(ev.prize)}</td>
-       <td>${money(ev.discount)}</td><td>${money(ev.net)}</td>
+       <td>${money(ev.discount)}</td><td class="${epcPnlClass_(ev.net)}">${money(ev.net)}</td>
       </tr>`).join('')}</tbody>
      </table>
     </div>`).join('')}
@@ -6868,4 +6870,4 @@ async function epcShowRecoveryAudit_(){
 <script src="firebase-config.js?v=20261007-0780"></script>
 <script src="firebase-events.js?v=20261007-admin-auth"></script>
 <script src="sync-v3.js?v=20261007-0780"></script>
-<script src="app.js?v=20261007-member-participation"></script></body></html>
+<script src="app.js?v=20261007-pnl-colors"></script></body></html>

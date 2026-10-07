@@ -32,6 +32,7 @@ function setup() {
   });
   context.window = context;
   vm.runInContext('const $=id=>document.getElementById(id);const money=n=>"$"+Number(n||0).toLocaleString("zh-TW");const uid=()=>"TEST-ITEM";', context);
+  vm.runInContext(section('function epcPnlClass_(', 'function epcPlayerDisplayName_'), context);
   vm.runInContext(section('function ensureDailyAccountingStore()', 'function printDailyAccounting()'), context);
   vm.runInContext(section('function calcPlayerForEvent(p,e)', 'function memberHistoryInRange('), context);
   node('dailyDate').value='2026-10-01'; // Hidden settlement date must not select the ledger day.
