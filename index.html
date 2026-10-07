@@ -4936,20 +4936,22 @@ function calcPlayerForEvent(p,e){
  let halfPriceGroups=Math.max(0,Math.min(groups,10)-1);
  let freeAdminGroups=Math.max(0,groups-10);
  let rebuyDiscount=halfPriceGroups*(+e.admin||0)*0.5;
- let overbuyDiscount=freeAdminGroups*(+e.admin||0);
+ // Player/event page shows the incremental overbuy benefit versus the normal
+ // half-admin rebuy price. Accounting still records the full waived admin.
+ let overbuyDiscount=freeAdminGroups*(+e.admin||0)*0.5;
+ let accountingGroupDiscount=freeAdminGroups*(+e.admin||0);
  let auto=rebuyDiscount+overbuyDiscount;
  let disc=auto+manual;
+ let accountingDisc=rebuyDiscount+accountingGroupDiscount+manual;
  let grossAdmin=groups*(+e.admin||0);
  return {
    groups, auto, manual, totalDiscount:disc,
-   original:base, paid:Math.max(0,base-disc),
+   original:base, paid:Math.max(0,base-accountingDisc),
    pool:groups*(+e.poolUnit||0),
-   grossAdmin, netAdmin:Math.max(0,grossAdmin-disc),
+   grossAdmin, netAdmin:Math.max(0,grossAdmin-accountingDisc),
    rebuyDiscount, overbuyDiscount,
-   // Standard mode accounting uses the ACTUAL admin discount:
-   // groups 2-10 = half admin discount; groups 11+ = full admin waiver.
    accountingRebuyDiscount:rebuyDiscount,
-   accountingGroupDiscount:overbuyDiscount,
+   accountingGroupDiscount,
    normalRebuyGroups:halfPriceGroups,
    overbuyGroups:freeAdminGroups
  };
