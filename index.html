@@ -4208,7 +4208,12 @@ function accountingAllEventsForDate(date){
  return (db.events||[]).filter(e=>businessDateForEvent(e)===date);
 }
 function accountingGroupForEvent(e){
- return String(e&&e.accountingGroup||'').trim();
+ const raw=String(e&&e.accountingGroup||'').trim();
+ // "一般帳" is the main ledger label, not an independent accounting group.
+ // Older data/UI could persist this display label as a real group value, which
+ // made accountingEventsForDate() exclude every event and zeroed the on-screen totals.
+ if(!raw || raw==='一般帳' || raw==='一般' || raw==='主帳')return '';
+ return raw;
 }
 // Any event with an accounting group is independent accounting and must never enter the main ledger/dashboard.
 function isIndependentAccountingEvent(e){
