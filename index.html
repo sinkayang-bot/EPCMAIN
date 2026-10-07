@@ -1951,10 +1951,10 @@ window.addEventListener('error',function(e){
    <button type="button" style="align-self:end" onclick="setMemberRangeThisMonth()">本月</button>
    <button type="button" style="align-self:end" onclick="clearMemberSearch()">清除搜尋</button>
   </div>
-  <div class="small" style="margin-top:8px">消費占比＝該會員區間實際買入 ÷ 全部會員區間實際買入。</div>
+  <div class="small" style="margin-top:8px">參賽場次包含已登記的進行中與已結算賽事；買入、領回、盈虧與消費占比只計正式結算。消費占比＝該會員區間已結算買入 ÷ 全部會員區間已結算買入。</div>
  </div>
  <div class="card tablewrap" style="margin-top:12px"><table>
-  <thead><tr><th>會員</th><th>綽號</th><th>ID</th><th>結帳群組</th><th>參賽場次</th><th>消費占比</th><th>買入</th><th>領回</th><th>盈虧</th><th>最後來店</th><th>操作</th></tr></thead>
+  <thead><tr><th>會員</th><th>綽號</th><th>ID</th><th>結帳群組</th><th>參賽場次</th><th>已結算場次</th><th>消費占比</th><th>買入</th><th>領回</th><th>盈虧</th><th>最後來店</th><th>操作</th></tr></thead>
   <tbody id="memberRows"></tbody><tfoot id="memberTotals"></tfoot>
  </table></div>
 </section>
@@ -5103,6 +5103,10 @@ function memberHistoryInRange(m,from,to){
  const source=window.EPCFirestore?.ready?h:(h.length?h:memberHistory_(m));
  return source.filter(x=>{const d=String(x.date||'');return d&&(!from||d>=from)&&(!to||d<=to)});
 }
+function memberParticipationInRange_(m,from,to){
+ const sid=String(m.id||m.memberId||'');
+ return (db.events||[]).filter(e=>{const d=businessDateForEvent(e);return (!from||d>=from)&&(!to||d<=to)&&(e.players||[]).some(p=>String(p.memberId)===sid)});
+}
 function memberLastVisit_(m){
  const sid=String(m.id||m.memberId||'');
  const dates=(db.events||[]).filter(e=>(e.players||[]).some(p=>String(p.memberId)===sid)).map(e=>businessDateForEvent(e)).filter(Boolean).sort();
@@ -5112,7 +5116,7 @@ function memberLastVisit_(m){
 function renderMemberRows(){
  const tbody=$('memberRows');if(!tbody)return;
  const q=String($('memberSearch')?.value||'').trim().toLowerCase(),from=$('memberDateFrom')?.value||'',to=$('memberDateTo')?.value||'';
- const stats=(db.members||[]).map(m=>{const h=memberHistoryInRange(m,from,to);const events=new Set(h.map(x=>x.eventId||`${x.date}|${x.eventSeq||''}|${x.level||''}`)).size;const paid=h.reduce((s,x)=>s+(+x.paid||0),0),prize=h.reduce((s,x)=>s+(+x.prize||0),0);return {m,events,paid,prize,net:prize-paid};});
+ const stats=(db.members||[]).map(m=>{const h=memberHistoryInRange(m,from,to);const settledEvents=new Set(h.map(x=>x.eventId||`${x.date}|${x.eventSeq||''}|${x.level||''}`)).size;const events=memberParticipationInRange_(m,from,to).length;const paid=h.reduce((s,x)=>s+(+x.paid||0),0),prize=h.reduce((s,x)=>s+(+x.prize||0),0);return {m,events,settledEvents,paid,prize,net:prize-paid};});
  const totalPaid=stats.reduce((s,x)=>s+x.paid,0),totalPrize=stats.reduce((s,x)=>s+x.prize,0),totalNet=totalPrize-totalPaid,totalEntries=stats.reduce((s,x)=>s+x.events,0);
  const sortBy=$('memberSortBy')?.value||'eventsDesc',filterBy=$('memberFilterBy')?.value||'all';
  const searched=stats.filter(({m})=>!q||String(m.name||'').toLowerCase().includes(q)||String(m.nickname||'').toLowerCase().includes(q)||String(m.id||'').toLowerCase().includes(q)||String(m.group||'').toLowerCase().includes(q));
@@ -5139,8 +5143,8 @@ function renderMemberRows(){
    return b.events-a.events||share(b)-share(a)||epcPlayerDisplayName_(a.m).localeCompare(epcPlayerDisplayName_(b.m),'zh-Hant');
  };
  const list=filtered.sort(cmp);
- tbody.innerHTML=list.map(({m,events,paid,prize,net})=>{const pct=totalPaid>0?paid/totalPaid*100:0;return `<tr><td>${epcPlayerDisplayHtml_(m)}</td><td>${epcDisplayEscape_(m.nickname||'—')}</td><td>${epcDisplayEscape_(m.id||'')}</td><td>${m.group||'-'}</td><td>${events}</td><td>${pct.toFixed(1)}%</td><td>${money(paid)}</td><td>${money(prize)}</td><td class="${net>=0?'pos':'neg'}">${money(net)}</td><td>${epcDisplayEscape_(memberLastVisit_(m))}</td><td><button onclick="editMember('${m.id}')">編輯</button> <button class="danger" onclick="delMember('${m.id}')">刪除</button></td></tr>`;}).join('')||'<tr><td colspan="11" class="small">找不到符合條件的會員</td></tr>';
- const foot=$('memberTotals');if(foot)foot.innerHTML=`<tr style="font-weight:800;border-top:2px solid #52677b"><td>區間總計</td><td colspan="3">${from||'全部'} ～ ${to||'全部'}</td><td>${totalEntries}</td><td>${totalPaid>0?'100.0%':'0.0%'}</td><td>${money(totalPaid)}</td><td>${money(totalPrize)}</td><td class="${totalNet>=0?'pos':'neg'}">${money(totalNet)}</td><td></td><td></td></tr>`;
+ tbody.innerHTML=list.map(({m,events,settledEvents,paid,prize,net})=>{const pct=totalPaid>0?paid/totalPaid*100:0;return `<tr><td>${epcPlayerDisplayHtml_(m)}</td><td>${epcDisplayEscape_(m.nickname||'—')}</td><td>${epcDisplayEscape_(m.id||'')}</td><td>${m.group||'-'}</td><td>${events}</td><td>${settledEvents}</td><td>${pct.toFixed(1)}%</td><td>${money(paid)}</td><td>${money(prize)}</td><td class="${net>=0?'pos':'neg'}">${money(net)}</td><td>${epcDisplayEscape_(memberLastVisit_(m))}</td><td><button onclick="editMember('${m.id}')">編輯</button> <button class="danger" onclick="delMember('${m.id}')">刪除</button></td></tr>`;}).join('')||'<tr><td colspan="12" class="small">找不到符合條件的會員</td></tr>';
+ const foot=$('memberTotals');if(foot)foot.innerHTML=`<tr style="font-weight:800;border-top:2px solid #52677b"><td>區間總計</td><td colspan="3">${from||'全部'} ～ ${to||'全部'}</td><td>${totalEntries}</td><td>${stats.reduce((sum,x)=>sum+x.settledEvents,0)}</td><td>${totalPaid>0?'100.0%':'0.0%'}</td><td>${money(totalPaid)}</td><td>${money(totalPrize)}</td><td class="${totalNet>=0?'pos':'neg'}">${money(totalNet)}</td><td></td><td></td></tr>`;
 }
 function setMemberRangeThisMonth(){const now=new Date(),y=now.getFullYear(),m=String(now.getMonth()+1).padStart(2,'0'),last=new Date(y,now.getMonth()+1,0).getDate();$('memberDateFrom').value=`${y}-${m}-01`;$('memberDateTo').value=`${y}-${m}-${String(last).padStart(2,'0')}`;renderMemberRows();}
 function clearMemberSearch(){
@@ -6864,4 +6868,4 @@ async function epcShowRecoveryAudit_(){
 <script src="firebase-config.js?v=20261007-0780"></script>
 <script src="firebase-events.js?v=20261007-admin-auth"></script>
 <script src="sync-v3.js?v=20261007-0780"></script>
-<script src="app.js?v=20261007-boss-event-order"></script></body></html>
+<script src="app.js?v=20261007-member-participation"></script></body></html>
