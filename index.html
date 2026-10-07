@@ -4513,8 +4513,29 @@ function addAccountingItem(){
  }
  if(!Array.isArray(rec.items))rec.items=[];
  const category=preset?name:(type==='membership'?'入會費收入':type==='expense'?'其他支出':'其他收入');
- rec.items.push({id:Date.now().toString(36)+Math.random().toString(36).slice(2,6),type,name,category,amount});
+ const newItem={id:Date.now().toString(36)+Math.random().toString(36).slice(2,6),type,name,category,amount};
+ rec.items.push(newItem);
+
+ // Daily manual accounting is not allowed to alter the event collection. Keep an
+ // exact event snapshot around the generic persistence path and restore it if any
+ // legacy cloud/merge hook touches events while saving the accounting row.
+ const eventSnapshot=cloneCloud_(db.events||[]);
  persist();
+ if(JSON.stringify(db.events||[])!==JSON.stringify(eventSnapshot)){
+   console.warn('Accounting save attempted to mutate events; restoring event snapshot');
+   db.events=eventSnapshot;
+   localStorage.setItem('epcV1',JSON.stringify(db));
+ }
+ // Verify the just-added row survived the save before repainting the accounting view.
+ let savedRec=(db.dailyAccounting||[]).find(x=>x&&x.date===date);
+ if(!savedRec){
+   savedRec={date:date,items:[newItem],createdAt:new Date().toISOString()};
+   db.dailyAccounting.push(savedRec);
+ }else{
+   if(!Array.isArray(savedRec.items))savedRec.items=[];
+   if(!savedRec.items.some(x=>x&&x.id===newItem.id))savedRec.items.push(newItem);
+ }
+ localStorage.setItem('epcV1',JSON.stringify(db));
  $('accountingItemName').value='';$('accountingItemAmount').value='';$('accountingItemPreset').value='';$('accountingItemType').value='income';
  renderDailyAccountingDetail();
 }
