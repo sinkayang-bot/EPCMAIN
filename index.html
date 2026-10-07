@@ -5189,14 +5189,19 @@ function syncPlayerColumnCheckboxes(){
  document.querySelectorAll('[data-player-col]').forEach(cb=>{cb.checked=visible.has(cb.dataset.playerCol)});
 }
 function setPlayerColumnPreference(k,v){
- const visible=new Set();
- document.querySelectorAll('[data-player-col]').forEach(cb=>{
-   if(cb.dataset.playerCol===k)cb.checked=!!v;
-   if(cb.checked)visible.add(cb.dataset.playerCol);
- });
+ const visible=new Set(loadPlayerVisibleCols());
+ if(v)visible.add(k);else visible.delete(k);
  window.__playerVisibleCols=visible;
  try{localStorage.setItem(PLAYER_COL_PREF_KEY,JSON.stringify([...visible]))}catch(_){}
- render();
+ // Column visibility is UI-only. Do not run the full application render pipeline:
+ // it recalculates dashboard/activity/report data and can be delayed by edit guards.
+ // Redraw only the current event so the checked column appears immediately.
+ if(document.querySelector('#event')?.classList.contains('active')){
+   renderEvent();
+   syncPlayerColumnCheckboxes();
+ }else{
+   syncPlayerColumnCheckboxes();
+ }
 }
 function playerVisibleCols(){
  return loadPlayerVisibleCols();
