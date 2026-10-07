@@ -1946,7 +1946,7 @@ window.addEventListener('error',function(e){
     <option value="paidDesc">買入金額：高 → 低</option><option value="paidAsc">買入金額：低 → 高</option>
     <option value="prizeDesc">領回金額：高 → 低</option><option value="prizeAsc">領回金額：低 → 高</option>
     <option value="netDesc">盈虧：獲利高 → 低</option><option value="netAsc">盈虧：虧損多 → 獲利高</option>
-    <option value="nameAsc">會員姓名：A → Z</option><option value="idAsc">會員 ID：小 → 大</option>
+    <option value="nameAsc">玩家名稱：A → Z</option><option value="idAsc">會員 ID：小 → 大</option>
    </select></div>
    <button type="button" style="align-self:end" onclick="setMemberRangeThisMonth()">本月</button>
    <button type="button" style="align-self:end" onclick="clearMemberSearch()">清除搜尋</button>
@@ -2497,6 +2497,17 @@ window.addEventListener('error',function(e){
 const $=id=>document.getElementById(id);
 const money=n=>'$'+Math.round(Number(n||0)).toLocaleString('zh-TW');
 const uid=()=>String(Date.now()).slice(-8)+Math.floor(Math.random()*90+10);
+// A display label never replaces the stored name, member ID or settlement group.
+function epcPlayerDisplayName_(playerOrId,member){
+ const p=playerOrId&&typeof playerOrId==='object'?playerOrId:{};
+ const id=String(p.memberId||p.id||(typeof playerOrId==='string'||typeof playerOrId==='number'?playerOrId:''));
+ const members=Array.isArray(db.members)?db.members:[];
+ const m=member||members.find(x=>p.memberKey&&String(x.memberKey||'')===String(p.memberKey))||members.find(x=>id&&String(x.id||x.memberId||'')===id)||{};
+ const text=v=>String(v??'').trim();
+ return text(p.nickname)||text(m.nickname)||text(m.name)||text(p.name)||text(p.member)||id||'未知';
+}
+function epcDisplayEscape_(value){return String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function epcPlayerDisplayHtml_(playerOrId,member){return epcDisplayEscape_(epcPlayerDisplayName_(playerOrId,member));}
 const CLOUD_API='https://script.google.com/macros/s/AKfycbwj-jLaSTiljcw15_UnhUFv4QxVq5HbNyers3ybU-6IAkwSj_A5X36x-852Xu5MxobS/exec';
 const EPC_V3_MODE=true;
 const STACK_API='https://script.google.com/macros/s/AKfycbwJgutjAat9guTMsUgLYymwP0CbOUKpVzWyg5bKe65xa51ysBJas2QMbkjB5B2wpDeJVQ/exec';
@@ -3707,7 +3718,7 @@ async function addMember(){
 }
 function delMember(id){
  const m=(db.members||[]).find(x=>String(x.id)===String(id));
- const label=m?.name||m?.id||'此會員';
+ const label=m?epcPlayerDisplayName_(m):'此會員';
  askDeleteConfirm(`確定要刪除會員「${label}」嗎？\n若此會員來自會員資料表，也會同步從 Form Responses 1 刪除。`,()=>performDelMember(id));
 }
 let eightMemberDeleteBusy_=false;
@@ -3838,7 +3849,7 @@ function filterAddPlayerMembers(keyword){
    return !q || name.includes(q) || nickname.includes(q) || id.includes(q) || group.includes(q);
  });
  sel.innerHTML=list.length
-   ? list.map(m=>`<option value="${m.id}">${m.nickname||m.name} (${m.id})</option>`).join('')
+   ? list.map(m=>`<option value="${m.id}">${epcPlayerDisplayHtml_(m)} (${m.id})</option>`).join('')
    : '<option value="">找不到符合的會員</option>';
  if(current && list.some(m=>m.id===current))sel.value=current;
  else if(list.length===1)sel.value=list[0].id;
@@ -3847,7 +3858,7 @@ function syncAddPlayerSearch(){
  const sel=$('addPlayerMember'),input=$('addPlayerSearch');if(!sel||!input)return;
  const m=db.members.find(x=>x.id===sel.value);
  if(m){
-   input.value=`${m.nickname||m.name} (${m.id})`;
+   input.value=`${epcPlayerDisplayName_(m)} (${m.id})`;
    if($('addPlayerGroup'))$('addPlayerGroup').value=m.group||'';
  }
 }
@@ -4184,7 +4195,7 @@ function removePlayerByIndex(index){
  
  const p=e.players[index];if(!p){actionMsg('找不到這位玩家',true);return;}
  const m=db.members.find(x=>String(x.id)===String(p.memberId));
- const name=m?.name||'此玩家';
+ const name=epcPlayerDisplayName_(p,m);
  e.players.splice(index,1);persist();render();actionMsg(`已從本場移除：${name}`);
 }
 
@@ -5090,7 +5101,7 @@ function renderMemberRows(){
  const stats=(db.members||[]).map(m=>{const h=memberHistoryInRange(m,from,to);const events=new Set(h.map(x=>x.eventId||`${x.date}|${x.eventSeq||''}|${x.level||''}`)).size;const paid=h.reduce((s,x)=>s+(+x.paid||0),0),prize=h.reduce((s,x)=>s+(+x.prize||0),0);return {m,events,paid,prize,net:prize-paid};});
  const totalPaid=stats.reduce((s,x)=>s+x.paid,0),totalPrize=stats.reduce((s,x)=>s+x.prize,0),totalNet=totalPrize-totalPaid,totalEntries=stats.reduce((s,x)=>s+x.events,0);
  const sortBy=$('memberSortBy')?.value||'eventsDesc',filterBy=$('memberFilterBy')?.value||'all';
- const searched=stats.filter(({m})=>!q||String(m.name||'').toLowerCase().includes(q)||String(m.id||'').toLowerCase().includes(q)||String(m.group||'').toLowerCase().includes(q));
+ const searched=stats.filter(({m})=>!q||String(m.name||'').toLowerCase().includes(q)||String(m.nickname||'').toLowerCase().includes(q)||String(m.id||'').toLowerCase().includes(q)||String(m.group||'').toLowerCase().includes(q));
  const filtered=searched.filter(x=>{
    if(filterBy==='profit')return x.net>0;
    if(filterBy==='loss')return x.net<0;
@@ -5109,12 +5120,12 @@ function renderMemberRows(){
    if(sortBy==='prizeAsc')return a.prize-b.prize||b.events-a.events;
    if(sortBy==='netDesc')return b.net-a.net||b.events-a.events;
    if(sortBy==='netAsc')return a.net-b.net||b.events-a.events;
-   if(sortBy==='nameAsc')return String(a.m.name||'').localeCompare(String(b.m.name||''),'zh-Hant');
+   if(sortBy==='nameAsc')return epcPlayerDisplayName_(a.m).localeCompare(epcPlayerDisplayName_(b.m),'zh-Hant');
    if(sortBy==='idAsc')return String(a.m.id||'').localeCompare(String(b.m.id||''),undefined,{numeric:true});
-   return b.events-a.events||share(b)-share(a)||String(a.m.name||'').localeCompare(String(b.m.name||''),'zh-Hant');
+   return b.events-a.events||share(b)-share(a)||epcPlayerDisplayName_(a.m).localeCompare(epcPlayerDisplayName_(b.m),'zh-Hant');
  };
  const list=filtered.sort(cmp);
- tbody.innerHTML=list.map(({m,events,paid,prize,net})=>{const pct=totalPaid>0?paid/totalPaid*100:0;return `<tr><td>${m.name||''}</td><td>${m.id||''}</td><td>${m.group||'-'}</td><td>${events}</td><td>${pct.toFixed(1)}%</td><td>${money(paid)}</td><td>${money(prize)}</td><td class="${net>=0?'pos':'neg'}">${money(net)}</td><td><button onclick="editMember('${m.id}')">編輯</button> <button class="danger" onclick="delMember('${m.id}')">刪除</button></td></tr>`;}).join('')||'<tr><td colspan="9" class="small">找不到符合條件的會員</td></tr>';
+ tbody.innerHTML=list.map(({m,events,paid,prize,net})=>{const pct=totalPaid>0?paid/totalPaid*100:0;return `<tr><td>${epcPlayerDisplayHtml_(m)}</td><td>${m.id||''}</td><td>${m.group||'-'}</td><td>${events}</td><td>${pct.toFixed(1)}%</td><td>${money(paid)}</td><td>${money(prize)}</td><td class="${net>=0?'pos':'neg'}">${money(net)}</td><td><button onclick="editMember('${m.id}')">編輯</button> <button class="danger" onclick="delMember('${m.id}')">刪除</button></td></tr>`;}).join('')||'<tr><td colspan="9" class="small">找不到符合條件的會員</td></tr>';
  const foot=$('memberTotals');if(foot)foot.innerHTML=`<tr style="font-weight:800;border-top:2px solid #52677b"><td>區間總計</td><td colspan="2">${from||'全部'} ～ ${to||'全部'}</td><td>${totalEntries}</td><td>${totalPaid>0?'100.0%':'0.0%'}</td><td>${money(totalPaid)}</td><td>${money(totalPrize)}</td><td class="${totalNet>=0?'pos':'neg'}">${money(totalNet)}</td><td></td></tr>`;
 }
 function setMemberRangeThisMonth(){const now=new Date(),y=now.getFullYear(),m=String(now.getMonth()+1).padStart(2,'0'),last=new Date(y,now.getMonth()+1,0).getDate();$('memberDateFrom').value=`${y}-${m}-01`;$('memberDateTo').value=`${y}-${m}-${String(last).padStart(2,'0')}`;renderMemberRows();}
@@ -5340,7 +5351,7 @@ function renderEventFast_(){
    const m=(db.members||[]).find(x=>String(x.id)===String(p.memberId))||{},cc=calcPlayerForEvent(p,ev);
    const cell={
     seat:`<td><input value="${p.seat||''}" oninput="setP(${i},'seat',this.value)"></td>`,
-    name:`<td>${m.name||''}</td>`,memberId:`<td>${p.memberId||''}</td>`,
+    name:`<td>${epcPlayerDisplayHtml_(p,m)}</td>`,memberId:`<td>${p.memberId||''}</td>`,
     nickname:`<td><input value="${p.nickname||''}" oninput="setP(${i},'nickname',this.value)"></td>`,
     buyin:`<td><input type="number" min="0" value="${+p.buyin||0}" oninput="setP(${i},'buyin',this.value)"></td>`,
     rebuy:`<td><input type="number" min="0" value="${+p.rebuy||0}" oninput="setP(${i},'rebuy',this.value)"></td>`,
@@ -5453,12 +5464,12 @@ function actEvents_(kind=actTab_){
 }
 function actMember_(id){return (db.members||[]).find(m=>String(m.id)===String(id))||{}}
 
-function actMemberOptions_(){return (db.members||[]).map(m=>`<option value="${m.id}">${m.name||''} (${m.id||''})</option>`).join('')}
+function actMemberOptions_(){return (db.members||[]).map(m=>`<option value="${m.id}">${epcPlayerDisplayHtml_(m)} (${m.id||''})</option>`).join('')}
 function actMemberSearchOptions_(members){
  return (members||db.members||[]).map(m=>{
   const id=String(m.id||m.memberId||'');
   const mm=m.id?m:actMember_(id);
-  const name=String(mm?.name||id).replace(/"/g,'&quot;');
+  const name=epcPlayerDisplayHtml_(m,mm);
   return '<option value="'+name+' ('+id+')"></option>';
  }).join('');
 }
@@ -5467,8 +5478,10 @@ function actResolveMember_(inputId){
  if(!raw)return '';
  const mt=raw.match(/\(([^()]+)\)\s*$/);
  if(mt)return mt[1].trim();
- const m=(db.members||[]).find(x=>String(x.id)===raw||String(x.name||'').trim()===raw);
- return m?String(m.id):'';
+ const exact=(db.members||[]).find(x=>String(x.id)===raw);
+ if(exact)return String(exact.id);
+ const matches=(db.members||[]).filter(x=>String(x.name||'').trim()===raw||String(x.nickname||'').trim()===raw);
+ return matches.length===1?String(matches[0].id):'';
 }
 
 function actEventOptions_(){return actEvents_(actTab_).map(e=>`<option value="${e.id}">${e.date||''}｜${eventDisplayName_(e)}｜${e.level||''}</option>`).join('')}
@@ -5478,10 +5491,10 @@ function actPlayerStats_(kind=actTab_){
  const {q}=actRange_(),map={};
  actEvents_(kind).forEach(e=>(e.players||[]).forEach(p=>{
   const m=actMember_(p.memberId),id=String(p.memberId||'');if(!id)return;
-  if(!map[id])map[id]={id,name:m.name||id,games:0,dates:new Set(),groups:0};
+  if(!map[id])map[id]={id,name:epcPlayerDisplayName_(id,m),games:0,dates:new Set(),groups:0};
   map[id].games++;map[id].dates.add(actBusinessDate_(e));map[id].groups+=actGroups_(p,e);
  }));
- return Object.values(map).map(x=>({...x,days:x.dates.size})).filter(x=>!q||x.name.toLowerCase().includes(q)||x.id.toLowerCase().includes(q));
+ return Object.values(map).map(x=>({...x,days:x.dates.size})).filter(x=>!q||[x.name,x.id,actMember_(x.id).name].some(v=>String(v||'').toLowerCase().includes(q)));
 }
 function actSave_(){persist();if(window.saveActivityCloudV3)window.saveActivityCloudV3();renderActivities()}
 function actAdj_(kind,id,field,v){
@@ -5506,8 +5519,8 @@ function actWeekly_(){
  }).sort((a,b)=>(+b.qualified)-(+a.qualified)||b.gameLevel-a.gameLevel||b.dayLevel-a.dayLevel||b.totalGames-a.totalGames||b.totalDays-a.totalDays);
  const qualified=rows.filter(x=>x.qualified),progress=rows.filter(x=>!x.qualified);
  const lvl=(n,type)=>n?'<b style="color:#27ae60">第 '+n+' 階</b>':'<span class="small">未達標</span>';
- const rowHtml=x=>`<tr style="${x.qualified?'background:rgba(38,166,91,.08)':''}"><td><b>${x.name}</b></td><td>${x.id}</td><td><b>${x.totalDays}</b> 天<br>${lvl(x.dayLevel)}</td><td>${x.dayReward.label}</td><td><b>${x.totalGames}</b> 場<br>${lvl(x.gameLevel)}</td><td>${x.gameReward.label}</td><td><b>${x.totalCoupon?money(x.totalCoupon)+' 折價卡':'—'}</b></td><td><b style="color:${x.totalCash?'#27ae60':'inherit'}">${x.totalCash?money(x.totalCash)+' 獎金':'—'}</b></td><td>${x.qualified?`<label style="display:flex;gap:6px;align-items:center;white-space:nowrap"><input type="checkbox" ${x.claimed?'checked':''} onchange="actWeeklyClaim_('${x.id}',this.checked)"> 已領取</label>`:'—'}</td></tr>`;
- const tier=(title,items)=>`<div class="card" style="margin:8px 0;padding:10px 12px"><b>${title}</b><div class="small" style="margin-top:5px">${items.length?items.map(x=>x.name+'（'+x.id+'）').join('、'):'目前無'}</div></div>`;
+ const rowHtml=x=>`<tr style="${x.qualified?'background:rgba(38,166,91,.08)':''}"><td><b>${epcDisplayEscape_(x.name)}</b></td><td>${x.id}</td><td><b>${x.totalDays}</b> 天<br>${lvl(x.dayLevel)}</td><td>${x.dayReward.label}</td><td><b>${x.totalGames}</b> 場<br>${lvl(x.gameLevel)}</td><td>${x.gameReward.label}</td><td><b>${x.totalCoupon?money(x.totalCoupon)+' 折價卡':'—'}</b></td><td><b style="color:${x.totalCash?'#27ae60':'inherit'}">${x.totalCash?money(x.totalCash)+' 獎金':'—'}</b></td><td>${x.qualified?`<label style="display:flex;gap:6px;align-items:center;white-space:nowrap"><input type="checkbox" ${x.claimed?'checked':''} onchange="actWeeklyClaim_('${x.id}',this.checked)"> 已領取</label>`:'—'}</td></tr>`;
+ const tier=(title,items)=>`<div class="card" style="margin:8px 0;padding:10px 12px"><b>${title}</b><div class="small" style="margin-top:5px">${items.length?items.map(x=>epcDisplayEscape_(x.name)+'（'+x.id+'）').join('、'):'目前無'}</div></div>`;
  return `<div class="card"><h3 style="margin-bottom:4px">每週任務卡｜雙線三階自動統計</h3>
  <div class="small">簽到線：3 / 5 / 7 天；場次線：5 / 10 / 15 場。每條線第 1 階 $200 折價卡、第 2 階累計 $400 折價卡；到第 3 階時，前兩階 $400 折價卡直接轉為現金，再加 $600 獎金，因此該線最終為 $1,000 獎金。</div>
  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:8px;margin:12px 0">
@@ -5575,12 +5588,12 @@ function togglePioneerCard_(eventId,btn){
 function actPioneer_(){
  const A=db.activityManagement;
  const cards=actEvents_('pioneer').map(e=>{const P=A.pioneer[e.id];if(!P)return `<div class="card" style="margin-top:10px"><b>${actEventLabel_(e)}</b><div class="small">${(e.players||[]).length} 位參賽者</div><button style="margin-top:8px" onclick="pioneerLoadEvent_('${e.id}')">建立本場先鋒積分</button></div>`;
-  const opts='<option value="">--未登記--</option>'+(e.players||[]).map(p=>`<option value="${p.memberId}">${actMember_(p.memberId).name||p.memberId}</option>`).join('');
+  const opts='<option value="">--未登記--</option>'+(e.players||[]).map(p=>`<option value="${p.memberId}">${epcPlayerDisplayHtml_(p.memberId)}</option>`).join('');
   return `<div class="card pioneer-event-card" id="pioneerCard_${e.id}" style="margin-top:10px"><div class="pioneer-event-head"><h3>${actEventLabel_(e)}</h3><button type="button" class="pioneer-collapse-btn" onclick="togglePioneerCard_(\'${e.id}\',this)">收合 ▲</button></div><div class="pioneer-event-body"><div class="formgrid" style="grid-template-columns:repeat(4,1fr)">${[0,1,2,3].map(i=>`<div><label>第${i+1}位</label><select id="pioneerFirst_${e.id}_${i}" onchange="pioneerSetFirst_('${e.id}',${i},this.value)">${opts.replace(`value="${P.first4[i]||''}"`,`value="${P.first4[i]||''}" selected`)}</select></div>`).join('')}</div>
-  <table style="margin-top:10px"><thead><tr><th>會員</th><th>是否前4</th><th>本場積分（可改）</th></tr></thead><tbody>${(e.players||[]).map(p=>`<tr><td>${actMember_(p.memberId).name||p.memberId}</td><td>${P.first4.includes(p.memberId)?'是':'否'}</td><td><input id="pioneerScore_${e.id}_${p.memberId}" type="number" style="width:90px" value="${P.scores[p.memberId]??1}" onchange="pioneerScore_('${e.id}','${p.memberId}',this.value)"></td></tr>`).join('')}</tbody></table><div style="display:flex;gap:12px;align-items:center;margin-top:12px"><button onclick="pioneerConfirm_('${e.id}')">${P.confirmed?'更新本場排名':'確認本場排名'}</button><span class="small">${P.confirmed?'✓ 已儲存':'尚未確認儲存'}</span></div></div></div>`}).join('');
+  <table style="margin-top:10px"><thead><tr><th>會員</th><th>是否前4</th><th>本場積分（可改）</th></tr></thead><tbody>${(e.players||[]).map(p=>`<tr><td>${epcPlayerDisplayHtml_(p.memberId)}</td><td>${P.first4.includes(p.memberId)?'是':'否'}</td><td><input id="pioneerScore_${e.id}_${p.memberId}" type="number" style="width:90px" value="${P.scores[p.memberId]??1}" onchange="pioneerScore_('${e.id}','${p.memberId}',this.value)"></td></tr>`).join('')}</tbody></table><div style="display:flex;gap:12px;align-items:center;margin-top:12px"><button onclick="pioneerConfirm_('${e.id}')">${P.confirmed?'更新本場排名':'確認本場排名'}</button><span class="small">${P.confirmed?'✓ 已儲存':'尚未確認儲存'}</span></div></div></div>`}).join('');
  const totals={};Object.values(A.pioneer).forEach(P=>{if(!P.confirmed)return;const e=(db.events||[]).find(x=>x.id===P.eventId);if(!e||!actEvents_().some(z=>z.id===e.id))return;Object.entries(P.scores||{}).forEach(([id,v])=>totals[id]=(totals[id]||0)+(+v||0))});
- const ranking=Object.entries(totals).map(([id,score])=>({id,name:actMember_(id).name||id,score})).sort((a,b)=>b.score-a.score);
- return `<div class="card"><h3>開桌先鋒｜排行榜</h3><div class="small">登記前4名後，系統預設第1~4位為 5／4／3／2 分；同場其他參賽者預設 1 分。每一分都可直接修改，並可標註排行榜資格。</div><table><thead><tr><th>排名</th><th>會員</th><th>總分</th><th>有排行資格</th></tr></thead><tbody>${ranking.map((x,i)=>`<tr><td>${i+1}</td><td>${x.name}</td><td>${x.score}</td><td><input type="checkbox" ${A.pioneerQualify[x.id]?'checked':''} onchange="actAdj_('pioneerQual','${x.id}','q',this.checked)"></td></tr>`).join('')||'<tr><td colspan="4">尚無積分</td></tr>'}</tbody></table></div>${cards}`;
+ const ranking=Object.entries(totals).map(([id,score])=>({id,name:epcPlayerDisplayName_(id),score})).sort((a,b)=>b.score-a.score);
+ return `<div class="card"><h3>開桌先鋒｜排行榜</h3><div class="small">登記前4名後，系統預設第1~4位為 5／4／3／2 分；同場其他參賽者預設 1 分。每一分都可直接修改，並可標註排行榜資格。</div><table><thead><tr><th>排名</th><th>會員</th><th>總分</th><th>有排行資格</th></tr></thead><tbody>${ranking.map((x,i)=>`<tr><td>${i+1}</td><td>${epcDisplayEscape_(x.name)}</td><td>${x.score}</td><td><input type="checkbox" ${A.pioneerQualify[x.id]?'checked':''} onchange="actAdj_('pioneerQual','${x.id}','q',this.checked)"></td></tr>`).join('')||'<tr><td colspan="4">尚無積分</td></tr>'}</tbody></table></div>${cards}`;
 }
 
 function rankDayNum_(dateStr){
@@ -5649,15 +5662,15 @@ function delRankRecurringRule_(id){
  persist();if(window.saveActivityCloudV3)window.saveActivityCloudV3();renderActivities();setTimeout(enhanceSearchCombos_,0);
 }
 function eventTopScores_(e){
- const arr=(e.players||[]).map(p=>({id:String(p.memberId),name:actMember_(p.memberId).name||p.memberId,net:chipGrowthFor(p,e),stack:+p.stack||0})).sort((a,b)=>b.net-a.net||b.stack-a.stack);
+ const arr=(e.players||[]).map(p=>({id:String(p.memberId),name:epcPlayerDisplayName_(p.memberId),net:chipGrowthFor(p,e),stack:+p.stack||0})).sort((a,b)=>b.net-a.net||b.stack-a.stack);
  let last=null,rank=0,seen=0;const mult=rankMultiplier_(e),out=[];
  for(const x of arr){seen++;const key=`${x.net}|${x.stack}`;if(key!==last){rank=seen;last=key}if(rank>3)break;out.push({...x,rank,base:rank===1?3:rank===2?2:1,score:(rank===1?3:rank===2?2:1)*mult,mult})}
  return out;
 }
 function actRank_(){
  const A=db.activityManagement,tot={},dayNames=['日','一','二','三','四','五','六'];
- const detail=actEvents_('rank').map(e=>{const top=eventTopScores_(e);top.forEach(x=>tot[x.id]=(tot[x.id]||0)+x.score);return `<div class="card" style="margin-top:10px"><b>${actEventLabel_(e)}</b> <span class="small">當日第 ${rankEventSeqOfDay_(e)} 場｜倍率 ×${rankMultiplier_(e)}</span><table><thead><tr><th>名次</th><th>會員</th><th>籌碼淨勝值</th><th>下桌籌碼</th><th>得分</th></tr></thead><tbody>${top.map(x=>`<tr><td>${x.rank}</td><td>${x.name}</td><td>${x.net.toFixed(1)}</td><td>${(+x.stack).toLocaleString()}</td><td>${x.score}</td></tr>`).join('')||'<tr><td colspan="5">無資料</td></tr>'}</tbody></table></div>`}).join('');
- const ranking=Object.entries(tot).map(([id,auto])=>({id,name:actMember_(id).name||id,auto,adj:+A.rankAdjust[id]||0})).map(x=>({...x,total:x.auto+x.adj})).sort((a,b)=>b.total-a.total);
+ const detail=actEvents_('rank').map(e=>{const top=eventTopScores_(e);top.forEach(x=>tot[x.id]=(tot[x.id]||0)+x.score);return `<div class="card" style="margin-top:10px"><b>${actEventLabel_(e)}</b> <span class="small">當日第 ${rankEventSeqOfDay_(e)} 場｜倍率 ×${rankMultiplier_(e)}</span><table><thead><tr><th>名次</th><th>會員</th><th>籌碼淨勝值</th><th>下桌籌碼</th><th>得分</th></tr></thead><tbody>${top.map(x=>`<tr><td>${x.rank}</td><td>${epcDisplayEscape_(x.name)}</td><td>${x.net.toFixed(1)}</td><td>${(+x.stack).toLocaleString()}</td><td>${x.score}</td></tr>`).join('')||'<tr><td colspan="5">無資料</td></tr>'}</tbody></table></div>`}).join('');
+ const ranking=Object.entries(tot).map(([id,auto])=>({id,name:epcPlayerDisplayName_(id),auto,adj:+A.rankAdjust[id]||0})).map(x=>({...x,total:x.auto+x.adj})).sort((a,b)=>b.total-a.total);
  const rules=(A.rankRecurringRules||[]).map(r=>`<div class="card" style="margin-top:8px;padding:12px">
    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
     <label><input type="checkbox" ${r.enabled?'checked':''} onchange="editRankRecurringRule_('${r.id}','enabled',this.checked)"> 啟用</label>
@@ -5691,7 +5704,7 @@ function actRank_(){
   </div>
  </div>
  <h3 style="margin-top:14px">區間排行榜</h3>
- <table><thead><tr><th>排名</th><th>會員</th><th>自動得分</th><th>人工調整</th><th>總得分</th></tr></thead><tbody>${ranking.map((x,i)=>`<tr><td>${i+1}</td><td>${x.name}</td><td>${x.auto}</td><td><input type="number" style="width:90px" value="${x.adj}" onchange="actAdj_('rank','${x.id}','adj',this.value)"></td><td><b>${x.total}</b></td></tr>`).join('')||'<tr><td colspan="5">區間內無得分</td></tr>'}</tbody></table></div>${detail}`;
+ <table><thead><tr><th>排名</th><th>會員</th><th>自動得分</th><th>人工調整</th><th>總得分</th></tr></thead><tbody>${ranking.map((x,i)=>`<tr><td>${i+1}</td><td>${epcDisplayEscape_(x.name)}</td><td>${x.auto}</td><td><input type="number" style="width:90px" value="${x.adj}" onchange="actAdj_('rank','${x.id}','adj',this.value)"></td><td><b>${x.total}</b></td></tr>`).join('')||'<tr><td colspan="5">區間內無得分</td></tr>'}</tbody></table></div>${detail}`;
 }
 function hunterEventChanged_(){const e=(db.events||[]).find(x=>x.id===$('hunterEvent')?.value),list=$('hunterKillerList'),inp=$('hunterKiller');if(inp)inp.value='';if(list)list.innerHTML=actMemberSearchOptions_(e?.players||[])}
 async function addHunter_(){
@@ -5717,10 +5730,10 @@ async function hunterDel_(id){
  if(cloudReady)await saveCloudNow(false);
 }
 function actHunter_(){
- const {from,to}=actActivityRange_('hunter'),rows=db.activityManagement.hunter.filter(x=>(!from||x.date>=from)&&(!to||x.date<=to)),tot={};rows.forEach(x=>tot[x.killer]=(tot[x.killer]||0)+(+x.points||0));const rank=Object.entries(tot).map(([id,score])=>({id,name:actMember_(id).name||id,score})).sort((a,b)=>b.score-a.score);
+ const {from,to}=actActivityRange_('hunter'),rows=db.activityManagement.hunter.filter(x=>(!from||x.date>=from)&&(!to||x.date<=to)),tot={};rows.forEach(x=>tot[x.killer]=(tot[x.killer]||0)+(+x.points||0));const rank=Object.entries(tot).map(([id,score])=>({id,name:epcPlayerDisplayName_(id),score})).sort((a,b)=>b.score-a.score);
  return `<div class="card"><h3>獵人排行榜｜擊殺登記</h3><div class="formgrid" style="grid-template-columns:1.4fr 1.2fr .6fr 1.2fr auto"><div><label>場次</label><select id="hunterEvent" onchange="hunterEventChanged_()"><option value="">選擇場次</option>${actEventOptions_()}</select></div><div><label>擊殺者</label><input id="hunterKiller" list="hunterKillerList" autocomplete="off" placeholder="先選場次，再輸入姓名 / ID"><datalist id="hunterKillerList"></datalist></div><div><label>分數</label><input type="number" id="hunterPoints" value="1"></div><div><label>備註</label><input id="hunterNote"></div><div style="align-self:end"><button onclick="addHunter_()">登記擊殺</button></div></div>
- <h3 style="margin-top:14px">排行榜</h3><table><thead><tr><th>排名</th><th>會員</th><th>總分</th></tr></thead><tbody>${rank.map((x,i)=>`<tr><td>${i+1}</td><td>${x.name}</td><td>${x.score}</td></tr>`).join('')||'<tr><td colspan="3">尚無資料</td></tr>'}</tbody></table>
- <h3 style="margin-top:14px">登記紀錄</h3><table><thead><tr><th>日期</th><th>場次</th><th>擊殺者</th><th>分數（可改）</th><th>備註</th><th></th></tr></thead><tbody>${rows.map(x=>`<tr><td>${x.date}</td><td>${actEventLabel_((db.events||[]).find(e=>e.id===x.eventId)||{})}</td><td>${actMember_(x.killer).name||x.killer}</td><td><input type="number" style="width:90px" value="${x.points}" onchange="hunterEdit_('${x.id}',this.value)"></td><td>${x.note||''}</td><td><button class="danger" onclick="hunterDel_('${x.id}')">刪除</button></td></tr>`).join('')||'<tr><td colspan="6">尚無登記</td></tr>'}</tbody></table></div>`;
+ <h3 style="margin-top:14px">排行榜</h3><table><thead><tr><th>排名</th><th>會員</th><th>總分</th></tr></thead><tbody>${rank.map((x,i)=>`<tr><td>${i+1}</td><td>${epcDisplayEscape_(x.name)}</td><td>${x.score}</td></tr>`).join('')||'<tr><td colspan="3">尚無資料</td></tr>'}</tbody></table>
+ <h3 style="margin-top:14px">登記紀錄</h3><table><thead><tr><th>日期</th><th>場次</th><th>擊殺者</th><th>分數（可改）</th><th>備註</th><th></th></tr></thead><tbody>${rows.map(x=>`<tr><td>${x.date}</td><td>${actEventLabel_((db.events||[]).find(e=>e.id===x.eventId)||{})}</td><td>${epcPlayerDisplayHtml_(x.killer)}</td><td><input type="number" style="width:90px" value="${x.points}" onchange="hunterEdit_('${x.id}',this.value)"></td><td>${x.note||''}</td><td><button class="danger" onclick="hunterDel_('${x.id}')">刪除</button></td></tr>`).join('')||'<tr><td colspan="6">尚無登記</td></tr>'}</tbody></table></div>`;
 }
 function umbrellaRule_(k,v){db.activityManagement.umbrellaRules[k]=+v||0;persist();if(window.saveActivityCloudV3)window.saveActivityCloudV3();renderActivities()}
 function umbrellaTypeChanged_(){const k=$('umbrellaType').value;$('umbrellaCoupons').value=db.activityManagement.umbrellaRules[k]??0}
@@ -5728,12 +5741,12 @@ function addUmbrella_(){const id=actResolveMember_('umbrellaMember'),k=$('umbrel
 function umbrellaEdit_(id,v){const x=db.activityManagement.umbrella.find(z=>z.id===id);if(x){x.coupons=+v||0;persist();if(window.saveActivityCloudV3)window.saveActivityCloudV3();renderActivities()}}
 function umbrellaDel_(id){db.activityManagement.umbrella=db.activityManagement.umbrella.filter(x=>x.id!==id);persist();if(window.saveActivityCloudV3)window.saveActivityCloudV3();renderActivities()}
 function actUmbrella_(){
- const A=db.activityManagement,{from,to}=actActivityRange_('umbrella'),rows=A.umbrella.filter(x=>(!from||x.date>=from)&&(!to||x.date<=to)),tot={};rows.forEach(x=>tot[x.memberId]=(tot[x.memberId]||0)+(+x.coupons||0));const rank=Object.entries(tot).map(([id,score])=>({id,name:actMember_(id).name||id,score})).sort((a,b)=>b.score-a.score);
+ const A=db.activityManagement,{from,to}=actActivityRange_('umbrella'),rows=A.umbrella.filter(x=>(!from||x.date>=from)&&(!to||x.date<=to)),tot={};rows.forEach(x=>tot[x.memberId]=(tot[x.memberId]||0)+(+x.coupons||0));const rank=Object.entries(tot).map(([id,score])=>({id,name:epcPlayerDisplayName_(id),score})).sort((a,b)=>b.score-a.score);
  const rules=Object.entries(A.umbrellaRules);
  return `<div class="card"><h3>保護傘｜牌型券數設定</h3><div class="formgrid" style="grid-template-columns:repeat(${rules.length},1fr)">${rules.map(([k,v])=>`<div><label>${k}</label><input type="number" value="${v}" onchange="umbrellaRule_('${k}',this.value)"></div>`).join('')}</div>
  <h3 style="margin-top:14px">登記保護傘</h3><div class="formgrid" style="grid-template-columns:.9fr 1.2fr 1.2fr .6fr 1.2fr auto"><div><label>日期</label><input type="date" id="umbrellaDate" value="${new Date().toISOString().slice(0,10)}"></div><div><label>會員</label><input id="umbrellaMember" list="umbrellaMemberList" autocomplete="off" placeholder="輸入姓名 / 會員ID"><datalist id="umbrellaMemberList">${actMemberSearchOptions_()}</datalist></div><div><label>被超車牌型</label><select id="umbrellaType" onchange="umbrellaTypeChanged_()">${rules.map(([k])=>`<option>${k}</option>`).join('')}</select></div><div><label>券數</label><input type="number" id="umbrellaCoupons" value="${rules[0]?.[1]||0}"></div><div><label>備註</label><input id="umbrellaNote"></div><div style="align-self:end"><button onclick="addUmbrella_()">登記</button></div></div>
- <h3 style="margin-top:14px">排行榜</h3><table><thead><tr><th>排名</th><th>會員</th><th>券數</th></tr></thead><tbody>${rank.map((x,i)=>`<tr><td>${i+1}</td><td>${x.name}</td><td>${x.score}</td></tr>`).join('')||'<tr><td colspan="3">尚無資料</td></tr>'}</tbody></table>
- <h3 style="margin-top:14px">明細</h3><table><thead><tr><th>日期</th><th>會員</th><th>牌型</th><th>券數（可改）</th><th>備註</th><th></th></tr></thead><tbody>${rows.map(x=>`<tr><td>${x.date}</td><td>${actMember_(x.memberId).name||x.memberId}</td><td>${x.type}</td><td><input type="number" style="width:90px" value="${x.coupons}" onchange="umbrellaEdit_('${x.id}',this.value)"></td><td>${x.note||''}</td><td><button class="danger" onclick="umbrellaDel_('${x.id}')">刪除</button></td></tr>`).join('')||'<tr><td colspan="6">尚無資料</td></tr>'}</tbody></table></div>`;
+ <h3 style="margin-top:14px">排行榜</h3><table><thead><tr><th>排名</th><th>會員</th><th>券數</th></tr></thead><tbody>${rank.map((x,i)=>`<tr><td>${i+1}</td><td>${epcDisplayEscape_(x.name)}</td><td>${x.score}</td></tr>`).join('')||'<tr><td colspan="3">尚無資料</td></tr>'}</tbody></table>
+ <h3 style="margin-top:14px">明細</h3><table><thead><tr><th>日期</th><th>會員</th><th>牌型</th><th>券數（可改）</th><th>備註</th><th></th></tr></thead><tbody>${rows.map(x=>`<tr><td>${x.date}</td><td>${epcPlayerDisplayHtml_(x.memberId)}</td><td>${x.type}</td><td><input type="number" style="width:90px" value="${x.coupons}" onchange="umbrellaEdit_('${x.id}',this.value)"></td><td>${x.note||''}</td><td><button class="danger" onclick="umbrellaDel_('${x.id}')">刪除</button></td></tr>`).join('')||'<tr><td colspan="6">尚無資料</td></tr>'}</tbody></table></div>`;
 }
 function bossSet_(k,v,type='num'){const B=db.activityManagement.boss;B[k]=type==='bool'?!!v:Number(v)||0;persist();if(window.saveActivityCloudV3)window.saveActivityCloudV3();renderActivities()}
 
@@ -5820,7 +5833,7 @@ function deleteBoss_(id){const B=db.activityManagement.boss;if(!confirm('確定�
 function selectBoss_(id){db.activityManagement.boss.activeBossId=id;persist();if(window.saveActivityCloudV3)window.saveActivityCloudV3();renderActivities()}
 function addBossAttack_(){const B=db.activityManagement.boss,b=activeBoss_(),id=actResolveMember_('bossMember');if(!b)return actionMsg('請先新增魔王',true);if(!id)return actionMsg('請選攻擊玩家',true);const S=bossStats_(),success=!!$('bossSuccess').checked,table=Math.max(1,+$('bossTableCount').value||1),pool=Math.min(+B.cap||Infinity,S.pool);let dmg=Math.max(0,+$('bossDamage').value||0),killer=0,other=0;if(success){dmg=Math.max(dmg,bossCurrentHp_());b.killed=true;const others=Math.max(0,table-1);if(others){other=Math.floor((pool*.5/others)/100)*100;killer=pool-other*others}else killer=pool}b.attacks=b.attacks||[];b.attacks.unshift({id:'B'+Date.now(),date:$('bossDate').value,memberId:id,method:$('bossMethod').value,damage:dmg,execute:+$('bossExecute').value||0,success,note:$('bossNote').value||'',poolAtKill:success?pool:0,tableCount:success?table:0,killerPrize:killer,otherPrize:other});persist();if(window.saveActivityCloudV3)window.saveActivityCloudV3();renderActivities()}
 function bossAttackDel_(id){const b=activeBoss_();if(!b)return;b.attacks=(b.attacks||[]).filter(x=>x.id!==id);b.killed=b.attacks.some(x=>x.success);persist();if(window.saveActivityCloudV3)window.saveActivityCloudV3();renderActivities()}
-function actBoss_(){const B=db.activityManagement.boss,S=bossStats_(),b=activeBoss_(),hp=bossCurrentHp_(),range=(db.events||[]).filter(e=>(!B.activityFrom||e.date>=B.activityFrom)&&(!B.activityTo||e.date<=B.activityTo));const stage=(name,p,people,groups)=>`<div class="card"><h3>${name}</h3><div class="formgrid" style="grid-template-columns:repeat(3,1fr)"><div><label>人數加碼｜多少人</label><input type="number" value="${B[p+'PersonStep']}" onchange="bossSet_('${p}PersonStep',this.value)"></div><div><label>+多少錢</label><input type="number" value="${B[p+'PersonAmount']}" onchange="bossSet_('${p}PersonAmount',this.value)"></div><div><label>忽略不計人數</label><input type="number" value="${B[p+'PersonIgnore']}" onchange="bossSet_('${p}PersonIgnore',this.value)"></div><div><label>組數加碼｜多少組</label><input type="number" value="${B[p+'GroupStep']}" onchange="bossSet_('${p}GroupStep',this.value)"></div><div><label>+多少錢</label><input type="number" value="${B[p+'GroupAmount']}" onchange="bossSet_('${p}GroupAmount',this.value)"></div><div><label>忽略不計組數</label><input type="number" value="${B[p+'GroupIgnore']}" onchange="bossSet_('${p}GroupIgnore',this.value)"></div></div><div class="small">此階段目前 ${people} 人／${groups} 組</div></div>`;return `<div class="card"><h3>雙十狩主｜活動區間與規則</h3><div class="formgrid" style="grid-template-columns:repeat(4,1fr)"><div><label>活動開始日</label><input type="date" value="${B.activityFrom}" onchange="bossSet_('activityFrom',this.value)"></div><div><label>活動結束日</label><input type="date" value="${B.activityTo}" onchange="bossSet_('activityTo',this.value)"></div><div><label>起始獎金</label><input type="number" value="${B.startPrize}" onchange="bossSet_('startPrize',this.value)"></div><div><label>封頂</label><input type="number" value="${B.cap}" onchange="bossSet_('cap',this.value)"></div><div><label>自動啟動標準線</label><input type="number" value="${B.attackThreshold}" onchange="bossSet_('attackThreshold',this.value)"></div><div><label>魔王預設HP</label><input type="number" value="${B.initialHp}" onchange="bossSet_('initialHp',this.value)"></div><div><label>手動開啟攻擊階段</label><input type="checkbox" ${B.attackEnabled?'checked':''} onchange="bossToggleAttack_(this.checked)"><div class="small">未達自動門檻時可強制開啟；取消後若仍未達門檻，會回到未啟用。</div></div></div><h3>不計算場次</h3><div class="formgrid" style="grid-template-columns:1fr auto;align-items:end"><div><label>選擇場次</label><select id="bossExcludeSelect"><option value="">選擇要排除的場次</option>${range.filter(e=>!(B.excludedEventIds||[]).includes(String(e.id))).map(e=>`<option value="${e.id}">${actEventLabel_(e)}</option>`).join('')}</select></div><div><button onclick="bossAddExclude_()">＋新增</button></div></div><div style="margin-top:8px">${(B.excludedEventIds||[]).map(id=>{const e=(db.events||[]).find(x=>String(x.id)===String(id));return e?`<span style="display:inline-flex;align-items:center;gap:6px;margin:3px;padding:6px 8px;border:1px solid #33495b;border-radius:8px">${actEventLabel_(e)} <button class="danger" style="padding:2px 6px" onclick="bossRemoveExclude_('${id}')">×</button></span>`:''}).join('')||'<span class="small">目前沒有不計算場次</span>'}</div></div><div class="card" style="margin-top:12px"><h3>魔王管理｜目前狀態</h3><div style="display:flex;gap:8px;flex-wrap:wrap">${(B.bosses||[]).map(x=>`<button onclick="selectBoss_('${x.id}')">${x.name}${x.killed?'（已擊殺）':''}</button>`).join('')}<button onclick="addNewBoss_()">＋新增魔王</button>${b?`<button class="danger" onclick="deleteBoss_('${b.id}')">刪除目前魔王</button>`:''}</div>${b?`<div class="formgrid" style="grid-template-columns:2fr 1fr;align-items:end;margin-top:12px"><div><label>目前魔王名稱</label><input type="text" value="${String(b.name||'').replace(/\"/g,'&quot;')}" onchange="bossRename_('${b.id}',this.value)" placeholder="例如：赤焰白虎王"></div><div><label>HP 狀態</label><div style="padding:10px 0">初始 ${b.initialHp}｜剩餘 <b>${hp}</b></div></div></div><div class="small">修改名稱後會立即儲存；重新套用 DISPLAY 後，電視畫面會同步顯示新名稱。</div>`:''}</div><div class="grid" style="grid-template-columns:1fr 1fr;gap:12px;margin-top:12px">${stage('一般模式','normal',S.np,S.ng)}${stage('狩王模式','hunt',S.hp,S.hg)}</div><div class="card" style="margin-top:12px"><h3>區間統計</h3><table><thead><tr><th>模式</th><th>人數</th><th>人數加碼</th><th>累積總組數</th><th>符合組數加碼場次</th><th>組數加碼</th></tr></thead><tbody><tr><td>一般模式</td><td>${S.np}</td><td>${money(S.npb)}</td><td>${S.ng}</td><td>${S.normalQualifyingEvents}</td><td>${money(S.ngb)}</td></tr><tr><td>攻擊模式</td><td>${S.hp}</td><td>${money(S.hpb)}</td><td>${S.hg}</td><td>${S.huntQualifyingEvents}</td><td>${money(S.hgb)}</td></tr></tbody></table><div class="small" style="margin-top:9px">組數加碼採「每場獨立計算」，不同場次的組數不合併湊級距；累積總組數僅顯示活動期間實際總組數。</div><h3>目前累積 ${money(S.pool)}｜攻擊模式：${S.active?'已啟用':'未啟用'}</h3></div>${b&&S.active&&!b.killed?`<div class="card" style="margin-top:12px"><h3>攻擊登記</h3><div class="formgrid" style="grid-template-columns:repeat(8,1fr)"><div><label>日期</label><input type="date" id="bossDate" value="${new Date().toISOString().slice(0,10)}"></div><div><label>攻擊玩家</label><input id="bossMember" list="bossMemberList" placeholder="姓名 / ID"><datalist id="bossMemberList">${actMemberSearchOptions_()}</datalist></div><div><label>形式</label><select id="bossMethod"><option>10Xo</option><option>TT</option><option>斬殺</option><option>其他</option></select></div><div><label>傷害</label><input type="number" id="bossDamage" value="10"></div><div><label>第幾次斬殺</label><input type="number" id="bossExecute" value="0"></div><div><label>擊殺魔王</label><input type="checkbox" id="bossSuccess"></div><div><label>桌上總人數（含擊殺者）</label><input type="number" id="bossTableCount" value="2" min="1"></div><div><label>備註</label><input id="bossNote"></div></div><button onclick="addBossAttack_()">登記攻擊</button></div>`:''}${b?`<div class="card" style="margin-top:12px"><h3>攻擊／分配紀錄</h3><table><thead><tr><th>日期</th><th>會員</th><th>形式</th><th>傷害</th><th>擊殺</th><th>當下獎池</th><th>擊殺者</th><th>其他每人</th><th>桌上人數</th><th></th></tr></thead><tbody>${(b.attacks||[]).map(x=>`<tr><td>${x.date}</td><td>${actMember_(x.memberId).name||x.memberId}</td><td>${x.method}</td><td>${x.damage}</td><td>${x.success?'是':'否'}</td><td>${x.success?money(x.poolAtKill):'-'}</td><td>${x.success?money(x.killerPrize):'-'}</td><td>${x.success?money(x.otherPrize):'-'}</td><td>${x.success?x.tableCount:'-'}</td><td><button class="danger" onclick="bossAttackDel_('${x.id}')">刪除</button></td></tr>`).join('')}</tbody></table></div>`:''}`}
+function actBoss_(){const B=db.activityManagement.boss,S=bossStats_(),b=activeBoss_(),hp=bossCurrentHp_(),range=(db.events||[]).filter(e=>(!B.activityFrom||e.date>=B.activityFrom)&&(!B.activityTo||e.date<=B.activityTo));const stage=(name,p,people,groups)=>`<div class="card"><h3>${name}</h3><div class="formgrid" style="grid-template-columns:repeat(3,1fr)"><div><label>人數加碼｜多少人</label><input type="number" value="${B[p+'PersonStep']}" onchange="bossSet_('${p}PersonStep',this.value)"></div><div><label>+多少錢</label><input type="number" value="${B[p+'PersonAmount']}" onchange="bossSet_('${p}PersonAmount',this.value)"></div><div><label>忽略不計人數</label><input type="number" value="${B[p+'PersonIgnore']}" onchange="bossSet_('${p}PersonIgnore',this.value)"></div><div><label>組數加碼｜多少組</label><input type="number" value="${B[p+'GroupStep']}" onchange="bossSet_('${p}GroupStep',this.value)"></div><div><label>+多少錢</label><input type="number" value="${B[p+'GroupAmount']}" onchange="bossSet_('${p}GroupAmount',this.value)"></div><div><label>忽略不計組數</label><input type="number" value="${B[p+'GroupIgnore']}" onchange="bossSet_('${p}GroupIgnore',this.value)"></div></div><div class="small">此階段目前 ${people} 人／${groups} 組</div></div>`;return `<div class="card"><h3>雙十狩主｜活動區間與規則</h3><div class="formgrid" style="grid-template-columns:repeat(4,1fr)"><div><label>活動開始日</label><input type="date" value="${B.activityFrom}" onchange="bossSet_('activityFrom',this.value)"></div><div><label>活動結束日</label><input type="date" value="${B.activityTo}" onchange="bossSet_('activityTo',this.value)"></div><div><label>起始獎金</label><input type="number" value="${B.startPrize}" onchange="bossSet_('startPrize',this.value)"></div><div><label>封頂</label><input type="number" value="${B.cap}" onchange="bossSet_('cap',this.value)"></div><div><label>自動啟動標準線</label><input type="number" value="${B.attackThreshold}" onchange="bossSet_('attackThreshold',this.value)"></div><div><label>魔王預設HP</label><input type="number" value="${B.initialHp}" onchange="bossSet_('initialHp',this.value)"></div><div><label>手動開啟攻擊階段</label><input type="checkbox" ${B.attackEnabled?'checked':''} onchange="bossToggleAttack_(this.checked)"><div class="small">未達自動門檻時可強制開啟；取消後若仍未達門檻，會回到未啟用。</div></div></div><h3>不計算場次</h3><div class="formgrid" style="grid-template-columns:1fr auto;align-items:end"><div><label>選擇場次</label><select id="bossExcludeSelect"><option value="">選擇要排除的場次</option>${range.filter(e=>!(B.excludedEventIds||[]).includes(String(e.id))).map(e=>`<option value="${e.id}">${actEventLabel_(e)}</option>`).join('')}</select></div><div><button onclick="bossAddExclude_()">＋新增</button></div></div><div style="margin-top:8px">${(B.excludedEventIds||[]).map(id=>{const e=(db.events||[]).find(x=>String(x.id)===String(id));return e?`<span style="display:inline-flex;align-items:center;gap:6px;margin:3px;padding:6px 8px;border:1px solid #33495b;border-radius:8px">${actEventLabel_(e)} <button class="danger" style="padding:2px 6px" onclick="bossRemoveExclude_('${id}')">×</button></span>`:''}).join('')||'<span class="small">目前沒有不計算場次</span>'}</div></div><div class="card" style="margin-top:12px"><h3>魔王管理｜目前狀態</h3><div style="display:flex;gap:8px;flex-wrap:wrap">${(B.bosses||[]).map(x=>`<button onclick="selectBoss_('${x.id}')">${x.name}${x.killed?'（已擊殺）':''}</button>`).join('')}<button onclick="addNewBoss_()">＋新增魔王</button>${b?`<button class="danger" onclick="deleteBoss_('${b.id}')">刪除目前魔王</button>`:''}</div>${b?`<div class="formgrid" style="grid-template-columns:2fr 1fr;align-items:end;margin-top:12px"><div><label>目前魔王名稱</label><input type="text" value="${String(b.name||'').replace(/\"/g,'&quot;')}" onchange="bossRename_('${b.id}',this.value)" placeholder="例如：赤焰白虎王"></div><div><label>HP 狀態</label><div style="padding:10px 0">初始 ${b.initialHp}｜剩餘 <b>${hp}</b></div></div></div><div class="small">修改名稱後會立即儲存；重新套用 DISPLAY 後，電視畫面會同步顯示新名稱。</div>`:''}</div><div class="grid" style="grid-template-columns:1fr 1fr;gap:12px;margin-top:12px">${stage('一般模式','normal',S.np,S.ng)}${stage('狩王模式','hunt',S.hp,S.hg)}</div><div class="card" style="margin-top:12px"><h3>區間統計</h3><table><thead><tr><th>模式</th><th>人數</th><th>人數加碼</th><th>累積總組數</th><th>符合組數加碼場次</th><th>組數加碼</th></tr></thead><tbody><tr><td>一般模式</td><td>${S.np}</td><td>${money(S.npb)}</td><td>${S.ng}</td><td>${S.normalQualifyingEvents}</td><td>${money(S.ngb)}</td></tr><tr><td>攻擊模式</td><td>${S.hp}</td><td>${money(S.hpb)}</td><td>${S.hg}</td><td>${S.huntQualifyingEvents}</td><td>${money(S.hgb)}</td></tr></tbody></table><div class="small" style="margin-top:9px">組數加碼採「每場獨立計算」，不同場次的組數不合併湊級距；累積總組數僅顯示活動期間實際總組數。</div><h3>目前累積 ${money(S.pool)}｜攻擊模式：${S.active?'已啟用':'未啟用'}</h3></div>${b&&S.active&&!b.killed?`<div class="card" style="margin-top:12px"><h3>攻擊登記</h3><div class="formgrid" style="grid-template-columns:repeat(8,1fr)"><div><label>日期</label><input type="date" id="bossDate" value="${new Date().toISOString().slice(0,10)}"></div><div><label>攻擊玩家</label><input id="bossMember" list="bossMemberList" placeholder="姓名 / ID"><datalist id="bossMemberList">${actMemberSearchOptions_()}</datalist></div><div><label>形式</label><select id="bossMethod"><option>10Xo</option><option>TT</option><option>斬殺</option><option>其他</option></select></div><div><label>傷害</label><input type="number" id="bossDamage" value="10"></div><div><label>第幾次斬殺</label><input type="number" id="bossExecute" value="0"></div><div><label>擊殺魔王</label><input type="checkbox" id="bossSuccess"></div><div><label>桌上總人數（含擊殺者）</label><input type="number" id="bossTableCount" value="2" min="1"></div><div><label>備註</label><input id="bossNote"></div></div><button onclick="addBossAttack_()">登記攻擊</button></div>`:''}${b?`<div class="card" style="margin-top:12px"><h3>攻擊／分配紀錄</h3><table><thead><tr><th>日期</th><th>會員</th><th>形式</th><th>傷害</th><th>擊殺</th><th>當下獎池</th><th>擊殺者</th><th>其他每人</th><th>桌上人數</th><th></th></tr></thead><tbody>${(b.attacks||[]).map(x=>`<tr><td>${x.date}</td><td>${epcPlayerDisplayHtml_(x.memberId)}</td><td>${x.method}</td><td>${x.damage}</td><td>${x.success?'是':'否'}</td><td>${x.success?money(x.poolAtKill):'-'}</td><td>${x.success?money(x.killerPrize):'-'}</td><td>${x.success?money(x.otherPrize):'-'}</td><td>${x.success?x.tableCount:'-'}</td><td><button class="danger" onclick="bossAttackDel_('${x.id}')">刪除</button></td></tr>`).join('')}</tbody></table></div>`:''}`}
 function enhanceSearchCombos_(){document.querySelectorAll('input[list]').forEach(inp=>{if(inp.dataset.comboDone)return;inp.dataset.comboDone='1';const dl=document.getElementById(inp.getAttribute('list'));if(!dl)return;const wrap=document.createElement('div');wrap.className='searchCombo';inp.parentNode.insertBefore(wrap,inp);wrap.appendChild(inp);const menu=document.createElement('div');menu.className='searchComboMenu';wrap.appendChild(menu);const draw=()=>{const q=(inp.value||'').toLowerCase();const a=[...dl.querySelectorAll('option')].filter(o=>!q||o.value.toLowerCase().includes(q)).slice(0,150);menu.innerHTML=a.map(o=>'<div class="searchComboItem" data-v="'+o.value.replace(/"/g,'&quot;')+'">'+o.value+'</div>').join('');menu.classList.toggle('open',a.length>0&&document.activeElement===inp)};inp.addEventListener('input',draw);inp.addEventListener('focus',draw);menu.addEventListener('mousedown',e=>{const x=e.target.closest('.searchComboItem');if(!x)return;e.preventDefault();inp.value=x.dataset.v;menu.classList.remove('open');inp.dispatchEvent(new Event('change',{bubbles:true}))});inp.addEventListener('blur',()=>setTimeout(()=>menu.classList.remove('open'),100))})}
 function renderActivities(){
  if(!$('activities'))return;ensureActDb_();
@@ -5902,7 +5915,7 @@ function render(){
    const custom=(currentEvent().pricingMode||'standard')==='custom';
    return {p,i,m,c,vals:{
     seat:`<input value="${p.seat??''}" placeholder="座位" inputmode="numeric" style="width:100%;min-width:0" onchange="setP(${i},'seat',this.value)">`,
-    name:`<span style="white-space:nowrap">${m.name}</span>`,
+    name:`<span style="white-space:nowrap">${epcPlayerDisplayHtml_(p,m)}</span>`,
     memberId:`<span style="white-space:nowrap">${m.id||p.memberId||''}</span>`,
     nickname:`<input value="${p.nickname??m.nickname??''}" placeholder="綽號" style="width:100%;min-width:0" onchange="setP(${i},'nickname',this.value)">`,
     buyin:`<input type="number" min="0" value="${p.buyin}" style="width:100%;min-width:0" onchange="setP(${i},'buyin',this.value)">`,
@@ -5961,7 +5974,7 @@ function render(){
  $('settleRows').innerHTML=settleSorted.map(({p,i})=>{let m=db.members.find(x=>x.id===p.memberId)||{name:'未知'},c=calcPlayer(p),cash=(p.prize||0)-c.paid,chip=chipGrowthFor(p,currentEvent());
   let cells={
    seat:`<td>${p.seat||''}</td>`,
-   player:`<td>${m.name}</td>`,
+   player:`<td>${epcPlayerDisplayHtml_(p,m)}</td>`,
    memberId:`<td>${m.id||p.memberId||''}</td>`,
    nickname:`<td>${p.nickname||m.nickname||''}</td>`,
    groups:`<td>${c.groups}</td>`,
@@ -5972,13 +5985,13 @@ function render(){
    cashNet:`<td class="${cash>=0?'pos':'neg'}">${money(cash)}</td>`,
    group:`<td>${p.group||m.name}</td>`
   };return `<tr>${reportCols.map(([k])=>cells[k]).join('')}</tr>`}).join('');
- let groups={};currentEvent().players.forEach(p=>{let m=db.members.find(x=>x.id===p.memberId)||{name:'未知'},g=p.group||m.name,c=calcPlayer(p),net=(p.prize||0)-c.paid;if(!groups[g])groups[g]={names:[],net:0};groups[g].names.push(m.name);groups[g].net+=net});
- $('groupRows').innerHTML=Object.entries(groups).map(([g,x])=>`<tr><td>${g}</td><td>${x.names.join('、')}</td><td class="${x.net>=0?'pos':'neg'}">${money(x.net)}</td></tr>`).join('');
+ let groups={};currentEvent().players.forEach(p=>{let m=db.members.find(x=>x.id===p.memberId)||{name:'未知'},g=p.group||m.name,c=calcPlayer(p),net=(p.prize||0)-c.paid;if(!groups[g])groups[g]={names:[],net:0};groups[g].names.push(epcPlayerDisplayName_(p,m));groups[g].net+=net});
+ $('groupRows').innerHTML=Object.entries(groups).map(([g,x])=>`<tr><td>${g}</td><td>${x.names.map(epcDisplayEscape_).join('、')}</td><td class="${x.net>=0?'pos':'neg'}">${money(x.net)}</td></tr>`).join('');
  let meta=`日期：${currentEvent().date}　賽事：${currentEvent().level}　原始獎池：${money(info.pool)}　JP：${money(info.jp)}　可發獎金：${money(info.avail)}　玩家：${currentEvent().players.length} 人`;
  if($('prizeMeta'))$('prizeMeta').textContent=meta;if($('accountMeta'))$('accountMeta').textContent=meta;
- if($('prizeRows'))$('prizeRows').innerHTML=currentEvent().players.map(p=>{let m=db.members.find(x=>x.id===p.memberId)||{name:'未知',id:''},c=calcPlayer(p);return `<tr><td>${m.name}</td><td>${m.id}</td><td>${c.groups}</td><td>${money(c.paid)}</td><td>${(+p.stack||0).toLocaleString()}</td><td>${money(p.prize||0)}</td><td style="height:34px"></td></tr>`}).join('');
+ if($('prizeRows'))$('prizeRows').innerHTML=currentEvent().players.map(p=>{let m=db.members.find(x=>x.id===p.memberId)||{name:'未知',id:''},c=calcPlayer(p);return `<tr><td>${epcPlayerDisplayHtml_(p,m)}</td><td>${m.id}</td><td>${c.groups}</td><td>${money(c.paid)}</td><td>${(+p.stack||0).toLocaleString()}</td><td>${money(p.prize||0)}</td><td style="height:34px"></td></tr>`}).join('');
  let first={};Object.entries(groups).forEach(([g,x])=>first[g]=true);
- $('accountRows').innerHTML=currentEvent().players.map(p=>{let m=db.members.find(x=>x.id===p.memberId)||{name:'未知'},c=calcPlayer(p),net=(p.prize||0)-c.paid,g=p.group||m.name,show=first[g];if(show)first[g]=false;return `<tr><td>${g}</td><td>${m.name}</td><td>${money(c.paid)}</td><td>${money(p.prize||0)}</td><td>${money(net)}</td><td>${show?money(groups[g].net):''}</td></tr>`}).join('');
+ $('accountRows').innerHTML=currentEvent().players.map(p=>{let m=db.members.find(x=>x.id===p.memberId)||{name:'未知'},c=calcPlayer(p),net=(p.prize||0)-c.paid,g=p.group||m.name,show=first[g];if(show)first[g]=false;return `<tr><td>${g}</td><td>${epcPlayerDisplayHtml_(p,m)}</td><td>${money(c.paid)}</td><td>${money(p.prize||0)}</td><td>${money(net)}</td><td>${show?money(groups[g].net):''}</td></tr>`}).join('');
 
  renderDailySettlement();
 }
@@ -6076,7 +6089,7 @@ function dailySettlementData(date){
 
      if(!g.members[m.id]){
        g.members[m.id]={
-         memberId:m.id,member:m.name,events:[],
+         memberId:m.id,member:epcPlayerDisplayName_(p,m),events:[],
          paid:0,prize:0,discount:0,net:0
        };
      }
@@ -6166,7 +6179,7 @@ function renderDailySettlement(){
     ${g.rows.map(m=>`
      <div class="member-settlement-block" style="margin-bottom:14px">
       <div class="member-summary-title" style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:6px;padding:7px 10px;background:#17222d;border-radius:6px">
-       <span style="font-size:17px;font-weight:900">${m.member}</span>
+       <span style="font-size:17px;font-weight:900">${epcDisplayEscape_(m.member)}</span>
        <span style="font-size:14px;font-weight:800">
         當日總結｜<span class="expense">實付 ${money(m.paid)}</span>　｜　<span class="settlement-prize">領回 ${money(m.prize)}</span>　｜　<span class="settlement-discount">折扣 ${money(m.discount)}</span>　｜　
         <span class="${m.net>=0?'pos':'neg'}">輸贏 ${money(m.net)}</span>
@@ -6217,7 +6230,7 @@ function printDailySettlement(groupNames=null){
    ${g.rows.map(m=>`
     <div class="member">
      <h3 class="member-head">
-      <span>${m.member}</span>
+      <span>${epcDisplayEscape_(m.member)}</span>
       <span class="member-total">當日總結｜實付 ${money(m.paid)} ｜ 領回 ${money(m.prize)} ｜ 折扣 ${money(m.discount)} ｜ <b class="${m.net>=0?'pos':'neg'}">輸贏 ${money(m.net)}</b></span>
      </h3>
      <table>
@@ -6368,7 +6381,7 @@ function renderEventReport(){
    let m=db.members.find(x=>String(x.id)===String(p.memberId))||{name:'未知',id:p.memberId};
    let c=calcPlayerForEvent(p,e), growth=chipGrowthFor(p,e);
    let vals={
-     seat:p.seat||'',player:(p.nickname||m.nickname||'').trim()||(m.name||'未知'),
+     seat:p.seat||'',player:epcPlayerDisplayHtml_(p,m),
      nickname:p.nickname||m.nickname||'',
      memberId:m.id||p.memberId||'',
      groups:c.groups,
@@ -6594,12 +6607,12 @@ function displayLeaderboard_(kind){
   const ids=new Set([...Object.keys(tot),...Object.keys(A.rankAdjust||{})]);
   return [...ids].map(id=>{
    const auto=+tot[id]||0,adj=+(A.rankAdjust||{})[id]||0;
-   return {id,memberId:id,name:actMember_(id).name||id,auto,adj,score:auto+adj};
+   return {id,memberId:id,name:epcPlayerDisplayName_(id),auto,adj,score:auto+adj};
   }).filter(x=>x.score!==0||x.auto!==0||x.adj!==0)
     .sort((a,b)=>b.score-a.score||b.auto-a.auto||String(a.name).localeCompare(String(b.name),'zh-Hant'))
     .slice(0,20);
  }
- return Object.entries(tot).map(([id,score])=>({id,memberId:id,name:actMember_(id).name||id,score})).sort((a,b)=>b.score-a.score).slice(0,20);
+ return Object.entries(tot).map(([id,score])=>({id,memberId:id,name:epcPlayerDisplayName_(id),score})).sort((a,b)=>b.score-a.score).slice(0,20);
 }
 function displayPayload_(type){
  ensureActDb_();const A=db.activityManagement||{},range=actActivityRange_(type);
@@ -6609,8 +6622,8 @@ function displayPayload_(type){
    participants:(+S.np||0)+(+S.hp||0),participantAmount:(+S.npb||0)+(+S.hpb||0),groups:(+S.ng||0)+(+S.hg||0),groupAmount:(+S.ngb||0)+(+S.hgb||0),groupQualifyingEvents:(+S.normalQualifyingEvents||0)+(+S.huntQualifyingEvents||0),groupBonusRule:'組數加碼採每場獨立計算，不同場次組數不合併累計',personStep:+B.normalPersonStep||1,personAmount:+B.normalPersonAmount||100,personIgnore:+B.normalPersonIgnore||0,groupStep:+B.normalGroupStep||8,groupBonus:+B.normalGroupAmount||200,groupIgnore:+B.normalGroupIgnore||0,
    pool:S.pool||0,cap:+B.cap||14000,attackActive:!!S.active,
    boss:b?{name:b.name||'魔王',initialHp:+b.initialHp||0,hp,killed:!!b.killed}:null,
-   attacks:attacks.slice(0,12).map(x=>({date:x.date||'',memberId:x.memberId||'',name:actMember_(x.memberId).name||x.memberId,member:actMember_(x.memberId).name||x.memberId,method:x.method||'',damage:+x.damage||0,success:!!x.success,execute:+x.execute||0})),
-   latest:attacks[0]?{member:actMember_(attacks[0].memberId).name||attacks[0].memberId,method:attacks[0].method,damage:+attacks[0].damage||0,success:!!attacks[0].success}:null};
+   attacks:attacks.slice(0,12).map(x=>({date:x.date||'',memberId:x.memberId||'',name:epcPlayerDisplayName_(x.memberId),member:epcPlayerDisplayName_(x.memberId),method:x.method||'',damage:+x.damage||0,success:!!x.success,execute:+x.execute||0})),
+   latest:attacks[0]?{member:epcPlayerDisplayName_(attacks[0].memberId),method:attacks[0].method,damage:+attacks[0].damage||0,success:!!attacks[0].success}:null};
  }
  if(type==='weekly'){
   return {type,title:'每週任務卡',activityFrom:range.from,activityTo:range.to,rows:actPlayerStats_('weekly').map(x=>({id:x.id,memberId:x.id,name:x.name||x.id,games:x.games||0,days:x.days||0})).sort((a,b)=>b.games-a.games||b.days-a.days).slice(0,10)};
@@ -6789,6 +6802,4 @@ async function epcShowRecoveryAudit_(){
 <script src="firebase-config.js?v=20261007-0780"></script>
 <script src="firebase-events.js?v=20261007-admin-auth"></script>
 <script src="sync-v3.js?v=20261007-0780"></script>
-<script src="app.js?v=20261007-ledger-handler-fix"></script></body></html>
-
-
+<script src="app.js?v=20261007-nickname-unified"></script></body></html>

@@ -1,0 +1,46 @@
+const assert=require('node:assert/strict');
+const fs=require('node:fs');
+const vm=require('node:vm');
+const path=require('node:path');
+const {execFileSync}=require('node:child_process');
+const root=path.join(__dirname,'..');
+const html=fs.readFileSync(path.join(root,'index.html'),'utf8');
+const baseline=execFileSync('git',['show','dc2badefed72d566091ead4ec228ac0846cf5a08:index.html'],{cwd:root,encoding:'utf8'});
+function section(source,start,end){const a=source.indexOf(start),b=source.indexOf(end,a);assert(a>=0&&b>a,start);return source.slice(a,b);}
+function setup(source){
+ const inputs=new Map();
+ const db={members:[{id:'A',memberKey:'KA',name:'甲姓名',nickname:' 同綽號 ',group:'G'},{id:'B',memberKey:'KB',name:'乙姓名',nickname:'同綽號',group:'G'},{id:'C',name:'丙姓名',nickname:'  ',group:'G'}],events:[{id:'E',date:'2026-10-06',seq:1,status:'已結算',poolUnit:3000,admin:400,players:[{memberId:'A',buyin:1,prize:2000,stack:100},{memberId:'B',buyin:1,prize:1500,stack:80},{memberId:'C',buyin:1,prize:1000,stack:60}]}],activityManagement:{hunter:[{killer:'A',points:5},{killer:'B',points:3},{killer:'C',points:1}],pioneer:{},umbrella:[],rankAdjust:{}}};
+ const ctx=vm.createContext({db,Map,Set,Date,console,$:id=>inputs.get(id),actTab_:'hunter',actRange_:()=>({q:''}),actActivityRange_:()=>({from:'2026-10-01',to:'2026-10-31'}),actEvents_:()=>db.events,actBusinessDate_:e=>e.date,businessDateForEvent:e=>e.date,ensureActDb_(){},chipGrowthFor:p=>p.stack,rankMultiplier_:()=>1});
+ if(source.includes('function epcPlayerDisplayName_'))vm.runInContext(section(source,'function epcPlayerDisplayName_','const CLOUD_API'),ctx);
+ vm.runInContext(section(source,'function calcPlayerForEvent(p,e)','function memberHistoryInRange'),ctx);
+ vm.runInContext(section(source,'function normalizeSettlementGroupName','function renderDailySettlement'),ctx);
+ vm.runInContext(section(source,'function actMember_(id)','function actEventOptions_'),ctx);
+ vm.runInContext(section(source,'function actGroups_(p,e)','function actSave_'),ctx);
+ vm.runInContext(section(source,'function eventTopScores_(e)','function actRank_'),ctx);
+ vm.runInContext(section(source,'function displayLeaderboard_(kind)','async function publishDisplay_'),ctx);
+ return {ctx,db,inputs};
+}
+const t=setup(html),old=setup(baseline),before=JSON.stringify(t.db);
+const labels=t.ctx.displayPayload_('hunter').rows;
+assert.deepEqual(Array.from(labels,x=>x.name),['同綽號','同綽號','丙姓名']);
+assert.deepEqual(Array.from(labels,x=>x.memberId),['A','B','C'],'same nicknames must remain distinct members');
+assert.deepEqual(Array.from(labels,x=>x.score),[5,3,1]);
+const settled=t.ctx.dailySettlementData('2026-10-06'),original=old.ctx.dailySettlementData('2026-10-06');
+assert.deepEqual(Array.from(settled.groups[0].rows,x=>x.member).sort(),['同綽號','同綽號','丙姓名'].sort());
+const totals=x=>Array.from(x.groups,g=>({name:g.name,paid:g.paid,prize:g.prize,discount:g.discount,net:g.net,ids:Array.from(g.rows,r=>r.memberId).sort()}));
+assert.deepEqual(totals(settled),totals(original),'display must not change financial totals or group membership');
+const stats=t.ctx.actPlayerStats_('weekly');
+assert.deepEqual(Array.from(stats,x=>[x.id,x.games,x.days,x.groups]),Array.from(old.ctx.actPlayerStats_('weekly'),x=>[x.id,x.games,x.days,x.groups]));
+assert.deepEqual(Array.from(t.ctx.eventTopScores_(t.db.events[0]),x=>[x.id,x.net,x.score]),Array.from(old.ctx.eventTopScores_(old.db.events[0]),x=>[x.id,x.net,x.score]));
+t.inputs.set('search',{value:'同綽號'});assert.equal(t.ctx.actResolveMember_('search'),'','ambiguous nickname must not silently pick a member');
+t.inputs.set('search',{value:'同綽號 (B)'});assert.equal(t.ctx.actResolveMember_('search'),'B');
+t.inputs.set('search',{value:'丙姓名'});assert.equal(t.ctx.actResolveMember_('search'),'C');
+assert.match(t.ctx.actMemberSearchOptions_(),/同綽號 \(A\)/);
+assert.equal(t.ctx.epcPlayerDisplayName_({memberId:'C',nickname:'桌上綽號'}),'桌上綽號');
+assert.equal(t.ctx.epcPlayerDisplayName_({memberId:'C',nickname:'  '}),'丙姓名');
+assert.equal(t.ctx.epcPlayerDisplayName_({memberId:'MISSING',name:'歷史姓名'}),'歷史姓名');
+assert.equal(t.ctx.epcPlayerDisplayName_('MISSING'),'MISSING');
+assert.equal(t.ctx.epcPlayerDisplayHtml_({nickname:'<貓&狗>"'}),'&lt;貓&amp;狗&gt;&quot;');
+assert.equal(JSON.stringify(t.db),before,'rendering and payload generation must not rewrite persisted records');
+let scripts=0;for(const match of html.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/gi))new vm.Script(match[1],{filename:'inline-'+(++scripts)});
+console.log('PASS: nickname/name fallback, duplicate identities, activity/TV/settlement integration, unchanged amounts and scores, safe rendering and '+scripts+' inline scripts.');
