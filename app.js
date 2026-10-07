@@ -496,14 +496,15 @@ window.addMember=async function(){
  const name=document.querySelector('#mName')?.value.trim()||'';
  if(!name)return alert('請輸入會員名稱');
  const id=String(document.querySelector('#mId')?.value.trim()||nextMemberId()).toUpperCase();
+ const nickname=document.querySelector('#mNickname')?.value.trim()||'';
  const group=document.querySelector('#mGroup')?.value.trim()||'';
  const note=document.querySelector('#mNote')?.value.trim()||'';
  const btn=document.querySelector('#memberSaveBtn');
  if(btn){btn.disabled=true;btn.textContent='新增中…'}
  try{
-  const r=await api('member.create',{member:{memberId:id,name,group}});
+  const r=await api('member.create',{member:{memberId:id,name,nickname,group}});
   syncLegacyMemberFromV3_(r.member,note);
-  ['mName','mId','mGroup','mNote'].forEach(x=>{const el=document.querySelector('#'+x);if(el)el.value=''});
+  ['mName','mNickname','mId','mGroup','mNote'].forEach(x=>{const el=document.querySelector('#'+x);if(el)el.value=''});
   const s=document.querySelector('#memberSearch');if(s)s.value='';
   if(typeof window.actionMsg==='function')window.actionMsg('會員「'+name+'」已寫入 V3 與 Google Sheet');
   if(typeof window.setCloudState==='function')window.setCloudState('● V3 會員資料已同步');
@@ -520,12 +521,13 @@ window.epcV3SaveMemberEdit=async function(memberId){
  if(!row)return alert('找不到此會員的 V3 資料，請先重新讀取會員');
  const name=document.querySelector('#mName')?.value.trim()||'';
  if(!name)return alert('請輸入會員名稱');
+ const nickname=document.querySelector('#mNickname')?.value.trim()||'';
  const group=document.querySelector('#mGroup')?.value.trim()||'';
  const note=document.querySelector('#mNote')?.value.trim()||'';
  const btn=document.querySelector('#memberSaveBtn');
  if(btn){btn.disabled=true;btn.textContent='儲存中…'}
  try{
-  const r=await api('member.update',{memberKey:row.memberKey,patch:{name,group},expectedRevision:row.revision});
+  const r=await api('member.update',{memberKey:row.memberKey,patch:{name,nickname,group},expectedRevision:row.revision});
   syncLegacyMemberFromV3_(r.member,note);
   if(typeof window.cancelMemberEdit==='function')window.cancelMemberEdit();
   if(typeof window.actionMsg==='function')window.actionMsg('會員「'+name+'」修改已同步至 V3');
