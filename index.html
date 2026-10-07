@@ -5779,11 +5779,17 @@ function actUmbrella_(){
 }
 function bossSet_(k,v,type='num'){const B=db.activityManagement.boss;B[k]=type==='bool'?!!v:Number(v)||0;persist();if(window.saveActivityCloudV3)window.saveActivityCloudV3();renderActivities()}
 
+function bossEventOrder_(e){
+ const match=String(e.name||'').match(/^第([一二三四五六七八九十\d]+)場/);
+ const ord={'一':1,'二':2,'三':3,'四':4,'五':5,'六':6,'七':7,'八':8,'九':9,'十':10};
+ return match?(ord[match[1]]||Number(match[1])||(+e.seq||1)):(+e.seq||1);
+}
 function bossOrderedEvents_(){
  const B=db.activityManagement.boss;
  return (db.events||[]).filter(e=>{const d=actBusinessDate_(e);return (!B.activityFrom||d>=B.activityFrom)&&(!B.activityTo||d<=B.activityTo)}).slice().sort((a,b)=>{
-  const key=e=>String(actBusinessDate_(e))+'T'+String(e.startTime||'00:00');
-  return key(a).localeCompare(key(b))||(+a.seq||0)-(+b.seq||0)||String(a.id).localeCompare(String(b.id));
+  const day=String(actBusinessDate_(a)).localeCompare(String(actBusinessDate_(b)));if(day)return day;
+  const seq=bossEventOrder_(a)-bossEventOrder_(b);if(seq)return seq;
+  return String(a.startTime||'00:00').localeCompare(String(b.startTime||'00:00'))||String(a.id).localeCompare(String(b.id));
  });
 }
 function bossEvents_(){
@@ -5806,10 +5812,7 @@ function bossBonus_(n,step,amt,ignore){return Math.floor(Math.max(0,(+n||0)-Math
 function bossStats_(){
  const B=db.activityManagement.boss,b=activeBoss_();
  if(b?.killed){const kill=(b.attacks||[]).find(x=>x.success);return {...(b.frozenStats||{np:0,ng:0,hp:0,hg:0,npb:0,ngb:0,hpb:0,hgb:0,normalQualifyingEvents:0,huntQualifyingEvents:0}),pool:b.frozenStats?.pool??kill?.poolAtKill??0,active:false}}
- const ev=bossEvents_().slice().sort((a,b)=>{
-   const ka=String(actBusinessDate_(a))+'T'+String(a.startTime||'00:00'),kb=String(actBusinessDate_(b))+'T'+String(b.startTime||'00:00');
-   return ka.localeCompare(kb)||String(a.id||'').localeCompare(String(b.id||''));
- });
+ const ev=bossEvents_();
  const threshold=Math.max(0,+B.attackThreshold||10000),cap=+B.cap||0,start=+(b?.startPrize??B.startPrize)||0;
  let np=0,ng=0,hp=0,hg=0,npb=0,ngb=0,hpb=0,hgb=0,pool=start;
  let normalPeople=0,huntPeople=0,normalQualifyingEvents=0,huntQualifyingEvents=0;
@@ -6861,4 +6864,4 @@ async function epcShowRecoveryAudit_(){
 <script src="firebase-config.js?v=20261007-0780"></script>
 <script src="firebase-events.js?v=20261007-admin-auth"></script>
 <script src="sync-v3.js?v=20261007-0780"></script>
-<script src="app.js?v=20261007-member-stats"></script></body></html>
+<script src="app.js?v=20261007-boss-event-order"></script></body></html>
