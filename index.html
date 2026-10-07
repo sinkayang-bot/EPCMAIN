@@ -3814,12 +3814,13 @@ function filterAddPlayerMembers(keyword){
  const current=sel.value;
  const list=db.members.filter(m=>{
    const name=String(m.name||'').toLowerCase();
+   const nickname=String(m.nickname||'').toLowerCase();
    const id=String(m.id||'').toLowerCase();
    const group=String(m.group||m.settleGroup||m.settlementGroup||m.accountGroup||'').toLowerCase();
-   return !q || name.includes(q) || id.includes(q) || group.includes(q);
+   return !q || name.includes(q) || nickname.includes(q) || id.includes(q) || group.includes(q);
  });
  sel.innerHTML=list.length
-   ? list.map(m=>`<option value="${m.id}">${m.name} (${m.id})</option>`).join('')
+   ? list.map(m=>`<option value="${m.id}">${m.nickname||m.name} (${m.id})</option>`).join('')
    : '<option value="">找不到符合的會員</option>';
  if(current && list.some(m=>m.id===current))sel.value=current;
  else if(list.length===1)sel.value=list[0].id;
@@ -3828,7 +3829,7 @@ function syncAddPlayerSearch(){
  const sel=$('addPlayerMember'),input=$('addPlayerSearch');if(!sel||!input)return;
  const m=db.members.find(x=>x.id===sel.value);
  if(m){
-   input.value=`${m.name} (${m.id})`;
+   input.value=`${m.nickname||m.name} (${m.id})`;
    if($('addPlayerGroup'))$('addPlayerGroup').value=m.group||'';
  }
 }
