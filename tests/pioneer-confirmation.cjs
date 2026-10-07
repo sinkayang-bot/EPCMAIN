@@ -1,9 +1,10 @@
 const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
 const html=fs.readFileSync('index.html','utf8'),a=html.indexOf('function pioneerTotals_(){'),b=html.indexOf('function pioneerLoadEvent_',a);
-const events=[{id:'E',players:['A','B','C','D','F'].map(memberId=>({memberId}))}],c={db:{activityManagement:{pioneer:{}}},actEvents_:()=>events};vm.createContext(c);vm.runInContext(html.slice(a,b),c);
+const events=[{id:'E',name:'第一場',players:['A','B','C','D','F'].map(memberId=>({memberId}))}],c={db:{activityManagement:{pioneer:{}}},actEvents_:()=>events};c.eventDisplayName_=e=>e.name;vm.createContext(c);vm.runInContext(html.slice(html.indexOf('function isPioneerEvent_'),html.indexOf('function actEvents_')),c);vm.runInContext(html.slice(a,b),c);
 assert.deepEqual(Object.entries(c.pioneerTotals_()),[],'unconfigured events must not give points');
 c.db.activityManagement.pioneer.E={confirmed:false,first4:['A','B','C','D'],scores:{GHOST:999}};assert.deepEqual(Object.entries(c.pioneerTotals_()),[],'draft ranking does not count');
 c.db.activityManagement.pioneer.E.confirmed=true;assert.deepEqual(Object.entries(c.pioneerTotals_()),[['A',5],['B',4],['C',3],['D',2],['F',1]]);
 c.db.activityManagement.pioneer.E.first4=['','B','C','D'];assert.equal(c.pioneerTotals_().A,1,'removed top-four participant receives base point only after confirmation');
 c.db.activityManagement.pioneer.E.confirmed=false;assert.deepEqual(Object.entries(c.pioneerTotals_()),[],'editing ranking removes its draft from totals until confirmed');
+c.db.activityManagement.pioneer.E.confirmed=true;events[0].name='第二場';assert.deepEqual(Object.entries(c.pioneerTotals_()),[],'other events never count even if previously confirmed');events[0].name='第1場';assert.equal(c.pioneerTotals_().A,1);
 console.log('PASS: no points before setup/confirmation; confirmed 5/4/3/2 and base 1; removed and ghost players cannot retain bonus points.');
