@@ -3618,7 +3618,7 @@ function firestoreEventPayload_(e){
   level:+e.level||3400,buyin:+e.poolUnit||0,fee:+e.admin||0,pricingMode:e.pricingMode||'standard',
   buyinTotal:+e.buyinTotal||0,buyinAdmin:+e.buyinAdmin||0,rebuyTotal:+e.rebuyTotal||0,
   rebuyAdmin:+e.rebuyAdmin||0,freeAdminFrom:(+e.overbuyThreshold||10)+1,chips:+e.chips||0,
-  jpRate:+e.jp||0,jpRound:+e.jpRound||0,payout:e.payout||'',players:Array.isArray(e.players)?e.players:[],
+  jpRate:+e.jp||0,jpRound:+e.jpRound||0,payout:e.payout||'',reportRule:e.reportRule||'',reportFields:e.reportFields||{},players:Array.isArray(e.players)?e.players:[],
   accounting:e.accounting||{},status:e.status==='已結算'?'settled':'open',revision:+e.revision||1,
   finalJP:e.finalJP,finalAccounting:e.finalAccounting,_eventUpdatedAt:+e._eventUpdatedAt||Date.now()
  };
@@ -4856,7 +4856,7 @@ function applyFirestoreEventsToLegacy_(rows){
    admin:+v.fee||+v.buyinAdmin||400,pricingMode:(v.pricingMode||'standard'),buyinTotal:+v.buyinTotal||3400,
    buyinAdmin:+v.buyinAdmin||400,rebuyTotal:+v.rebuyTotal||3400,rebuyAdmin:+v.rebuyAdmin||400,
    overbuyThreshold:Math.max(1,(+v.freeAdminFrom||11)-1),chips:+v.chips||300000,jp:+v.jpRate||3,
-   jpRound:+v.jpRound||100,payout:v.payout||'50,30,20',players:Array.isArray(v.players)?v.players:[],
+   jpRound:+v.jpRound||100,payout:v.payout||'50,30,20',reportRule:v.reportRule||'',reportFields:v.reportFields||{},players:Array.isArray(v.players)?v.players:[],
    status:v.status==='settled'?'已結算':'進行中',accounting:v.accounting||{otherIncome:0,venueIncome:0,laborExpense:0,otherExpense:0},
    createdAt:+v.createdAt||Date.now()
  }));
@@ -6205,14 +6205,14 @@ function saveDefaultReportRule(value){
 function useDefaultReportRule(){
  let e=currentEvent();if(!e)return;
  e.reportRule=db.defaultReportRule||'';
- persist();
+ touchEvent_(e);persist();syncEventToFirestore_(e,true).catch(err=>actionMsg('賽事規則同步失敗：'+String(err?.message||err),true));
  if($('settleReportRuleInput'))$('settleReportRuleInput').value=e.reportRule;
  renderEventReport();
  actionMsg('已套用預設規則');
 }
 function saveEventReportRule(value){
  let e=currentEvent();if(!e)return;
- e.reportRule=value||'';persist();
+ e.reportRule=value||'';touchEvent_(e);persist();syncEventToFirestore_(e);
  if($('settleReportRuleInput') && $('settleReportRuleInput').value!==e.reportRule)$('settleReportRuleInput').value=e.reportRule;
  if($('eventReportRule')){
    $('eventReportRule').textContent=(e.reportRule||'').trim()?('本場規則：'+e.reportRule):'';
