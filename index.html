@@ -5351,7 +5351,18 @@ function syncPlayerColumnCheckboxes(){
  const visible=loadPlayerVisibleCols();
  document.querySelectorAll('[data-player-col]').forEach(cb=>{cb.checked=visible.has(cb.dataset.playerCol)});
 }
+let epcPlayerRenderPending_=false,epcFullRenderPending_=false;
+function epcPlayerEditing_(){return !!document.activeElement?.matches?.('#playerRows input, #playerRows textarea')}
+document.addEventListener('focusout',event=>{
+ if(!event.target?.matches?.('#playerRows input, #playerRows textarea'))return;
+ setTimeout(()=>{
+  if(epcPlayerEditing_())return;
+  if(epcFullRenderPending_){epcFullRenderPending_=false;epcPlayerRenderPending_=false;render()}
+  else if(epcPlayerRenderPending_){epcPlayerRenderPending_=false;renderEventFast_()}
+ },0);
+});
 function renderEventFast_(){
+ if(epcPlayerEditing_()){epcPlayerRenderPending_=true;return}
  const ev=currentEvent();if(!ev)return;
  if($('currentEventLabel'))$('currentEventLabel').textContent=`${ev.date} · ${eventDisplayName_(ev)} · ${ev.level}｜開賽 ${ev.startTime||'--:--'}｜預計截止買入 ${ev.regCloseTime||'--:--'}`;
  const visible=playerVisibleCols();
@@ -5371,15 +5382,15 @@ function renderEventFast_(){
  if(rows)rows.innerHTML=(ev.players||[]).map((p,i)=>{
    const m=(db.members||[]).find(x=>String(x.id)===String(p.memberId))||{},cc=calcPlayerForEvent(p,ev);
    const cell={
-    seat:`<td><input value="${p.seat||''}" oninput="setP(${i},'seat',this.value)"></td>`,
+    seat:`<td><input value="${epcDisplayEscape_(p.seat||'')}" oninput="setP(${i},'seat',this.value)"></td>`,
     name:`<td>${epcPlayerDisplayHtml_(p,m)}</td>`,memberId:`<td>${p.memberId||''}</td>`,
-    nickname:`<td><input value="${p.nickname||''}" oninput="setP(${i},'nickname',this.value)"></td>`,
+    nickname:`<td><input value="${epcDisplayEscape_(p.nickname||'')}" oninput="setP(${i},'nickname',this.value)"></td>`,
     buyin:`<td><input type="number" min="0" value="${+p.buyin||0}" oninput="setP(${i},'buyin',this.value)"></td>`,
     rebuy:`<td><input type="number" min="0" value="${+p.rebuy||0}" oninput="setP(${i},'rebuy',this.value)"></td>`,
     groups:`<td>${cc.groups}</td>`,rebuyDiscount:`<td>${money(cc.rebuyDiscount)}</td>`,overbuyDiscount:`<td>${money(cc.overbuyDiscount)}</td>`,
     manualDiscount:`<td><input type="number" value="${+p.manualDiscount||0}" oninput="setP(${i},'manualDiscount',this.value)"></td>`,
     totalDiscount:`<td>${money(cc.totalDiscount)}</td>`,paid:`<td>${money(cc.paid)}</td>`,
-    settleGroup:`<td><input value="${p.group||''}" oninput="setP(${i},'group',this.value)"></td>`,
+    settleGroup:`<td><input value="${epcDisplayEscape_(p.group||'')}" oninput="setP(${i},'group',this.value)"></td>`,
     action:`<td><button class="danger" onclick="delP(${i})">移除</button></td>`
    };return '<tr>'+cols.map(x=>cell[x[0]]||'<td></td>').join('')+'</tr>';
  }).join('');
@@ -5914,6 +5925,7 @@ function renderActivities(){
  if($('actBoss'))$('actBoss').innerHTML=actBoss_();
 }
 function render(){
+ if(epcPlayerEditing_()){epcFullRenderPending_=true;return}
  renderDashboardSummary();
  renderActivities();setTimeout(enhanceSearchCombos_,0);
  syncAccountingBusinessHours();
@@ -6870,4 +6882,4 @@ async function epcShowRecoveryAudit_(){
 <script src="firebase-config.js?v=20261007-0780"></script>
 <script src="firebase-events.js?v=20261007-admin-auth"></script>
 <script src="sync-v3.js?v=20261007-0780"></script>
-<script src="app.js?v=20261007-pnl-colors"></script></body></html>
+<script src="app.js?v=20261007-player-input-focus"></script></body></html>
