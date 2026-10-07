@@ -5537,6 +5537,19 @@ function actWeekly_(){
  ${progress.map(rowHtml).join('')}</tbody></table></div>
  <div class="small" style="margin-top:10px">※ 第 3 階「轉現金」為同一條線前兩階累計 $400 折價卡轉為現金；若兩條線都完成第 3 階，兩條線各自計算。</div></div>`;
 }
+function pioneerTotals_(){
+ const totals={},A=db.activityManagement||{};
+ actEvents_('pioneer').forEach(e=>{
+  const P=(A.pioneer||{})[e.id],defaults=[5,4,3,2];
+  const ids=new Set((e.players||[]).map(p=>p.memberId).filter(Boolean));
+  ids.forEach(id=>{
+   const pos=(P?.first4||[]).indexOf(id);
+   const score=P?.confirmed && pos>=0?defaults[pos]:1;
+   totals[id]=(totals[id]||0)+score;
+  });
+ });
+ return totals;
+}
 function pioneerLoadEvent_(id){
  ensureActDb_();const A=db.activityManagement,e=(db.events||[]).find(x=>x.id===id);if(!e)return;
  if(!A.pioneer[id]){
@@ -5562,6 +5575,7 @@ function pioneerSetFirst_(eventId,pos,memberId){
    if(idx>=0)P.scores[p.memberId]=defaults[idx];
    else P.scores[p.memberId]=1;
  });
+ P.updatedAt=new Date().toISOString();persist();if(window.saveActivityCloudV3)window.saveActivityCloudV3();
  renderActivities();setTimeout(enhanceSearchCombos_,0);
 }
 function pioneerScore_(eventId,id,v){ensureActDb_();const P=db.activityManagement.pioneer[eventId];if(P){P.scores[id]=Number(v)||0;}}
@@ -5591,10 +5605,10 @@ function actPioneer_(){
  const cards=actEvents_('pioneer').map(e=>{const P=A.pioneer[e.id];if(!P)return `<div class="card" style="margin-top:10px"><b>${actEventLabel_(e)}</b><div class="small">${(e.players||[]).length} 位參賽者</div><button style="margin-top:8px" onclick="pioneerLoadEvent_('${e.id}')">建立本場先鋒積分</button></div>`;
   const opts='<option value="">--未登記--</option>'+(e.players||[]).map(p=>`<option value="${p.memberId}">${epcPlayerDisplayHtml_(p.memberId)}</option>`).join('');
   return `<div class="card pioneer-event-card" id="pioneerCard_${e.id}" style="margin-top:10px"><div class="pioneer-event-head"><h3>${actEventLabel_(e)}</h3><button type="button" class="pioneer-collapse-btn" onclick="togglePioneerCard_(\'${e.id}\',this)">收合 ▲</button></div><div class="pioneer-event-body"><div class="formgrid" style="grid-template-columns:repeat(4,1fr)">${[0,1,2,3].map(i=>`<div><label>第${i+1}位</label><select id="pioneerFirst_${e.id}_${i}" onchange="pioneerSetFirst_('${e.id}',${i},this.value)">${opts.replace(`value="${P.first4[i]||''}"`,`value="${P.first4[i]||''}" selected`)}</select></div>`).join('')}</div>
-  <table style="margin-top:10px"><thead><tr><th>會員</th><th>是否前4</th><th>本場積分（可改）</th></tr></thead><tbody>${(e.players||[]).map(p=>`<tr><td>${epcPlayerDisplayHtml_(p.memberId)}</td><td>${P.first4.includes(p.memberId)?'是':'否'}</td><td><input id="pioneerScore_${e.id}_${p.memberId}" type="number" style="width:90px" value="${P.scores[p.memberId]??1}" onchange="pioneerScore_('${e.id}','${p.memberId}',this.value)"></td></tr>`).join('')}</tbody></table><div style="display:flex;gap:12px;align-items:center;margin-top:12px"><button onclick="pioneerConfirm_('${e.id}')">${P.confirmed?'更新本場排名':'確認本場排名'}</button><span class="small">${P.confirmed?'✓ 已儲存':'尚未確認儲存'}</span></div></div></div>`}).join('');
- const totals={};Object.values(A.pioneer).forEach(P=>{if(!P.confirmed)return;const e=(db.events||[]).find(x=>x.id===P.eventId);if(!e||!actEvents_().some(z=>z.id===e.id))return;Object.entries(P.scores||{}).forEach(([id,v])=>totals[id]=(totals[id]||0)+(+v||0))});
+  <table style="margin-top:10px"><thead><tr><th>會員</th><th>是否前4</th><th>本場積分（自動）</th></tr></thead><tbody>${(e.players||[]).map(p=>`<tr><td>${epcPlayerDisplayHtml_(p.memberId)}</td><td>${P.first4.includes(p.memberId)?'是':'否'}</td><td><input id="pioneerScore_${e.id}_${p.memberId}" type="number" style="width:90px" readonly value="${P.first4.includes(p.memberId)?[5,4,3,2][P.first4.indexOf(p.memberId)]:1}" onchange="pioneerScore_('${e.id}','${p.memberId}',this.value)"></td></tr>`).join('')}</tbody></table><div style="display:flex;gap:12px;align-items:center;margin-top:12px"><button onclick="pioneerConfirm_('${e.id}')">${P.confirmed?'更新本場排名':'確認本場排名'}</button><span class="small">${P.confirmed?'✓ 已儲存':'尚未確認儲存'}</span></div></div></div>`}).join('');
+ const totals=pioneerTotals_();
  const ranking=Object.entries(totals).map(([id,score])=>({id,name:epcPlayerDisplayName_(id),score})).sort((a,b)=>b.score-a.score);
- return `<div class="card"><h3>開桌先鋒｜排行榜</h3><div class="small">登記前4名後，系統預設第1~4位為 5／4／3／2 分；同場其他參賽者預設 1 分。每一分都可直接修改，並可標註排行榜資格。</div><table><thead><tr><th>排名</th><th>會員</th><th>總分</th><th>有排行資格</th></tr></thead><tbody>${ranking.map((x,i)=>`<tr><td>${i+1}</td><td>${epcDisplayEscape_(x.name)}</td><td>${x.score}</td><td><input type="checkbox" ${A.pioneerQualify[x.id]?'checked':''} onchange="actAdj_('pioneerQual','${x.id}','q',this.checked)"></td></tr>`).join('')||'<tr><td colspan="4">尚無積分</td></tr>'}</tbody></table></div>${cards}`;
+ return `<div class="card"><h3>開桌先鋒｜排行榜</h3><div class="small">登記前4名後，系統預設第1~4位為 5／4／3／2 分；同場其他參賽者預設 1 分。積分依前4名位置自動計算，取消前4名會回到 1 分；可標註排行榜資格。</div><table><thead><tr><th>排名</th><th>會員</th><th>總分</th><th>有排行資格</th></tr></thead><tbody>${ranking.map((x,i)=>`<tr><td>${i+1}</td><td>${epcDisplayEscape_(x.name)}</td><td>${x.score}</td><td><input type="checkbox" ${A.pioneerQualify[x.id]?'checked':''} onchange="actAdj_('pioneerQual','${x.id}','q',this.checked)"></td></tr>`).join('')||'<tr><td colspan="4">尚無積分</td></tr>'}</tbody></table></div>${cards}`;
 }
 
 function rankDayNum_(dateStr){
@@ -6595,7 +6609,7 @@ async function removeDisplay_(id){if(!confirm('確定解除這台顯示器？'))
 function displayLeaderboard_(kind){
  ensureActDb_();const A=db.activityManagement||{},tot={};
  if(kind==='pioneer'){
-  Object.values(A.pioneer||{}).forEach(P=>{if(P.confirmed===false)return;Object.entries(P.scores||{}).forEach(([id,v])=>tot[id]=(tot[id]||0)+(+v||0))});
+  Object.assign(tot,pioneerTotals_());
  }else if(kind==='hunter'){
   (A.hunter||[]).forEach(x=>tot[x.killer]=(tot[x.killer]||0)+(+x.points||0));
  }else if(kind==='umbrella'){
@@ -6803,4 +6817,4 @@ async function epcShowRecoveryAudit_(){
 <script src="firebase-config.js?v=20261007-0780"></script>
 <script src="firebase-events.js?v=20261007-admin-auth"></script>
 <script src="sync-v3.js?v=20261007-0780"></script>
-<script src="app.js?v=20261007-dashboard-jp"></script></body></html>
+<script src="app.js?v=20261007-pioneer-current-players"></script></body></html>
