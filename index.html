@@ -4204,6 +4204,24 @@ function ensureDailyAccountingStore(){
  db.dailyAccounting.forEach(x=>{if(!Array.isArray(x.items))x.items=[];});
  if(db.currentAccountingDate===undefined)db.currentAccountingDate=null;
 }
+function applyFirestoreDailyAccounting_(rows){
+ if(!Array.isArray(rows))return;
+ const selected=db.currentAccountingDate;
+ db.dailyAccounting=rows.map(r=>({date:String(r.date||''),items:Array.isArray(r.items)?r.items:[],createdAt:r.createdAt||null})).filter(r=>r.date);
+ localStorage.setItem('epcV1',JSON.stringify(db));
+ if(selected && $('accountingDetailView')?.style.display!=='none')renderDailyAccountingDetail();
+ else renderAccountingManager();
+}
+window.addEventListener('epcFirestoreAccounting',ev=>{try{applyFirestoreDailyAccounting_(ev.detail?.rows||[])}catch(err){console.warn(err)}});
+
+async function saveDailyAccountingV3_(rec){
+ if(!rec?.date)return false;
+ localStorage.setItem('epcV1',JSON.stringify(db));
+ if(window.EPCFirestore?.upsertDailyAccounting){
+   await window.EPCFirestore.upsertDailyAccounting({date:rec.date,items:Array.isArray(rec.items)?rec.items:[],createdAt:rec.createdAt||new Date().toISOString()});
+ }
+ return true;
+}
 function accountingAllEventsForDate(date){
  return (db.events||[]).filter(e=>businessDateForEvent(e)===date);
 }
@@ -4490,7 +4508,7 @@ function useAccountingPreset(){
  if($('accountingItemType'))$('accountingItemType').value=type;
  if($('accountingItemName'))$('accountingItemName').value=name;
 }
-function addAccountingItem(){
+async function addAccountingItem(){
  ensureDailyAccountingStore();
  const date=db.currentAccountingDate;if(!date)return;
  const name=($('accountingItemName')?.value||'').trim();
@@ -4504,54 +4522,32 @@ function addAccountingItem(){
  if(!name)return alert('請輸入收支項目名稱');
  if(amount<=0)return alert('請輸入大於 0 的金額');
  let rec=db.dailyAccounting.find(x=>x&&x.date===date);
- // Some accounting detail views are generated directly from event data and may not yet
- // have a dailyAccounting row. Create it on first manual income/expense entry.
- if(!rec){
-   rec={date:date,items:[],createdAt:new Date().toISOString()};
-   db.dailyAccounting.push(rec);
-   db.dailyAccounting.sort((a,b)=>String(b.date||'').localeCompare(String(a.date||'')));
- }
+ if(!rec){rec={date,items:[],createdAt:new Date().toISOString()};db.dailyAccounting.push(rec);}
  if(!Array.isArray(rec.items))rec.items=[];
  const category=preset?name:(type==='membership'?'入會費收入':type==='expense'?'其他支出':'其他收入');
- const newItem={id:Date.now().toString(36)+Math.random().toString(36).slice(2,6),type,name,category,amount};
+ const newItem={id:uid(),type,name,category,amount};
  rec.items.push(newItem);
-
- // Daily manual accounting is not allowed to alter the event collection. Keep an
- // exact event snapshot around the generic persistence path and restore it if any
- // legacy cloud/merge hook touches events while saving the accounting row.
- const eventSnapshot=cloneCloud_(db.events||[]);
- // V3 event truth lives in Firestore. Do NOT run the legacy whole-database persist()
- // from accounting: its field-change publisher can race the Firestore snapshot and
- // temporarily replace the event list used by the on-screen totals.
- if(EPC_V3_MODE){
-   localStorage.setItem('epcV1',JSON.stringify(db));
- }else{
-   persist();
- }
- if(JSON.stringify(db.events||[])!==JSON.stringify(eventSnapshot)){
-   console.warn('Accounting save attempted to mutate events; restoring event snapshot');
-   db.events=eventSnapshot;
-   localStorage.setItem('epcV1',JSON.stringify(db));
- }
- // Verify the just-added row survived the save before repainting the accounting view.
- let savedRec=(db.dailyAccounting||[]).find(x=>x&&x.date===date);
- if(!savedRec){
-   savedRec={date:date,items:[newItem],createdAt:new Date().toISOString()};
-   db.dailyAccounting.push(savedRec);
- }else{
-   if(!Array.isArray(savedRec.items))savedRec.items=[];
-   if(!savedRec.items.some(x=>x&&x.id===newItem.id))savedRec.items.push(newItem);
- }
  localStorage.setItem('epcV1',JSON.stringify(db));
- $('accountingItemName').value='';$('accountingItemAmount').value='';$('accountingItemPreset').value='';$('accountingItemType').value='income';
  renderDailyAccountingDetail();
+ try{
+   await saveDailyAccountingV3_(rec);
+   $('accountingItemName').value='';$('accountingItemAmount').value='';$('accountingItemPreset').value='';$('accountingItemType').value='income';
+   renderDailyAccountingDetail();
+ }catch(err){
+   rec.items=rec.items.filter(x=>x.id!==newItem.id);
+   localStorage.setItem('epcV1',JSON.stringify(db));
+   renderDailyAccountingDetail();
+   alert('新增收支儲存失敗：'+String(err?.message||err));
+ }
 }
 function deleteAccountingItem(id){
  const date=db.currentAccountingDate;
  let rec=(db.dailyAccounting||[]).find(x=>x.date===date);if(!rec)return;
- askDeleteConfirm('確定要刪除這筆收支嗎？',()=>{
+ askDeleteConfirm('確定要刪除這筆收支嗎？',async()=>{
+   const old=rec.items.slice();
    rec.items=(rec.items||[]).filter(x=>x.id!==id);
-   persist();renderDailyAccountingDetail();
+   localStorage.setItem('epcV1',JSON.stringify(db));renderDailyAccountingDetail();
+   try{await saveDailyAccountingV3_(rec)}catch(err){rec.items=old;localStorage.setItem('epcV1',JSON.stringify(db));renderDailyAccountingDetail();alert('刪除收支失敗：'+String(err?.message||err));}
  });
 }
 function saveDailyAccounting(){
