@@ -3957,6 +3957,20 @@ function setManualPrize(i,value){
  p.prize=v;
  persist();render();
 }
+function setStackFast_(i,value){
+ const e=currentEvent();if(!e||!e.players[i])return;
+ e.players[i].stack=Math.max(0,+value||0);
+ e.players[i].prize=(+e.players[i].stack||0)>0?(+e.players[i].prize||0):0;
+ persist();
+ const totalGroups=e.players.reduce((s,p)=>s+calcPlayerForEvent(p,e).groups,0);
+ const expected=totalGroups*(+e.chips||0);
+ const actual=e.players.reduce((s,p)=>s+(+p.stack||0),0);
+ const diff=actual-expected;
+ if($('sChipDiff')){$('sChipDiff').textContent=diff.toLocaleString();$('sChipDiff').className='v '+(diff===0?'pos':'neg');}
+ if($('btnCalcICM')){$('btnCalcICM').disabled=diff!==0;$('btnCalcICM').style.opacity=diff!==0?'.45':'1';}
+ const check=manualPrizeValidation(e);
+ if($('manualPrizeTotalCell'))$('manualPrizeTotalCell').innerHTML=`手動獎金合計：${money(check.total)} ／ 可發獎金：${money(check.target)}　<span class="${check.ok?'pos':'neg'}">${check.message}</span>`;
+}
 function calculateICM(){
  let e=currentEvent();if(!e)return;
  let totalGroups=e.players.reduce((sum,p)=>sum+calcPlayerForEvent(p,e).groups,0);
@@ -5841,7 +5855,7 @@ function render(){
    nickname:`<td>${p.nickname||m.nickname||''}</td>`,
    groups:`<td>${c.groups}</td>`,
    paid:`<td>${money(c.paid)}</td>`,
-   stack:`<td><input type="number" min="0" value="${p.stack||0}" onchange="setP(${i},'stack',this.value)" style="min-width:110px"></td>`,
+   stack:`<td><input type="number" min="0" value="${p.stack||0}" oninput="setStackFast_(${i},this.value)" style="min-width:110px"></td>`,
    prize:`<td><input type="number" min="0" step="100" value="${Math.round(+p.prize||0)}" onchange="setManualPrize(${i},this.value)" style="min-width:105px;text-align:right" ${(+p.stack||0)<=0?'disabled':''}></td>`,
    chipNet:`<td>${chip.toFixed(1)}</td>`,
    cashNet:`<td class="${cash>=0?'pos':'neg'}">${money(cash)}</td>`,
