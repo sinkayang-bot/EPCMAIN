@@ -4520,7 +4520,14 @@ function addAccountingItem(){
  // exact event snapshot around the generic persistence path and restore it if any
  // legacy cloud/merge hook touches events while saving the accounting row.
  const eventSnapshot=cloneCloud_(db.events||[]);
- persist();
+ // V3 event truth lives in Firestore. Do NOT run the legacy whole-database persist()
+ // from accounting: its field-change publisher can race the Firestore snapshot and
+ // temporarily replace the event list used by the on-screen totals.
+ if(EPC_V3_MODE){
+   localStorage.setItem('epcV1',JSON.stringify(db));
+ }else{
+   persist();
+ }
  if(JSON.stringify(db.events||[])!==JSON.stringify(eventSnapshot)){
    console.warn('Accounting save attempted to mutate events; restoring event snapshot');
    db.events=eventSnapshot;
