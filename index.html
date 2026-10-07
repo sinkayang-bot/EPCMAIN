@@ -1810,6 +1810,7 @@ main{margin-left:0!important;width:auto!important;max-width:none!important;paddi
  header,#nav{width:var(--eight-side)}
  main{padding:18px!important}
 }
+button.epc-clicked-now,.btn.epc-clicked-now{transform:scale(.985);filter:brightness(1.28);transition:transform .04s,filter .04s}
 </style></head>
 <script>
 (function(){
@@ -3843,7 +3844,7 @@ function addPlayer(){
  currentEvent().players.push({memberId:id,buyin:1,rebuy:0,addon:0,manualDiscount:0,stack:0,nickname:m.nickname||'',group:$('addPlayerGroup').value.trim()||m.group||'',prize:0});
  $('addPlayerGroup').value='';
  if($('addPlayerSearch'))$('addPlayerSearch').value='';
- persist();render();
+ persist();renderEventFast_();actionMsg('已加入本場');
 }
 function setP(i,k,v){
  let e=currentEvent();if(!e)return;
@@ -3856,7 +3857,7 @@ function setP(i,k,v){
    p._manualDiscountEditedAt=Date.now();
    p._manualDiscountEditedValue=+v||0;
  }
- persist();render();
+ persist();renderEventFast_();
 }
 function removePlayerSafe(memberId){
  const e=currentEvent();if(!e)return;
@@ -3865,7 +3866,7 @@ function removePlayerSafe(memberId){
  if(idx<0)return alert('找不到這位玩家');
  const m=db.members.find(x=>x.id===memberId);
  if(!window.confirm(`確定從本場移除「${m?.name||'此玩家'}」？`))return;
- e.players.splice(idx,1);persist();render();alert('玩家已移除');
+ e.players.splice(idx,1);persist();renderEventFast_();actionMsg('玩家已移除');
 }
 
 function delP(i){
@@ -3874,7 +3875,7 @@ function delP(i){
  let p=e.players[i],m=db.members.find(x=>x.id===p?.memberId);
  if(!p)return;
  if(!confirm(`確定從本場移除「${m?.name||'此玩家'}」？`))return;
- e.players.splice(i,1);persist();render();
+ e.players.splice(i,1);persist();renderEventFast_();actionMsg('玩家已移除');
 }
 function calcPlayer(p){
  let e=currentEvent(); if(!e)return {groups:0,auto:0,paid:0,pool:0};
@@ -3915,7 +3916,7 @@ function renderReportSettings(){
  ensureReportColumns();let box=$('reportColumnSettings');if(!box)return;
  box.innerHTML=REPORT_COLUMNS.map(([k,label])=>`<label style="display:flex;align-items:center;gap:6px"><input type="checkbox" ${db.reportColumns[k]?'checked':''} onchange="setReportColumn('${k}',this.checked)"> ${label}</label>`).join('');
 }
-function setReportColumn(k,v){ensureReportColumns();db.reportColumns[k]=!!v;persist();render();}
+function setReportColumn(k,v){ensureReportColumns();db.reportColumns[k]=!!v;persist();renderReportSettings();if(document.querySelector('#eventreport')?.classList.contains('active'))renderEventReport();}
 function visibleReportCols(){ensureReportColumns();return REPORT_COLUMNS.filter(([k])=>db.reportColumns[k]);}
 function saveEndTime(v){let e=currentEvent();if(!e)return;e.endTime=v||'';persist();}
 function goICM(){
@@ -4036,6 +4037,11 @@ function executeDeleteConfirm(){
  if(typeof fn==='function')fn();
 }
 
+document.addEventListener('click',function(e){
+ const b=e.target.closest('button,.btn');if(!b||b.disabled)return;
+ b.classList.add('epc-clicked-now');
+ setTimeout(()=>b.classList.remove('epc-clicked-now'),140);
+},{capture:true});
 function actionMsg(msg,isError=false){
  const el=$('actionMsg'); if(!el)return;
  el.textContent=msg; el.style.display='block';
@@ -5188,6 +5194,46 @@ function syncPlayerColumnCheckboxes(){
  const visible=loadPlayerVisibleCols();
  document.querySelectorAll('[data-player-col]').forEach(cb=>{cb.checked=visible.has(cb.dataset.playerCol)});
 }
+function renderEventFast_(){
+ const ev=currentEvent();if(!ev)return;
+ if($('currentEventLabel'))$('currentEventLabel').textContent=`${ev.date} · ${eventDisplayName_(ev)} · ${ev.level}｜開賽 ${ev.startTime||'--:--'}｜預計截止買入 ${ev.regCloseTime||'--:--'}`;
+ const visible=playerVisibleCols();
+ const cols=[
+  ['seat','座位',visible.has('seat')],['name','玩家',visible.has('name')],['memberId','會員編號',visible.has('memberId')],['nickname','綽號',visible.has('nickname')],
+  ['buyin','買入',true],['rebuy','重買',true],['groups','總組數',true],
+  ['rebuyDiscount','重買優惠',visible.has('rebuyDiscount')],['overbuyDiscount','超買優惠',visible.has('overbuyDiscount')],
+  ['manualDiscount','手動優惠',visible.has('manualDiscount')],['totalDiscount','總優惠',visible.has('totalDiscount')],
+  ['paid','實收',visible.has('paid')],['settleGroup','結帳群組',visible.has('settleGroup')],['action','操作',true]
+ ].filter(x=>x[2]);
+ const baseWeights={seat:.75,name:2,memberId:1.45,nickname:1.35,buyin:1,rebuy:1,groups:.85,rebuyDiscount:1.25,overbuyDiscount:1.25,manualDiscount:1.25,totalDiscount:1.15,paid:1.25,settleGroup:1.35,action:.85};
+ const tw=cols.reduce((s,x)=>s+(baseWeights[x[0]]||1),0);
+ let cg=$('eventPlayerColgroup');if(!cg){cg=document.createElement('colgroup');cg.id='eventPlayerColgroup';$('eventPlayerTable')?.insertBefore(cg,$('eventPlayerTable').firstChild)}
+ if(cg)cg.innerHTML=cols.map(x=>`<col style="width:${((baseWeights[x[0]]||1)/tw*100).toFixed(3)}%">`).join('');
+ if($('eventPlayerHead'))$('eventPlayerHead').innerHTML=cols.map(x=>`<th>${x[1]}</th>`).join('');
+ const rows=$('playerRows');
+ if(rows)rows.innerHTML=(ev.players||[]).map((p,i)=>{
+   const m=(db.members||[]).find(x=>String(x.id)===String(p.memberId))||{},cc=calcPlayerForEvent(p,ev);
+   const cell={
+    seat:`<td><input value="${p.seat||''}" oninput="setP(${i},'seat',this.value)"></td>`,
+    name:`<td>${m.name||''}</td>`,memberId:`<td>${p.memberId||''}</td>`,
+    nickname:`<td><input value="${p.nickname||''}" oninput="setP(${i},'nickname',this.value)"></td>`,
+    buyin:`<td><input type="number" min="0" value="${+p.buyin||0}" oninput="setP(${i},'buyin',this.value)"></td>`,
+    rebuy:`<td><input type="number" min="0" value="${+p.rebuy||0}" oninput="setP(${i},'rebuy',this.value)"></td>`,
+    groups:`<td>${cc.groups}</td>`,rebuyDiscount:`<td>${money(cc.rebuyDiscount)}</td>`,overbuyDiscount:`<td>${money(cc.overbuyDiscount)}</td>`,
+    manualDiscount:`<td><input type="number" value="${+p.manualDiscount||0}" oninput="setP(${i},'manualDiscount',this.value)"></td>`,
+    totalDiscount:`<td>${money(cc.totalDiscount)}</td>`,paid:`<td>${money(cc.paid)}</td>`,
+    settleGroup:`<td><input value="${p.group||''}" oninput="setP(${i},'group',this.value)"></td>`,
+    action:`<td><button class="danger" onclick="delP(${i})">移除</button></td>`
+   };return '<tr>'+cols.map(x=>cell[x[0]]||'<td></td>').join('')+'</tr>';
+ }).join('');
+ const totals=$('playerTotals');
+ if(totals){
+   const totalGroups=(ev.players||[]).reduce((s,p)=>s+calcPlayerForEvent(p,ev).groups,0);
+   const totalDiscount=(ev.players||[]).reduce((s,p)=>s+calcPlayerForEvent(p,ev).totalDiscount,0);
+   const totalPaid=(ev.players||[]).reduce((s,p)=>s+calcPlayerForEvent(p,ev).paid,0);
+   totals.innerHTML=`<tr style="font-weight:800"><td colspan="${Math.max(1,cols.length-3)}">本場總計</td><td>${totalGroups}</td><td>${money(totalDiscount)}</td><td>${money(totalPaid)}</td></tr>`;
+ }
+}
 function setPlayerColumnPreference(k,v){
  const visible=new Set(loadPlayerVisibleCols());
  if(v)visible.add(k);else visible.delete(k);
@@ -5197,7 +5243,7 @@ function setPlayerColumnPreference(k,v){
  // it recalculates dashboard/activity/report data and can be delayed by edit guards.
  // Redraw only the current event so the checked column appears immediately.
  if(document.querySelector('#event')?.classList.contains('active')){
-   renderEvent();
+   renderEventFast_();
    syncPlayerColumnCheckboxes();
  }else{
    syncPlayerColumnCheckboxes();
