@@ -430,21 +430,10 @@ document.addEventListener('click',async e=>{
 window.addEventListener('offline',()=>{const el=document.querySelector('#dbStatus');if(el){el.textContent='資料庫：網路離線';el.className='bad'}});
 window.addEventListener('online',()=>{boot(false)});
 
-async function renderDashboardSummaryV3(){
- const now=new Date(),ym=now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0'),last=new Date(now.getFullYear(),now.getMonth()+1,0).getDate();
- const from=document.querySelector('#dashboardDateFrom')?.value||ym+'-01',to=document.querySelector('#dashboardDateTo')?.value||ym+'-'+String(last).padStart(2,'0');
- const [a,all,jpRange,jpAll]=await Promise.all([api('dashboard.summary',{startDate:from,endDate:to}),api('dashboard.summary',{startDate:'',endDate:''}),api('jp.summary',{startDate:from,endDate:to}),api('jp.summary',{startDate:'',endDate:''})]),z=a.summary||{};
- const az=all.summary||{};const set=(id,v)=>{const e=document.querySelector(id);if(e)e.textContent=v};const newMembers=MEMBER_ROWS.filter(m=>m.createdAt&&m.createdAt>=from&&m.createdAt<=to).length;
- set('#kMembers',Number(MEMBER_ROWS.length).toLocaleString());set('#kNewMembers',Number(newMembers).toLocaleString());set('#kProfit',money(az.netIncome||0));set('#kMonthProfit',money(z.netIncome||0));set('#kJP',money(jpAll.total||0));set('#kRangeJP',money(jpRange.total||0));set('#kMonthExpense',money((z.totalDiscount||0)+(z.otherExpense||0)));set('#kMonthEvents',(z.eventCount||0)+' 場');
- const levels=Object.entries(z.levels||{}).map(([k,v])=>k+'：'+v+' 場').join('　｜　')||'尚無已結算賽事';set('#kLevelBreakdown',levels);
-}
-async function renderDashboardDailyReportV3(){
- const d=document.querySelector('#dashboardDailyDate')?.value||businessDate(),r=await api('dashboard.summary',{startDate:d,endDate:d}),z=r.summary||{};const set=(id,v)=>{const e=document.querySelector(id);if(e)e.textContent=v};
- set('#drEvents',(z.eventCount||0)+' 場');set('#drAdmin',money(z.adminGross||0));set('#drMembership',money(z.membershipIncome||0));set('#drDiscount',money(z.totalDiscount||0));set('#drOtherIncome',money(z.otherIncome||0));set('#drOtherExpense',money(z.otherExpense||0));set('#drNet',money(z.netIncome||0));set('#drJP',money(z.jp||0));
- const body=document.querySelector('#dashboardDailyItemRows');if(body)body.innerHTML=(r.rows||[]).map(x=>'<tr><td><span class="pos">收入</span></td><td>賽事</td><td>'+esc(x.eventName)+'</td><td>'+money(x.adminNet)+'</td><td>'+esc(x.level)+'</td></tr>').join('')||'<tr><td colspan="5" class="small">本日尚無已結算賽事</td></tr>';
-}
-window.renderDashboardSummary=renderDashboardSummaryV3;
-window.renderDashboardDailyReport=renderDashboardDailyReportV3;
+// EPC ledger and dashboard handlers belong to index.html. They calculate from
+// db.events + db.dailyAccounting, exactly as printDailyAccounting() does.
+// Do not replace them with Sheet-summary handlers: Firestore event/player data
+// is not present in the separate EPC_帳務 / EPC_其他收支 Sheet tables.
 
 async function renderSettlementManagerV3(){
  const from=document.querySelector('#settlementDateFrom')?.value||'',to=document.querySelector('#settlementDateTo')?.value||'',r=await api('settlement.report',{startDate:from,endDate:to}),z=r.report||{};
@@ -458,16 +447,6 @@ async function openSettlementDayV3(date){
 }
 window.renderSettlementManager=renderSettlementManagerV3;
 window.openSettlementDayV3=openSettlementDayV3;
-
-async function addAccountingItemV3(){
- const date=document.querySelector('#dailyDate')?.value||document.querySelector('#accountingCreateDate')?.value||businessDate(),name=(document.querySelector('#accountingItemName')?.value||'').trim(),amount=Number(document.querySelector('#accountingItemAmount')?.value||0);let type=document.querySelector('#accountingItemType')?.value||'income';const preset=document.querySelector('#accountingItemPreset')?.value||'';if(!preset){if(/入會費/.test(name))type='membership';else if(/薪資|工資|餐費|水電|耗材|維修|租金|支出|費用/.test(name))type='expense'}if(!name||amount<=0)return alert('請輸入項目名稱與大於 0 的金額');await api('accounting.item.create',{item:{businessDate:date,type,name,amount}});document.querySelector('#accountingItemName').value='';document.querySelector('#accountingItemAmount').value='';await renderDailyAccountingDetailV3(date);await renderDashboardSummaryV3();
-}
-async function deleteAccountingItemV3(id,rev){if(!confirm('確定要刪除這筆收支嗎？'))return;await api('accounting.item.delete',{itemId:id,expectedRevision:rev});await renderDailyAccountingDetailV3(document.querySelector('#dailyDate')?.value||businessDate());await renderDashboardSummaryV3()}
-async function renderDailyAccountingDetailV3(date){
- date=date||document.querySelector('#dailyDate')?.value||businessDate();const r=await api('dashboard.summary',{startDate:date,endDate:date}),z=r.summary||{},items=r.items||[];const set=(id,v)=>{const e=document.querySelector(id);if(e)e.textContent=v};set('#aAdminGross',money(z.adminGross||0));set('#aMembershipIncome',money(z.membershipIncome||0));set('#aDiscountExpense',money(z.totalDiscount||0));set('#aAdminNet',money(z.adminNet||0));set('#aOtherIncomeTotal',money(z.otherIncome||0));set('#aOtherExpenseTotal',money(z.otherExpense||0));set('#aRevenue',money((z.adminNet||0)+(z.membershipIncome||0)+(z.otherIncome||0)));set('#aExpense',money(z.otherExpense||0));set('#aNet',money(z.netIncome||0));set('#aJP',money(z.jp||0));
- const body=document.querySelector('#accountingItemRows');if(body)body.innerHTML=items.map(x=>'<tr><td><span class="'+(x.type==='expense'?'neg':'pos')+'">'+(x.type==='membership'?'入會費收入':x.type==='expense'?'其他支出':'其他收入')+'</span></td><td>'+esc(x.name)+'</td><td>'+money(x.amount)+'</td><td><button class="danger" onclick="deleteAccountingItemV3(\''+x.itemId+'\','+x.revision+')">刪除</button></td></tr>').join('')||'<tr><td colspan="4" class="small">尚未新增入會費／其他收支</td></tr>';
-}
-window.addAccountingItem=addAccountingItemV3;window.deleteAccountingItemV3=deleteAccountingItemV3;
 
 let EPC_ACTIVITY_SAVE_TIMER=null;
 window.saveActivityCloudV3=function(){clearTimeout(EPC_ACTIVITY_SAVE_TIMER);EPC_ACTIVITY_SAVE_TIMER=setTimeout(async function(){if(!window.db||!window.db.activityManagement)return;try{const r=await api('activity.update',{data:window.db.activityManagement,expectedRevision:Number(window.EPC_ACTIVITY_REVISION||0)});window.EPC_ACTIVITY_REVISION=Number(r.revision||0)}catch(e){console.error('activity cloud save',e);try{const g=await api('activity.get',{});window.db.activityManagement=g.data||{};window.EPC_ACTIVITY_REVISION=Number(g.revision||0);if(typeof window.renderActivities==='function')window.renderActivities()}catch(_){}}},250)};
