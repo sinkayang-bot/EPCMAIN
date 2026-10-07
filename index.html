@@ -5244,10 +5244,12 @@ function renderEventFast_(){
  }).join('');
  const totals=$('playerTotals');
  if(totals){
-   const totalGroups=(ev.players||[]).reduce((s,p)=>s+calcPlayerForEvent(p,ev).groups,0);
-   const totalDiscount=(ev.players||[]).reduce((s,p)=>s+calcPlayerForEvent(p,ev).totalDiscount,0);
-   const totalPaid=(ev.players||[]).reduce((s,p)=>s+calcPlayerForEvent(p,ev).paid,0);
-   totals.innerHTML=`<tr style="font-weight:800"><td colspan="${Math.max(1,cols.length-3)}">本場總計</td><td>${totalGroups}</td><td>${money(totalDiscount)}</td><td>${money(totalPaid)}</td></tr>`;
+   const sums={groups:0,rebuyDiscount:0,overbuyDiscount:0,manualDiscount:0,totalDiscount:0,paid:0};
+   (ev.players||[]).forEach(p=>{const x=calcPlayerForEvent(p,ev);sums.groups+=x.groups;sums.rebuyDiscount+=x.rebuyDiscount;sums.overbuyDiscount+=x.overbuyDiscount;sums.manualDiscount+=x.manual;sums.totalDiscount+=x.totalDiscount;sums.paid+=x.paid;});
+   const totalCell={seat:'',name:'本場總計',memberId:'',nickname:'',buyin:'',rebuy:'',groups:String(sums.groups),
+    rebuyDiscount:money(sums.rebuyDiscount),overbuyDiscount:money(sums.overbuyDiscount),manualDiscount:money(sums.manualDiscount),
+    totalDiscount:money(sums.totalDiscount),paid:money(sums.paid),settleGroup:'',action:''};
+   totals.innerHTML='<tr style="font-weight:800">'+cols.map((x,idx)=>'<td>'+(idx===0?'本場總計':(totalCell[x[0]]||''))+'</td>').join('')+'</tr>';
  }
 }
 function setPlayerColumnPreference(k,v){
