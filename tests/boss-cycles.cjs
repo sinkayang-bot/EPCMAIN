@@ -12,20 +12,15 @@ ctx.addNewBoss_();const second=ctx.activeBoss_();assert.equal(second.startEventI
 const actual=[["D5-FOURTH","2026-10-05","第四場",6,17],["D6-FIRST","2026-10-06","第一場",6,7],["D5-THIRD","2026-10-05","第三場",5,10],["D6-SECOND","2026-10-06","第二場",7,13],["D6-THIRD","2026-10-06","第三場",6,14],["D6-FOURTH","2026-10-06","第四場",7,23]].map(([id,date,name,n,g])=>({id,date,name,status:'已結算',seq:1,startTime:'',players:Array.from({length:n},(_,i)=>({groups:i?1:g-n+1}))}));
 ctx.db.events=actual;B.activeBossId='FIXTURE';B.bosses.push({id:'FIXTURE',startEventId:'D5-THIRD',startPrize:3000,cycleVersion:1,attacks:[]});const result=ctx.bossStats_();assert.equal(result.pool,7100);assert.equal(result.npb,3700);assert.equal(result.ngb,400);assert.equal(result.ng,84);console.log('PASS: actual 10/5 third through 10/6 fourth includes fourth event, 37 people + per-event groups = 7100.');
 
-// Open events award live group bonuses, but participant bonuses wait for settlement.
+// Running events calculate both people and groups immediately.
 ctx.db.events=[{id:'LIVE',date:'2026-10-07',seq:1,status:'進行中',players:[{groups:16},{groups:0}]}];
 B.activeBossId='LIVE-BOSS';B.bosses.push({id:'LIVE-BOSS',startEventId:'LIVE',startPrize:3000,cycleVersion:1,attacks:[]});
-assert.equal(ctx.bossStats_().pool,3200);assert.equal(ctx.bossStats_().npb,0);assert.equal(ctx.bossStats_().ngb,200);
-ctx.db.events[0].status='settled';
-assert.equal(ctx.bossStats_().pool,3400);assert.equal(ctx.bossStats_().ngb,200,'settlement must not award groups twice');
-assert.equal(ctx.bossStats_().pool,3400,'recalculation is idempotent');
+assert.equal(ctx.bossStats_().pool,3400);assert.equal(ctx.bossStats_().npb,200);assert.equal(ctx.bossStats_().ngb,200);
+ctx.db.events[0].status='settled';assert.equal(ctx.bossStats_().pool,3400,'settlement must not duplicate bonuses');
+ctx.db.events[0].players.push({groups:8});assert.equal(ctx.bossStats_().pool,3700,'live changes recalculate people and groups');
 B.bosses.at(-1).startPrize=9800;ctx.db.events[0].players=[{groups:16}];ctx.db.events[0].status='進行中';
-assert.equal(ctx.bossStats_().pool,10400,'live groups can cross attack threshold');assert.equal(ctx.bossStats_().npb,0);
-ctx.db.events[0].status='已結算';assert.equal(ctx.bossStats_().pool,10400);
-ctx.db.events.push({id:'LIVE2',date:'2026-10-07',seq:2,status:'進行中',players:[{groups:8}]});
-assert.equal(ctx.bossStats_().pool,10600,'open hunt event awards group bonus');assert.equal(ctx.bossStats_().hpb,0);
-ctx.db.events[1].status='已結算';assert.equal(ctx.bossStats_().pool,10600,'hunt settlement does not duplicate group bonus');
-console.log('PASS: live group bonuses, settled-only people, threshold crossing and no duplicate settlement bonuses.');
-
-ctx.db.events[1].players=[{groups:24}];assert.equal(ctx.bossStats_().hgb,1000,'16 groups +400 and 24 groups +600');assert.equal(ctx.bossStats_().pool,11000);
-console.log('PASS: hunt bonus awards +200 for every eight groups per event.');
+assert.equal(ctx.bossStats_().pool,10400,'live event crosses attack threshold');
+ctx.db.events.push({id:'LIVE2',date:'2026-10-07',seq:2,status:'進行中',players:[{groups:24}]});
+assert.equal(ctx.bossStats_().pool,11000);assert.equal(ctx.bossStats_().hgb,1000,'16 groups +400 and 24 groups +600');assert.equal(ctx.bossStats_().hpb,0);
+ctx.db.events[1].status='已結算';assert.equal(ctx.bossStats_().pool,11000);
+console.log('PASS: live people/groups, threshold switching, every-eight hunt bonus, settlement without duplication.');

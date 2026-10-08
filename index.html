@@ -5878,11 +5878,10 @@ function bossStats_(){
 
  for(const e of ev){
    const people=(e.players||[]).length;
-   const settledPeople=(e.status==='已結算'||e.status==='settled')?people:0;
    let groups=0;(e.players||[]).forEach(p=>groups+=actGroups_(p,e));
 
    if(!hunt){
-     np+=people;ng+=groups;normalPeople+=settledPeople;
+     np+=people;ng+=groups;normalPeople+=people;
      const nextPeopleBonus=bossBonus_(normalPeople,B.normalPersonStep,B.normalPersonAmount,B.normalPersonIgnore);
      const personDelta=Math.max(0,nextPeopleBonus-npb);
      npb+=personDelta;pool+=personDelta;
@@ -5913,14 +5912,14 @@ function bossStats_(){
      if(crossedThisEvent){
        /* People/groups shown in the hunt column start with the triggering event,
           but hunt people do not add money unless explicitly enabled. */
-       hp+=people;hg+=groups;huntPeople+=settledPeople;
+       hp+=people;hg+=groups;huntPeople+=people;
        np-=people;ng-=groups;
        /* The triggering event's hunt bonus was already assigned above.
           Do not award the same groups a second time here. */
        crossedThisEvent=false;
      }
    }else{
-     hp+=people;hg+=groups;huntPeople+=settledPeople;
+     hp+=people;hg+=groups;huntPeople+=people;
      if(B.huntPersonEnabled){
        const next=bossBonus_(huntPeople,B.huntPersonStep,B.huntPersonAmount,B.huntPersonIgnore);
        const delta=Math.max(0,next-hpb);hpb+=delta;pool+=delta;
