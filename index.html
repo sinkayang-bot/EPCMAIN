@@ -3232,6 +3232,13 @@ async function syncPhoneStacksOnly(){
  if(btn){btn.disabled=true;btn.dataset.oldText=btn.textContent;btn.textContent='同步中…';}
  try{
   setCloudState('● 正在讀取手機籌碼…');
+  if(window.EPCFirestore?.ready){
+   const remote=await window.EPCFirestore.getEvent(String(localEvent.id));
+   const rows=(window.EPC_FIRESTORE_LAST_EVENTS||[]).map(e=>String(e.eventId)===String(localEvent.id)?remote:e);
+   if(!rows.some(e=>String(e.eventId)===String(localEvent.id)))rows.push(remote);
+   applyFirestoreEventsToLegacy_(rows);renderEventFast_();
+   actionMsg('已讀取最新手機籌碼');setCloudState('● 手機籌碼已同步');return;
+  }
   const res=await readPhoneStacksApi(localEvent.id);
   if(typeof window.applyPhoneStacksToV3!=='function')throw new Error('V3_PHONE_STACK_BRIDGE_NOT_READY');
   const result=await window.applyPhoneStacksToV3(String(localEvent.id),res.stacks||[]);
@@ -3906,6 +3913,7 @@ function setP(i,k,v){
  if(e.status==='已結算')return alert('此賽事已完成結算並鎖定，不能再修改。');
  const p=e.players[i]; if(!p)return;
  p[k]=((k==='group'||k==='nickname'||k==='seat')?v:+v);
+ if(k==='stack'){p._stackRevision=(+p._stackRevision||0)+1;}
  if(k==='manualDiscount'){
    // Field-level revision: newest explicit edit wins across computers.
    // This also allows an intentional reset back to 0.
@@ -6934,6 +6942,7 @@ async function epcShowRecoveryAudit_(){
 }
 </script>
 <script src="firebase-config.js?v=20261007-0780"></script>
-<script src="firebase-events.js?v=20261008-event-label"></script>
+<script src="phone/stack-core.js?v=20261009-phone-stacks"></script>
+<script src="firebase-events.js?v=20261009-phone-stacks"></script>
 <script src="sync-v3.js?v=20261007-0780"></script>
 <script src="app.js?v=20261009-activity-live-refresh"></script></body></html>

@@ -3,7 +3,7 @@ const html=fs.readFileSync('index.html','utf8'),app=fs.readFileSync('app.js','ut
 const extract=(s,a,b)=>s.slice(s.indexOf(a),s.indexOf(b,s.indexOf(a)));
 (async()=>{
  let old={status:'settled',players:[{nickname:'先鋒',prize:5700}],_eventUpdatedAt:20},written;
- const ctx={fs:{doc:()=>({}),runTransaction:async(_,fn)=>fn({get:async()=>({exists:()=>true,data:()=>old}),set:(_,row)=>{written=row}}),serverTimestamp:()=>0,deleteField:()=>null},db:{},col:{},clean:x=>x};
+ const ctx={fs:{doc:()=>({}),runTransaction:async(_,fn)=>fn({get:async()=>({exists:()=>true,data:()=>old}),set:(_,row)=>{written=row}}),serverTimestamp:()=>0,deleteField:()=>null},window:{EPCStackCore:require('../phone/stack-core.js')},db:{},col:{},clean:x=>x};
  vm.createContext(ctx);vm.runInContext('const api={'+extract(bridge,'async upsertEvent(','async createEvent(')+'};globalThis.save=api.upsertEvent;',ctx);
  await assert.rejects(ctx.save({eventId:'E',status:'open'}),/已結算/);assert.equal(written,undefined);
  await ctx.save({eventId:'E',status:'settled',players:[]});assert.equal(written,undefined);

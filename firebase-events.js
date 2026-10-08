@@ -27,11 +27,13 @@
       return;
      }
      if(old._eventUpdatedAt&&e._eventUpdatedAt&&Number(old._eventUpdatedAt)>Number(e._eventUpdatedAt))throw Error('賽事已有較新修改，請重新整理後再編輯');
-     const row={...clean(e),status:settled(e.status)?'settled':'open',updatedAt:fs.serverTimestamp()};
+     const protectedEvent=window.EPCStackCore.protectStacks(e,old);
+     const row={...clean(protectedEvent),status:settled(e.status)?'settled':'open',updatedAt:fs.serverTimestamp()};
      if(options.unlock){row.finalJP=fs.deleteField();row.finalAccounting=fs.deleteField();}
      tx.set(ref,row,{merge:true});
     });
    },
+   async getEvent(id){const snap=await fs.getDocFromServer(fs.doc(col,String(id)));if(!snap.exists())throw Error('找不到賽事');return {...snap.data(),eventId:String(id)}},
    async createEvent(e){const eventId=String(e?.eventId||('EV-'+Date.now()+'-'+Math.random().toString(36).slice(2,8)));const row={...clean(e),eventId,status:e?.status||'open',revision:Number(e?.revision||1),createdAt:Date.now()};await fs.setDoc(fs.doc(col,eventId),{...row,updatedAt:fs.serverTimestamp()});return row},
    async deleteEvent(id){if(id)await fs.deleteDoc(fs.doc(col,String(id)))},
    async upsertDailyAccounting(row){
