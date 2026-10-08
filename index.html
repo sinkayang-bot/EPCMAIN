@@ -5017,6 +5017,7 @@ function applyFirestoreEventsToLegacy_(rows){
  const remoteIds=new Set(remote.map(x=>String(x.id)));
  // Firestore is authoritative: never re-introduce stale local/legacy event rows.
  db.events=remote;
+ if(typeof render==='function' && ($('event')?.classList.contains('active')||$('settle')?.classList.contains('active')))render();
  renderEventList();
  renderMemberRows();
  renderDashboardSummary();
