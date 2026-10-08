@@ -24,3 +24,9 @@ ctx.db.events.push({id:'LIVE2',date:'2026-10-07',seq:2,status:'進行中',player
 assert.equal(ctx.bossStats_().pool,11000);assert.equal(ctx.bossStats_().hgb,1000,'16 groups +400 and 24 groups +600');assert.equal(ctx.bossStats_().hpb,0);
 ctx.db.events[1].status='已結算';assert.equal(ctx.bossStats_().pool,11000);
 console.log('PASS: live people/groups, threshold switching, every-eight hunt bonus, settlement without duplication.');
+
+// Real screenshot: 6200 people +800 normal groups +3000 start reaches 10000.
+ctx.db.events=[{id:'PRE',date:'2026-10-07',seq:1,players:Array.from({length:48},(_,i)=>({groups:i?0:40}))},{id:'CROSS',date:'2026-10-07',seq:2,players:Array.from({length:14},(_,i)=>({groups:i?0:26}))},...([17,18,30,12].map((g,i)=>({id:'AFTER'+i,date:'2026-10-08',seq:3+i,players:[{groups:g}]})))];
+B.bosses.at(-1).startPrize=3000;B.bosses.at(-1).startEventId='PRE';
+let verified=ctx.bossStats_();assert.equal(verified.npb,6200);assert.equal(verified.ngb,800);assert.equal(verified.hgb,1600);assert.equal(verified.pool,11600,'26-group trigger event must not add another 600');
+console.log('PASS: screenshot amounts reconcile to 11600 without changing participant bonus.');

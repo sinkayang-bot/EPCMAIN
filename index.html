@@ -5891,10 +5891,9 @@ function bossStats_(){
 
      if(pool>=threshold){
        hunt=true;crossedThisEvent=true;
-       /* Threshold was reached before this event's group bonus:
-          this event's group bonus belongs to hunt mode. */
-       const huntGroupBonus=bossBonus_(groups,B.huntGroupStep,B.huntGroupAmount,B.huntGroupIgnore);
-       if(huntGroupBonus>0){hgb+=huntGroupBonus;huntQualifyingEvents++;pool+=huntGroupBonus}
+       /* This event's participant bonus reaches the threshold.
+          Hunt group bonuses start with the following event; do not
+          reclassify the triggering event's whole groups as hunt bonuses. */
      }else if(pool+normalGroupBonus>=threshold){
        /* The group bonus itself crosses the threshold.
           Count only enough in normal mode to reach threshold;
