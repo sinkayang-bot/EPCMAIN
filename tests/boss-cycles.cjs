@@ -20,9 +20,12 @@ ctx.db.events[0].status='settled';
 assert.equal(ctx.bossStats_().pool,3400);assert.equal(ctx.bossStats_().ngb,200,'settlement must not award groups twice');
 assert.equal(ctx.bossStats_().pool,3400,'recalculation is idempotent');
 B.bosses.at(-1).startPrize=9800;ctx.db.events[0].players=[{groups:16}];ctx.db.events[0].status='進行中';
-assert.equal(ctx.bossStats_().pool,10200,'live groups can cross attack threshold');assert.equal(ctx.bossStats_().npb,0);
-ctx.db.events[0].status='已結算';assert.equal(ctx.bossStats_().pool,10200);
+assert.equal(ctx.bossStats_().pool,10400,'live groups can cross attack threshold');assert.equal(ctx.bossStats_().npb,0);
+ctx.db.events[0].status='已結算';assert.equal(ctx.bossStats_().pool,10400);
 ctx.db.events.push({id:'LIVE2',date:'2026-10-07',seq:2,status:'進行中',players:[{groups:8}]});
-assert.equal(ctx.bossStats_().pool,10400,'open hunt event awards group bonus');assert.equal(ctx.bossStats_().hpb,0);
-ctx.db.events[1].status='已結算';assert.equal(ctx.bossStats_().pool,10400,'hunt settlement does not duplicate group bonus');
+assert.equal(ctx.bossStats_().pool,10600,'open hunt event awards group bonus');assert.equal(ctx.bossStats_().hpb,0);
+ctx.db.events[1].status='已結算';assert.equal(ctx.bossStats_().pool,10600,'hunt settlement does not duplicate group bonus');
 console.log('PASS: live group bonuses, settled-only people, threshold crossing and no duplicate settlement bonuses.');
+
+ctx.db.events[1].players=[{groups:24}];assert.equal(ctx.bossStats_().hgb,1000,'16 groups +400 and 24 groups +600');assert.equal(ctx.bossStats_().pool,11000);
+console.log('PASS: hunt bonus awards +200 for every eight groups per event.');

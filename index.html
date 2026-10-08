@@ -5894,7 +5894,7 @@ function bossStats_(){
        hunt=true;crossedThisEvent=true;
        /* Threshold was reached before this event's group bonus:
           this event's group bonus belongs to hunt mode. */
-       const huntGroupBonus=(groups>=(Math.max(0,+B.huntGroupIgnore||0)+Math.max(1,+B.huntGroupStep||1)))?(+B.huntGroupAmount||0):0;
+       const huntGroupBonus=bossBonus_(groups,B.huntGroupStep,B.huntGroupAmount,B.huntGroupIgnore);
        if(huntGroupBonus>0){hgb+=huntGroupBonus;huntQualifyingEvents++;pool+=huntGroupBonus}
      }else if(pool+normalGroupBonus>=threshold){
        /* The group bonus itself crosses the threshold.
@@ -5904,7 +5904,7 @@ function bossStats_(){
        const normalPart=Math.min(normalGroupBonus,toThreshold);
        ngb+=normalPart;pool+=normalPart;
        hunt=true;crossedThisEvent=true;
-       const huntPart=(groups>=(Math.max(0,+B.huntGroupIgnore||0)+Math.max(1,+B.huntGroupStep||1)))?(+B.huntGroupAmount||0):0;
+       const huntPart=bossBonus_(groups,B.huntGroupStep,B.huntGroupAmount,B.huntGroupIgnore);
        if(huntPart>0){hgb+=huntPart;huntQualifyingEvents++;pool+=huntPart}
      }else{
        ngb+=normalGroupBonus;pool+=normalGroupBonus;
@@ -5925,7 +5925,7 @@ function bossStats_(){
        const next=bossBonus_(huntPeople,B.huntPersonStep,B.huntPersonAmount,B.huntPersonIgnore);
        const delta=Math.max(0,next-hpb);hpb+=delta;pool+=delta;
      }
-     const gb=(groups>=(Math.max(0,+B.huntGroupIgnore||0)+Math.max(1,+B.huntGroupStep||1)))?(+B.huntGroupAmount||0):0;
+     const gb=bossBonus_(groups,B.huntGroupStep,B.huntGroupAmount,B.huntGroupIgnore);
      if(gb>0){hgb+=gb;huntQualifyingEvents++;pool+=gb}
    }
  }
