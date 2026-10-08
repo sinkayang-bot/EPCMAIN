@@ -6779,7 +6779,11 @@ async function publishAllDisplays_(){
  // Republish each device from its last saved preference instead.
  for(const d of displayDevicesCache){
   try{
-   const pref=displayPref_(d.deviceId),type=pref.type||d.contentType||'boss',sec=Math.max(5,+(pref.sec||d.rotateSeconds||15));
+   const pref=displayPref_(d.deviceId);
+   // A viewing terminal must not replace a TV with its local/default activity data.
+   // Only terminals that explicitly applied this device may republish it automatically.
+   if(!pref.type)continue;
+   const type=pref.type,sec=Math.max(5,+(pref.sec||d.rotateSeconds||15));
    const ui=Object.assign({kind:type,limit:10,layout:'classic',showRank:true,showName:true,showMemberId:false,showScore:true,rankFontScale:100},pref.ui||{});
    ui.kind=type;
    const payload=displayPayload_(type);payload.ui=ui;
