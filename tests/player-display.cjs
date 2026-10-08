@@ -9,7 +9,7 @@ const baseline=execFileSync('git',['show','dc2badefed72d566091ead4ec228ac0846cf5
 function section(source,start,end){const a=source.indexOf(start),b=source.indexOf(end,a);assert(a>=0&&b>a,start);return source.slice(a,b);}
 function setup(source){
  const inputs=new Map();
- const db={members:[{id:'A',memberKey:'KA',name:'甲姓名',nickname:' 同綽號 ',group:'G'},{id:'B',memberKey:'KB',name:'乙姓名',nickname:'同綽號',group:'G'},{id:'C',name:'丙姓名',nickname:'  ',group:'G'}],events:[{id:'E',date:'2026-10-06',seq:1,status:'已結算',poolUnit:3000,admin:400,players:[{memberId:'A',buyin:1,prize:2000,stack:100},{memberId:'B',buyin:1,prize:1500,stack:80},{memberId:'C',buyin:1,prize:1000,stack:60}]}],activityManagement:{hunter:[{killer:'A',points:5},{killer:'B',points:3},{killer:'C',points:1}],pioneer:{},umbrella:[],rankAdjust:{}}};
+ const db={members:[{id:'A',memberKey:'KA',name:'甲姓名',nickname:' 同綽號 ',group:'G'},{id:'B',memberKey:'KB',name:'乙姓名',nickname:'同綽號',group:'G'},{id:'C',name:'丙姓名',nickname:'  ',group:'G'}],events:[{id:'E',date:'2026-10-06',seq:1,status:'已結算',poolUnit:3000,admin:400,players:[{memberId:'A',buyin:1,prize:2000,stack:100},{memberId:'B',buyin:1,prize:1500,stack:80},{memberId:'C',buyin:1,prize:1000,stack:60}]}],activityManagement:{hunter:[{date:'2026-10-06',killer:'A',points:5},{date:'2026-10-06',killer:'B',points:3},{date:'2026-10-06',killer:'C',points:1}],pioneer:{},umbrella:[],rankAdjust:{}}};
  const ctx=vm.createContext({db,Map,Set,Date,console,$:id=>inputs.get(id),actTab_:'hunter',actRange_:()=>({q:''}),actActivityRange_:()=>({from:'2026-10-01',to:'2026-10-31'}),actEvents_:()=>db.events,actBusinessDate_:e=>e.date,businessDateForEvent:e=>e.date,ensureActDb_(){},chipGrowthFor:p=>p.stack,rankMultiplier_:()=>1});
  if(source.includes('function epcPlayerDisplayName_'))vm.runInContext(section(source,'function epcPlayerDisplayName_','const CLOUD_API'),ctx);
  if(source.includes('function eventOrdinalName_'))vm.runInContext(section(source,'function eventOrdinalName_','async function newEvent('),ctx);
@@ -19,6 +19,7 @@ function setup(source){
  vm.runInContext(section(source,'function actMember_(id)','function actEventOptions_'),ctx);
  vm.runInContext(section(source,'function actGroups_(p,e)','function actSave_'),ctx);
  vm.runInContext(section(source,'function eventTopScores_(e)','function actRank_'),ctx);
+ if(source.includes('function hunterRows_(){'))vm.runInContext(section(source,'function hunterRows_(){','function actHunter_(){'),ctx);
  vm.runInContext(section(source,'function displayLeaderboard_(kind)','async function publishDisplay_'),ctx);
  return {ctx,db,inputs};
 }

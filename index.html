@@ -3914,6 +3914,7 @@ function setP(i,k,v){
  const p=e.players[i]; if(!p)return;
  p[k]=((k==='group'||k==='nickname'||k==='seat')?v:+v);
  if(k==='stack'){p._stackRevision=(+p._stackRevision||0)+1;}
+ if(k==='seat'){p._seatRevision=(+p._seatRevision||0)+1;}
  if(k==='manualDiscount'){
    // Field-level revision: newest explicit edit wins across computers.
    // This also allows an intentional reset back to 0.
@@ -5827,11 +5828,16 @@ async function hunterDel_(id){
  persist();if(window.saveActivityCloudV3)window.saveActivityCloudV3();renderActivities();
  if(cloudReady)await saveCloudNow(false);
 }
+function hunterRows_(){
+ const phone=(db.events||[]).flatMap(e=>(e.players||[]).filter(p=>(+p.hunterHeads||0)>0).map(p=>({id:'PHONE:'+e.id+':'+p.memberId,date:actBusinessDate_(e),eventId:e.id,killer:String(p.memberId),points:+p.hunterHeads,phone:true,note:'手機本場累計人頭'})));
+ const {from,to}=actActivityRange_('hunter');
+ return [...(db.activityManagement.hunter||[]),...phone].filter(x=>(!from||x.date>=from)&&(!to||x.date<=to));
+}
 function actHunter_(){
- const {from,to}=actActivityRange_('hunter'),rows=db.activityManagement.hunter.filter(x=>(!from||x.date>=from)&&(!to||x.date<=to)),tot={};rows.forEach(x=>tot[x.killer]=(tot[x.killer]||0)+(+x.points||0));const rank=Object.entries(tot).map(([id,score])=>({id,name:epcPlayerDisplayName_(id),score})).sort((a,b)=>b.score-a.score);
+ const rows=hunterRows_(),tot={};rows.forEach(x=>tot[x.killer]=(tot[x.killer]||0)+(+x.points||0));const rank=Object.entries(tot).map(([id,score])=>({id,name:epcPlayerDisplayName_(id),score})).sort((a,b)=>b.score-a.score);
  return `<div class="card"><h3>獵人排行榜｜擊殺登記</h3><div class="formgrid" style="grid-template-columns:1.4fr 1.2fr .6fr 1.2fr auto"><div><label>場次</label><select id="hunterEvent" onchange="hunterEventChanged_()"><option value="">選擇場次</option>${actEventOptions_()}</select></div><div><label>擊殺者</label><input id="hunterKiller" list="hunterKillerList" autocomplete="off" placeholder="先選場次，再輸入姓名 / ID"><datalist id="hunterKillerList"></datalist></div><div><label>分數</label><input type="number" id="hunterPoints" value="1"></div><div><label>備註</label><input id="hunterNote"></div><div style="align-self:end"><button onclick="addHunter_()">登記擊殺</button></div></div>
  <h3 style="margin-top:14px">排行榜</h3><table><thead><tr><th>排名</th><th>會員</th><th>總分</th></tr></thead><tbody>${rank.map((x,i)=>`<tr><td>${i+1}</td><td>${epcDisplayEscape_(x.name)}</td><td>${x.score}</td></tr>`).join('')||'<tr><td colspan="3">尚無資料</td></tr>'}</tbody></table>
- <h3 style="margin-top:14px">登記紀錄</h3><table><thead><tr><th>日期</th><th>場次</th><th>擊殺者</th><th>分數（可改）</th><th>備註</th><th></th></tr></thead><tbody>${rows.map(x=>`<tr><td>${x.date}</td><td>${actEventLabel_((db.events||[]).find(e=>e.id===x.eventId)||{})}</td><td>${epcPlayerDisplayHtml_(x.killer)}</td><td><input type="number" style="width:90px" value="${x.points}" onchange="hunterEdit_('${x.id}',this.value)"></td><td>${x.note||''}</td><td><button class="danger" onclick="hunterDel_('${x.id}')">刪除</button></td></tr>`).join('')||'<tr><td colspan="6">尚無登記</td></tr>'}</tbody></table></div>`;
+ <h3 style="margin-top:14px">登記紀錄</h3><table><thead><tr><th>日期</th><th>場次</th><th>擊殺者</th><th>分數（可改）</th><th>備註</th><th></th></tr></thead><tbody>${rows.map(x=>`<tr><td>${x.date}</td><td>${actEventLabel_((db.events||[]).find(e=>e.id===x.eventId)||{})}</td><td>${epcPlayerDisplayHtml_(x.killer)}</td><td><input type="number" style="width:90px" value="${x.points}" ${x.phone?'disabled':''} onchange="hunterEdit_('${x.id}',this.value)"></td><td>${x.note||''}</td><td>${x.phone?'於手機修改':`<button class="danger" onclick="hunterDel_('${x.id}')">刪除</button>`}</td></tr>`).join('')||'<tr><td colspan="6">尚無登記</td></tr>'}</tbody></table></div>`;
 }
 function umbrellaRule_(k,v){db.activityManagement.umbrellaRules[k]=+v||0;persist();if(window.saveActivityCloudV3)window.saveActivityCloudV3();renderActivities()}
 function umbrellaTypeChanged_(){const k=$('umbrellaType').value;$('umbrellaCoupons').value=db.activityManagement.umbrellaRules[k]??0}
@@ -6733,7 +6739,7 @@ function displayLeaderboard_(kind){
  if(kind==='pioneer'){
   Object.assign(tot,pioneerTotals_());
  }else if(kind==='hunter'){
-  (A.hunter||[]).forEach(x=>tot[x.killer]=(tot[x.killer]||0)+(+x.points||0));
+  hunterRows_().forEach(x=>tot[x.killer]=(tot[x.killer]||0)+(+x.points||0));
  }else if(kind==='umbrella'){
   (A.umbrella||[]).forEach(x=>tot[x.memberId]=(tot[x.memberId]||0)+(+x.coupons||0));
  }else if(kind==='rank'){
@@ -6943,7 +6949,7 @@ async function epcShowRecoveryAudit_(){
 }
 </script>
 <script src="firebase-config.js?v=20261007-0780"></script>
-<script src="phone/stack-core.js?v=20261009-phone-stacks"></script>
-<script src="firebase-events.js?v=20261009-phone-stacks"></script>
+<script src="phone/stack-core.js?v=20261009-phone-seat-heads"></script>
+<script src="firebase-events.js?v=20261009-phone-seat-heads"></script>
 <script src="sync-v3.js?v=20261007-0780"></script>
 <script src="app.js?v=20261009-activity-live-refresh"></script></body></html>
