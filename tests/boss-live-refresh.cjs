@@ -1,0 +1,14 @@
+const fs=require('fs'),vm=require('vm'),assert=require('assert/strict');
+const html=fs.readFileSync('index.html','utf8'),app=fs.readFileSync('app.js','utf8');
+const extract=(s,a,b)=>s.slice(s.indexOf(a),s.indexOf(b,s.indexOf(a)));
+let shown=0,published=0,active=true;
+const ctx={db:{events:[]},window:{EPC_ACTIVITY_REVISION:3,db:{activityManagement:{boss:{startPrize:3000}}}},$ :()=>({classList:{contains:()=>active},style:{display:'none'}}),renderEventList(){},renderMemberRows(){},renderDashboardSummary(){},renderDailyAccountingDetail(){},renderActivities(){shown++},publishAllDisplays_(){published++},Date,Map,Set};
+ctx.window.renderActivities=ctx.renderActivities;
+vm.createContext(ctx);vm.runInContext(extract(html,'function applyFirestoreEventsToLegacy_','window.addEventListener(\'epcFirestoreEvents\''),ctx);
+ctx.applyFirestoreEventsToLegacy_([{eventId:'E',businessDate:'2026-10-08',players:[{buyin:1,rebuy:7}]}]);assert.equal(shown,1,'incoming group changes refresh visible boss page');assert.equal(ctx.db.events[0].players[0].rebuy,7);
+active=false;ctx.applyFirestoreEventsToLegacy_([{eventId:'E',players:[{buyin:1,rebuy:15}]}]);assert.equal(published,1,'TV publishes even with boss page closed');
+vm.runInContext('let EPC_ACTIVITY_SAVE_TIMER=null,EPC_ACTIVITY_SAVING=false;'+extract(app,'function applyActivitySnapshot_','async function refreshActivityCloudV3_'),ctx);
+assert.equal(ctx.applyActivitySnapshot_({boss:{startPrize:0}},2),false);assert.equal(ctx.window.db.activityManagement.boss.startPrize,3000,'older revision cannot replace settings');
+assert.equal(ctx.applyActivitySnapshot_({boss:{startPrize:3500}},4),true);assert.equal(ctx.window.EPC_ACTIVITY_REVISION,4);
+vm.runInContext('EPC_ACTIVITY_SAVING=true',ctx);assert.equal(ctx.applyActivitySnapshot_({boss:{startPrize:0}},5),false,'in-flight edits protected');
+console.log('PASS: live boss redraw, TV update, revision ordering and pending-edit protection.');

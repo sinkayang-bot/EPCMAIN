@@ -5013,6 +5013,8 @@ function applyFirestoreEventsToLegacy_(rows){
  renderMemberRows();
  renderDashboardSummary();
  if(db.currentAccountingDate && $('accountingDetailView')?.style.display!=='none')renderDailyAccountingDetail();
+ if($('activities')?.classList.contains('active'))renderActivities();
+ else if(typeof publishAllDisplays_==='function')publishAllDisplays_();
 }
 window.addEventListener('epcFirestoreEvents',ev=>{try{applyFirestoreEventsToLegacy_(ev.detail?.events||[])}catch(err){console.warn(err)}});
 function renderEventList(){
@@ -6930,4 +6932,4 @@ async function epcShowRecoveryAudit_(){
 <script src="firebase-config.js?v=20261007-0780"></script>
 <script src="firebase-events.js?v=20261008-event-label"></script>
 <script src="sync-v3.js?v=20261007-0780"></script>
-<script src="app.js?v=20261007-reversion-guard"></script></body></html>
+<script src="app.js?v=20261009-activity-live-refresh"></script></body></html>

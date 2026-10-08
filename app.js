@@ -24,7 +24,7 @@ async function api(action,payload={}){
 function setSync(t,bad=false){const e=document.querySelector('#syncState');if(!e)return;e.textContent=t;e.style.color=bad?'var(--bad)':''}
 function applyDeltaChange(c){
  const p=c.payload||{};
- if(c.entity==='activity'){if(window.db){window.db.activityManagement=p.data||{};window.EPC_ACTIVITY_REVISION=Number(p.revision||c.revision||0);if(typeof window.renderActivities==='function')window.renderActivities()}return;}
+ if(c.entity==='activity'){applyActivitySnapshot_(p.data,Number(p.revision||c.revision||0));return;}
  if(c.entity==='member'){
    const current=MEMBER_ROWS.find(x=>x.memberKey===c.entityKey),incomingRev=Number(c.revision||p.revision||0),currentRev=Number(current?.revision||0);
    if(current&&incomingRev&&currentRev>incomingRev)return;
@@ -473,8 +473,39 @@ async function openSettlementDayV3(date){
 window.renderSettlementManager=renderSettlementManagerV3;
 window.openSettlementDayV3=openSettlementDayV3;
 
-let EPC_ACTIVITY_SAVE_TIMER=null;
-window.saveActivityCloudV3=function(){clearTimeout(EPC_ACTIVITY_SAVE_TIMER);EPC_ACTIVITY_SAVE_TIMER=setTimeout(async function(){if(!window.db||!window.db.activityManagement)return;try{const r=await api('activity.update',{data:window.db.activityManagement,expectedRevision:Number(window.EPC_ACTIVITY_REVISION||0)});window.EPC_ACTIVITY_REVISION=Number(r.revision||0)}catch(e){console.error('activity cloud save',e);try{const g=await api('activity.get',{});window.db.activityManagement=g.data||{};window.EPC_ACTIVITY_REVISION=Number(g.revision||0);if(typeof window.renderActivities==='function')window.renderActivities()}catch(_){}}},250)};
+let EPC_ACTIVITY_SAVE_TIMER=null,EPC_ACTIVITY_SAVING=false,EPC_ACTIVITY_READING=false;
+function applyActivitySnapshot_(data,revision){
+ if(!window.db||!data||typeof data!=='object'||!Object.keys(data).length)return false;
+ if(EPC_ACTIVITY_SAVE_TIMER||EPC_ACTIVITY_SAVING)return false;
+ const current=Number(window.EPC_ACTIVITY_REVISION||0),incoming=Number(revision||0);
+ if(incoming<=current)return false;
+ window.db.activityManagement=data;window.EPC_ACTIVITY_REVISION=incoming;
+ if(typeof window.renderActivities==='function')window.renderActivities();
+ return true;
+}
+async function refreshActivityCloudV3_(){
+ if(EPC_ACTIVITY_READING||EPC_ACTIVITY_SAVE_TIMER||EPC_ACTIVITY_SAVING)return;
+ EPC_ACTIVITY_READING=true;
+ try{const r=await api('activity.get',{});applyActivitySnapshot_(r.data,r.revision)}
+ catch(e){console.warn('activity cloud read',e)}
+ finally{EPC_ACTIVITY_READING=false}
+}
+window.saveActivityCloudV3=function(){
+ clearTimeout(EPC_ACTIVITY_SAVE_TIMER);
+ EPC_ACTIVITY_SAVE_TIMER=setTimeout(async function(){
+  EPC_ACTIVITY_SAVE_TIMER=null;
+  if(!window.db||!window.db.activityManagement)return;
+  EPC_ACTIVITY_SAVING=true;
+  try{const r=await api('activity.update',{data:window.db.activityManagement,expectedRevision:Number(window.EPC_ACTIVITY_REVISION||0)});window.EPC_ACTIVITY_REVISION=Math.max(Number(window.EPC_ACTIVITY_REVISION||0),Number(r.revision||0))}
+  catch(e){console.error('activity cloud save',e)}
+  finally{EPC_ACTIVITY_SAVING=false;refreshActivityCloudV3_()}
+ },250);
+};
+// Read settings on startup and reconcile missed deltas without publishing local defaults.
+setTimeout(refreshActivityCloudV3_,0);
+setInterval(()=>{if(document.visibilityState!=='hidden')refreshActivityCloudV3_()},5000);
+window.addEventListener('focus',refreshActivityCloudV3_);
+
 
 
 /* V3 bridge for the legacy member form in index.html.
