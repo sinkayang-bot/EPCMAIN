@@ -28,6 +28,22 @@
    return next;
   })};
  }
- root.EPCStackCore={updateStack,updatePlayerFields,protectStacks};
+ function chipSummary(event,patches={}){
+  let groups=0,saved=0,preview=0,pending=0,invalid=0,missing=0;
+  for(const p of event.players||[]){
+   groups+=(+p.buyin||0)+(+p.rebuy||0)+(+p.addon||0);
+   const chips=+p.stack||0;saved+=chips;preview+=chips;
+   if(p.stack==null||p.stack==='')missing++;
+   const patch=patches[String(p.memberId)];
+   if(patch&&Object.prototype.hasOwnProperty.call(patch,'stack')){
+    pending++;const raw=String(patch.stack).trim(),value=Number(raw);
+    if(!/^\d+$/.test(raw)||!valid(value))invalid++;
+    else preview+=value-chips;
+   }
+  }
+  const expected=groups*(+event.chips||0);
+  return {groups,expected,saved,difference:saved-expected,preview,previewDifference:preview-expected,pending,invalid,missing};
+ }
+ root.EPCStackCore={updateStack,updatePlayerFields,protectStacks,chipSummary};
  if(typeof module!=='undefined')module.exports=root.EPCStackCore;
 })(typeof window!=='undefined'?window:globalThis);
