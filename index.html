@@ -5177,6 +5177,7 @@ function applyFirestoreEventsToLegacy_(rows){
    buyinAdmin:+v.buyinAdmin||400,rebuyTotal:+v.rebuyTotal||3400,rebuyAdmin:+v.rebuyAdmin||400,
    overbuyThreshold:Math.max(1,(+v.freeAdminFrom||11)-1),chips:+v.chips||300000,jp:+v.jpRate||3,
    jpRound:+v.jpRound||100,payout:v.payout||'50,30,20',reportRule:v.reportRule||'',reportFields:v.reportFields||{},players:Array.isArray(v.players)?v.players:[],
+   hunterHeadHistory:Array.isArray(v.hunterHeadHistory)?v.hunterHeadHistory:[],
    revision:+v.revision||1,_eventUpdatedAt:+v._eventUpdatedAt||0,finalJP:v.finalJP,finalAccounting:v.finalAccounting,
    status:(v.status==='settled'||v.status==='已結算')?'已結算':'進行中',accounting:v.accounting||prev.accounting||{otherIncome:0,venueIncome:0,laborExpense:0,otherExpense:0},
    // Preserve local accounting-only metadata that is not part of the Firestore event schema.
@@ -6061,7 +6062,7 @@ function hunterRows_(){
   const history=Array.isArray(e.hunterHeadHistory)?e.hunterHeadHistory:[];
   const byMember=new Map();
   for(const h of history){const k=String(h.memberId||'');if(k)byMember.set(k,(byMember.get(k)||0)+Number(h.delta||0))}
-  const records=history.map(h=>({id:String(h.id),date:String(h.at||'').slice(0,10)||actBusinessDate_(e),eventId:e.id,killer:String(h.memberId),points:Number(h.delta||0),phone:true,note:'手機人頭登記｜'+Number(h.previous||0)+' → '+Number(h.total||0)}));
+  const records=history.map(h=>({id:String(h.id),date:actBusinessDate_(e),eventId:e.id,killer:String(h.memberId),points:Number(h.delta||0),phone:true,note:'手機人頭登記｜'+Number(h.previous||0)+' → '+Number(h.total||0)}));
   const legacy=(e.players||[]).filter(p=>Number(p.hunterHeads||0)!==Number(byMember.get(String(p.memberId))||0)).map(p=>({id:'PHONE:'+e.id+':'+p.memberId,date:actBusinessDate_(e),eventId:e.id,killer:String(p.memberId),points:Number(p.hunterHeads||0)-Number(byMember.get(String(p.memberId))||0),phone:true,note:'歷史累計／其他來源調整'}));
   return [...records,...legacy];
  });
