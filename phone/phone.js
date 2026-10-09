@@ -16,13 +16,32 @@ function renderChipSummary(e){
  const gap=d=>d===0?'差額 0｜籌碼已平':d<0?'還差 '+num(-d):'多出 '+num(d);
  $('summary').innerHTML=`<div class="chip-summary"><div class="meta">${(e.players||[]).length} 位玩家｜${num(s.groups)} 組${s.missing?'｜'+s.missing+' 位未輸入':''}</div><div class="chip-totals"><div>應有籌碼<strong>${num(s.expected)}</strong></div><div>已儲存籌碼<strong>${num(s.saved)}</strong></div></div><div class="chip-gap ${s.difference===0?'good':'error'}">${gap(s.difference)}</div>${s.pending?`<div class="chip-preview">目前輸入合計：${num(s.preview)}<br><span class="${s.invalid||s.previewDifference!==0?'error':'good'}">${s.invalid?'有 '+s.invalid+' 位籌碼輸入不完整':gap(s.previewDifference)}</span><div class="meta">${s.pending} 位籌碼尚未儲存，按「儲存」才會同步電腦。</div></div>`:''}</div>`;
 }
+
+let activePanel='';
+function showPanel(id=''){
+ activePanel=id;
+ $('dashboard').hidden=!!id;$('backDashboard').hidden=!id;
+ document.querySelectorAll('.mobile-panel').forEach(el=>el.hidden=el.id!==id);
+ window.scrollTo({top:0,behavior:'instant'});
+}
+document.querySelectorAll('[data-panel]').forEach(btn=>btn.addEventListener('click',()=>showPanel(btn.dataset.panel)));
+$('backDashboard').addEventListener('click',()=>showPanel());
+function updateDashboard(){
+ const e=events.find(x=>x.eventId===selected),ps=e?.players||[];
+ $('dashEventName').textContent=e?.name||'目前沒有進行中的賽事';
+ $('dashPlayers').textContent=ps.length+' 人';
+ $('dashRebuys').textContent=ps.reduce((n,p)=>n+(+p.rebuy||0),0)+' 組';
+ $('dashGroups').textContent=ps.reduce((n,p)=>n+(+p.buyin||0)+(+p.rebuy||0)+(+p.addon||0),0)+' 組';
+ $('overviewStats').textContent=e?'賽事：'+(e.name||'')+'｜報名 '+ps.length+' 人｜總買入 '+ps.reduce((n,p)=>n+(+p.buyin||0)+(+p.rebuy||0)+(+p.addon||0),0)+' 組':'無進行中賽事';
+}
+
 function render(){
  const open=events.filter(e=>!['settled','已結算','deleted'].includes(e.status)).sort((a,b)=>String(b.businessDate||b.date||'').localeCompare(String(a.businessDate||a.date||''))||Number(b.seq||1)-Number(a.seq||1));
  if(!open.some(e=>e.eventId===selected))selected=open[0]?.eventId||'';
  $('eventSelect').innerHTML=open.map(e=>`<option value="${esc(e.eventId)}">${esc(e.businessDate||e.date||'')}｜${esc(e.name||'賽事')}</option>`).join('');$('eventSelect').value=selected;
- const e=open.find(e=>e.eventId===selected);if(!e){$('summary').textContent='';$('players').innerHTML='<div class="empty">目前沒有進行中的賽事</div>';return}
+ const e=open.find(e=>e.eventId===selected);if(!e){updateDashboard();$('summary').textContent='';$('players').innerHTML='<div class="empty">目前沒有進行中的賽事</div>';return}
  const players=(e.players||[]).slice().sort((a,b)=>String(a.seat||'').localeCompare(String(b.seat||''),'zh-TW',{numeric:true}));
- renderChipSummary(e);
+ renderChipSummary(e);updateDashboard();
  const total=(e.players||[]).reduce((a,p)=>a+(+p.buyin||0)+(+p.rebuy||0)+(+p.addon||0),0);
  const reb=(e.players||[]).reduce((a,p)=>a+(+p.rebuy||0),0);
  if($('entrySummary'))$('entrySummary').textContent='報名 '+(e.players||[]).length+' 人｜重買 '+reb+' 組｜總買入 '+total+' 組';
