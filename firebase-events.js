@@ -30,6 +30,12 @@
      if(old._eventUpdatedAt&&e._eventUpdatedAt&&Number(old._eventUpdatedAt)>Number(e._eventUpdatedAt))throw Error('賽事已有較新修改，請重新整理後再編輯');
      const protectedEvent=window.EPCStackCore.protectStacks(e,old,options);
      const row={...clean(protectedEvent),status:settled(e.status)?'settled':'open',updatedAt:fs.serverTimestamp()};
+     // Keep mobile hunter audit entries even if a desktop snapshot is older.
+     const oldHistory=Array.isArray(old.hunterHeadHistory)?old.hunterHeadHistory:[];
+     const newHistory=Array.isArray(row.hunterHeadHistory)?row.hunterHeadHistory:[];
+     const historyById=new Map();
+     [...oldHistory,...newHistory].forEach((h,i)=>{if(h&&typeof h==='object')historyById.set(String(h.id||'legacy-'+i),h)});
+     row.hunterHeadHistory=[...historyById.values()];
      if(options.unlock){row.finalJP=fs.deleteField();row.finalAccounting=fs.deleteField();}
      tx.set(ref,row,{merge:true});
     });
