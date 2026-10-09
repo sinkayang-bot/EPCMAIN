@@ -474,35 +474,71 @@ window.renderSettlementManager=renderSettlementManagerV3;
 window.openSettlementDayV3=openSettlementDayV3;
 
 let EPC_ACTIVITY_SAVE_TIMER=null,EPC_ACTIVITY_SAVING=false,EPC_ACTIVITY_READING=false;
+let EPC_ACTIVITY_PENDING=null,EPC_ACTIVITY_SEQUENCE=0;
+const ACTIVITY_PENDING_KEY='epcActivityPendingV1';
+try{EPC_ACTIVITY_PENDING=JSON.parse(localStorage.getItem(ACTIVITY_PENDING_KEY)||'null');EPC_ACTIVITY_SEQUENCE=Number(EPC_ACTIVITY_PENDING?.sequence||0)}catch(_){}
+function activitySyncState_(text,bad=false){const el=document.getElementById('activitySyncState');if(el){el.textContent=text;el.style.color=bad?'var(--bad)':''}}
+function activityCache_(){const ldb=legacyDb_();if(ldb)try{localStorage.setItem('epcV1',JSON.stringify(ldb))}catch(_){} }
+function meaningfulActivity_(a){
+ if(!a||typeof a!=='object')return false;
+ if(['hunter','umbrella','rankMultipliers'].some(k=>(a[k]||[]).length))return true;
+ if(['pioneer','pioneerQualify','weeklyClaims','weeklyAdjust','rankAdjust'].some(k=>Object.keys(a[k]||{}).length))return true;
+ if(Object.values(a.activityRanges||{}).some(r=>r.from||r.to))return true;
+ if((a.weeklyTarget!=null&&+a.weeklyTarget!==15)||(a.weeklyDayTarget!=null&&+a.weeklyDayTarget!==5))return true;
+ const b=a.boss||{};
+ return !!(b.activityFrom||b.activityTo||+b.startPrize||b.attackEnabled||(b.attacks||[]).length||(b.bosses||[]).some(x=>x.cycleVersion||x.startEventId||x.killed||(x.attacks||[]).length||x.id!=='BOSS1'||x.name!=='魔王 1'));
+}
+// Preserve pre-fix device data before the first authoritative cloud read.
+try{const original=legacyDb_()?.activityManagement;if(meaningfulActivity_(original)&&!localStorage.getItem('epcActivityBeforeSyncV1'))localStorage.setItem('epcActivityBeforeSyncV1',JSON.stringify({data:original,savedAt:Date.now()}))}catch(_){}
+window.epcAuthoritativeActivity_=()=>window.EPC_ACTIVITY_LOADED||EPC_ACTIVITY_PENDING?legacyDb_()?.activityManagement:null;
 function applyActivitySnapshot_(data,revision){
- if(!window.db||!data||typeof data!=='object'||!Object.keys(data).length)return false;
- if(EPC_ACTIVITY_SAVE_TIMER||EPC_ACTIVITY_SAVING)return false;
+ const ldb=legacyDb_();
+ if(!ldb||!data||typeof data!=='object'||!Object.keys(data).length)return false;
+ if(EPC_ACTIVITY_SAVE_TIMER||EPC_ACTIVITY_SAVING||EPC_ACTIVITY_PENDING)return false;
  const current=Number(window.EPC_ACTIVITY_REVISION||0),incoming=Number(revision||0);
- if(incoming<=current)return false;
- window.db.activityManagement=data;window.EPC_ACTIVITY_REVISION=incoming;
+ if(incoming<current||(incoming===current&&window.EPC_ACTIVITY_LOADED))return false;
+ ldb.activityManagement=JSON.parse(JSON.stringify(data));window.EPC_ACTIVITY_REVISION=incoming;window.EPC_ACTIVITY_LOADED=true;
+ activityCache_();activitySyncState_('活動資料已同步｜版本 '+incoming);
  if(typeof window.renderActivities==='function')window.renderActivities();
  return true;
 }
 async function refreshActivityCloudV3_(){
- if(EPC_ACTIVITY_READING||EPC_ACTIVITY_SAVE_TIMER||EPC_ACTIVITY_SAVING)return;
+ if(EPC_ACTIVITY_READING||EPC_ACTIVITY_SAVE_TIMER||EPC_ACTIVITY_SAVING||EPC_ACTIVITY_PENDING)return;
  EPC_ACTIVITY_READING=true;
- try{const r=await api('activity.get',{});applyActivitySnapshot_(r.data,r.revision)}
- catch(e){console.warn('activity cloud read',e)}
+ try{
+  const r=await api('activity.get',{}),ldb=legacyDb_();
+  if(!window.EPC_ACTIVITY_LOADED&&!Number(r.revision)&&!Object.keys(r.data||{}).length&&meaningfulActivity_(ldb?.activityManagement)){
+   // One-time recovery of pre-fix local activity records into an empty cloud.
+   window.EPC_ACTIVITY_REVISION=0;window.saveActivityCloudV3();
+  }else if(!applyActivitySnapshot_(r.data,r.revision)&&!Number(r.revision)&&!Object.keys(r.data||{}).length){
+   window.EPC_ACTIVITY_LOADED=true;activitySyncState_('雲端尚無活動資料，新增後會自動同步');
+  }
+ }catch(e){activitySyncState_('活動讀取失敗：'+e.message,true);console.warn('activity cloud read',e)}
  finally{EPC_ACTIVITY_READING=false}
 }
+async function flushActivityCloudV3_(){
+ EPC_ACTIVITY_SAVE_TIMER=null;
+ if(EPC_ACTIVITY_SAVING||!EPC_ACTIVITY_PENDING)return;
+ const job=EPC_ACTIVITY_PENDING;EPC_ACTIVITY_SAVING=true;activitySyncState_('活動資料儲存中…');
+ try{
+  const r=await api('activity.update',{data:job.data,expectedRevision:job.revision});
+  window.EPC_ACTIVITY_REVISION=Number(r.revision||0);window.EPC_ACTIVITY_LOADED=true;
+  if(EPC_ACTIVITY_PENDING?.sequence===job.sequence){EPC_ACTIVITY_PENDING=null;localStorage.removeItem(ACTIVITY_PENDING_KEY);activitySyncState_('活動資料已同步｜版本 '+r.revision)}
+  else if(EPC_ACTIVITY_PENDING){EPC_ACTIVITY_PENDING.revision=Number(r.revision||0);localStorage.setItem(ACTIVITY_PENDING_KEY,JSON.stringify(EPC_ACTIVITY_PENDING));EPC_ACTIVITY_SAVE_TIMER=setTimeout(flushActivityCloudV3_,250)}
+  activityCache_();
+ }catch(e){activitySyncState_((e.message==='STALE_WRITE'?'另一台裝置已更新活動，本機修改已保留，請先核對資料':'活動尚未同步：'+e.message+'；本機資料已保留，可按重試'),true);console.error('activity cloud save',e)}
+ finally{EPC_ACTIVITY_SAVING=false;if(!EPC_ACTIVITY_PENDING)refreshActivityCloudV3_()}
+}
 window.saveActivityCloudV3=function(){
+ const ldb=legacyDb_();if(!ldb?.activityManagement)return;
  clearTimeout(EPC_ACTIVITY_SAVE_TIMER);
- EPC_ACTIVITY_SAVE_TIMER=setTimeout(async function(){
-  EPC_ACTIVITY_SAVE_TIMER=null;
-  if(!window.db||!window.db.activityManagement)return;
-  EPC_ACTIVITY_SAVING=true;
-  try{const r=await api('activity.update',{data:window.db.activityManagement,expectedRevision:Number(window.EPC_ACTIVITY_REVISION||0)});window.EPC_ACTIVITY_REVISION=Math.max(Number(window.EPC_ACTIVITY_REVISION||0),Number(r.revision||0))}
-  catch(e){console.error('activity cloud save',e)}
-  finally{EPC_ACTIVITY_SAVING=false;refreshActivityCloudV3_()}
- },250);
+ EPC_ACTIVITY_PENDING={data:JSON.parse(JSON.stringify(ldb.activityManagement)),revision:Number(window.EPC_ACTIVITY_REVISION||0),sequence:++EPC_ACTIVITY_SEQUENCE};
+ localStorage.setItem(ACTIVITY_PENDING_KEY,JSON.stringify(EPC_ACTIVITY_PENDING));activitySyncState_('活動資料等待同步…');
+ EPC_ACTIVITY_SAVE_TIMER=setTimeout(flushActivityCloudV3_,250);
 };
-// Read settings on startup and reconcile missed deltas without publishing local defaults.
-setTimeout(refreshActivityCloudV3_,0);
+window.retryActivityCloudV3=()=>EPC_ACTIVITY_PENDING?flushActivityCloudV3_():refreshActivityCloudV3_();
+if(EPC_ACTIVITY_PENDING){window.EPC_ACTIVITY_REVISION=Number(EPC_ACTIVITY_PENDING.revision||0);const ldb=legacyDb_();if(ldb)ldb.activityManagement=JSON.parse(JSON.stringify(EPC_ACTIVITY_PENDING.data));setTimeout(flushActivityCloudV3_,0)}
+else setTimeout(refreshActivityCloudV3_,0);
 setInterval(()=>{if(document.visibilityState!=='hidden')refreshActivityCloudV3_()},5000);
 window.addEventListener('focus',refreshActivityCloudV3_);
 

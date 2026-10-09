@@ -2361,6 +2361,7 @@ window.addEventListener('error',function(e){
   <div><h2 style="margin-bottom:4px">活動管理</h2><div class="small">依活動分頁管理；所有統計都可依區間查詢，並保留人工調整值。</div></div>
  </div>
  <div class="card" style="margin-bottom:12px"><label for="activityIdentityMode">活動會員顯示</label><select id="activityIdentityMode" onchange="setActivityIdentityMode_(this.value)" style="max-width:220px;margin-left:10px"><option value="name">姓名（綽號優先）</option><option value="id">會員編號</option></select></div>
+ <div class="toolbar"><span id="activitySyncState" class="small">正在讀取雲端活動資料…</span><button type="button" onclick="window.retryActivityCloudV3?.()">重新讀取／重試同步</button></div>
  <div id="actActivityRangeTop"></div>
  <div class="card" style="margin-top:12px">
   <div class="formgrid" style="grid-template-columns:1fr 1fr 1.2fr auto">
@@ -2563,8 +2564,9 @@ function memberHistory_(member){
  return rows;
 }
 function epcAcceptLegacyDb_(incoming){
- // Legacy backups own settings/activities, never current Firestore events or V3 members.
+ // Legacy backups cannot replace confirmed events, members or activities.
  if(window.EPCFirestore?.ready && Array.isArray(window.EPC_FIRESTORE_LAST_EVENTS))incoming.events=db.events;
+ const activity=window.epcAuthoritativeActivity_?.();if(activity)incoming.activityManagement=activity;
  const members=window.epcAuthoritativeMembers_?.();
  if(Array.isArray(members))incoming.members=members.map(m=>({...m,id:m.memberId}));
  return incoming;
@@ -6982,4 +6984,4 @@ async function epcShowRecoveryAudit_(){
 <script src="phone/stack-core.js?v=20261009-settlement-confirmed"></script>
 <script src="firebase-events.js?v=20261009-settlement-confirmed"></script>
 <script src="sync-v3.js?v=20261007-0780"></script>
-<script src="app.js?v=20261009-activity-live-refresh"></script></body></html>
+<script src="app.js?v=20261009-activity-device-sync"></script></body></html>
