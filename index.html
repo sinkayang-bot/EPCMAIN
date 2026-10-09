@@ -3802,7 +3802,7 @@ function firestoreEventPayload_(e){
   level:+e.level||3400,buyin:+e.poolUnit||0,fee:+e.admin||0,pricingMode:e.pricingMode||'standard',
   buyinTotal:+e.buyinTotal||0,buyinAdmin:+e.buyinAdmin||0,rebuyTotal:+e.rebuyTotal||0,
   rebuyAdmin:+e.rebuyAdmin||0,freeAdminFrom:(+e.overbuyThreshold||10)+1,chips:+e.chips||0,
-  jpRate:+e.jp||0,jpRound:+e.jpRound||0,payout:e.payout||'',reportRule:e.reportRule||'',reportFields:e.reportFields||{},players:Array.isArray(e.players)?e.players:[],
+  jpRate:+e.jp||0,jpRound:+e.jpRound||0,payout:e.payout||'',reportRule:e.reportRule||'',reportFields:e.reportFields||{},players:Array.isArray(e.players)?e.players:[],hunterHeadHistory:Array.isArray(e.hunterHeadHistory)?e.hunterHeadHistory:[],
   accounting:e.accounting||{},accountingGroup:accountingGroupForEvent(e),accountingItems:Array.isArray(e.accountingItems)?e.accountingItems:[],status:(e.status==='已結算'||e.status==='settled')?'settled':'open',revision:+e.revision||1,
   finalJP:e.finalJP,finalAccounting:e.finalAccounting,_eventUpdatedAt:+e._eventUpdatedAt||Date.now()
  };
