@@ -2206,7 +2206,7 @@ window.addEventListener('error',function(e){
    <div class="card tablewrap">
     <h3>當日賽事明細</h3>
     <div class="small" style="margin-bottom:10px">每一場都可直接修改帳務群組，也可按「編輯帳務」新增該場自己的其他收入／其他支出。帳務群組留白＝列入當日一般帳；相同群組名稱會合併成同一份獨立帳。此設定只影響 EPC 帳務與 JP，不影響分帳報表。</div>
-    <table><thead><tr><th>場次</th><th>賽事</th><th>帳務群組</th><th>組數</th><th>行政費收入</th><th>重買優惠</th><th>組數優惠</th><th>手動優惠</th><th>折扣支出</th><th>實收行政費</th><th>JP</th><th>操作</th></tr></thead><tbody id="accountingEventRows"></tbody></table>
+    <table><thead><tr><th>場次</th><th>賽事</th><th>帳務群組</th><th>買入人數</th><th>重買組數</th><th>總買入</th><th>行政費收入</th><th>重買優惠</th><th>組數優惠</th><th>手動優惠</th><th>折扣支出</th><th>實收行政費</th><th>JP</th><th>操作</th></tr></thead><tbody id="accountingEventRows"></tbody></table>
    </div>
    <div class="card">
     <div class="grid">
@@ -4816,8 +4816,10 @@ function renderDailyAccountingDetail(){
  $('aNet').textContent=money(ai.net);$('aNet').className='v '+epcPnlClass_(ai.net);$('aJP').textContent=money(ai.jp);
  $('aNet').className='v '+(epcPnlClass_(ai.net));
  $('accountingEventRows').innerHTML=mainEvents.map(e=>{
-   let g=0,gross=0,rebuy=0,group=0,manual=0,net=0;
+   let g=0,gross=0,rebuy=0,group=0,manual=0,net=0,buyers=0,rebuyGroups=0;
    (Array.isArray(e.players)?e.players:[]).forEach(p=>{
+     if((+p.buyin||0)+(+p.rebuy||0)+(+p.addon||0)>0)buyers++;
+     rebuyGroups+=Math.max(0,+p.rebuy||0);
      const c=calcPlayerForEvent(p,e);
      const custom=(e.pricingMode||'standard')==='custom';
      g+=c.groups; gross+=c.grossAdmin||0; manual+=c.manual||0; net+=c.netAdmin||0;
@@ -4826,7 +4828,7 @@ function renderDailyAccountingDetail(){
    });
    const disc=rebuy+group+manual;
    const ag=accountingGroupForEvent(e);
-   return `<tr><td>第${e.seq||1}場</td><td>${Number(e.level||0).toLocaleString()} 賽事</td><td><input value="${ag}" placeholder="一般帳" style="min-width:110px" onchange="setEventAccountingGroup('${e.id}',this.value)"></td><td>${g}</td><td>${money(gross)}</td><td>${money(rebuy)}</td><td>${money(group)}</td><td>${money(manual)}</td><td>${money(disc)}</td><td class="${epcPnlClass_(net)}">${money(net)}</td><td>${money(eventOwnJP(e))}</td><td><button type="button" onclick="openEventAccounting('${e.id}')">編輯帳務</button></td></tr>`;
+   return `<tr><td>第${e.seq||1}場</td><td>${Number(e.level||0).toLocaleString()} 賽事</td><td><input value="${ag}" placeholder="一般帳" style="min-width:110px" onchange="setEventAccountingGroup('${e.id}',this.value)"></td><td>${buyers}</td><td>${rebuyGroups}</td><td>${g}</td><td>${money(gross)}</td><td>${money(rebuy)}</td><td>${money(group)}</td><td>${money(manual)}</td><td>${money(disc)}</td><td class="${epcPnlClass_(net)}">${money(net)}</td><td>${money(eventOwnJP(e))}</td><td><button type="button" onclick="openEventAccounting('${e.id}')">編輯帳務</button></td></tr>`;
  }).join('');
  const independent=accountingIndependentGroups(date);
  if($('accountingGroupRows'))$('accountingGroupRows').innerHTML=independent.map(g=>`<tr>
@@ -4853,8 +4855,10 @@ function printDailyAccounting(){
  ).join('') || '<tr><td colspan="3">無其他收支</td></tr>';
 
  const eventRows=ai.events.map((e,i)=>{
-   let g=0,gross=0,rebuy=0,group=0,manual=0,net=0;
+   let g=0,gross=0,rebuy=0,group=0,manual=0,net=0,buyers=0,rebuyGroups=0;
    (Array.isArray(e.players)?e.players:[]).forEach(p=>{
+     if((+p.buyin||0)+(+p.rebuy||0)+(+p.addon||0)>0)buyers++;
+     rebuyGroups+=Math.max(0,+p.rebuy||0);
      const c=calcPlayerForEvent(p,e);
      const custom=(e.pricingMode||'standard')==='custom';
      g+=c.groups; gross+=c.grossAdmin||0; manual+=c.manual||0; net+=c.netAdmin||0;
@@ -4865,7 +4869,7 @@ function printDailyAccounting(){
    return `<tr>
     <td>第${e.seq||i+1}場</td>
     <td>${Number(e.level||0).toLocaleString()} 賽事</td>
-    <td class="num">${g}</td>
+    <td class="num">${buyers}</td><td class="num">${rebuyGroups}</td><td class="num">${g}</td>
     <td class="num">${money(gross)}</td>
     <td class="num">${money(rebuy)}</td>
     <td class="num">${money(group)}</td>
