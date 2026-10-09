@@ -18,7 +18,8 @@ function renderChipSummary(e){
 }
 
 
-let seatPicked='',seatBusy=false;
+let seatPicked='',seatBusy=false,tableMoveFrom=null;
+const tableOrder=e=>{const a=Array.isArray(e?.tableOrder)?e.tableOrder.map(Number):[];return a.length===8&&new Set(a).size===8&&a.every(n=>n>=1&&n<=8)?a:[1,2,3,4,5,6,7,8]};
 const seatCode=(table,seat)=>table+'-'+seat;
 function seatOwner(e,code){return (e.players||[]).find(p=>String(p.seat||'')===code)}
 function seatLabel(p){return [p.nickname,members.get(String(p.memberId))?.nickname,members.get(String(p.memberId))?.name,p.name,p.memberId].find(Boolean)||'玩家'}
@@ -30,8 +31,26 @@ function renderSeating(){
  const waiting=(e.players||[]).filter(p=>!String(p.seat||'').trim());
  $('seatWaitingCount').textContent='（'+waiting.length+'）';$('seatRosterEmpty').hidden=waiting.length>0;
  roster.innerHTML=waiting.map(p=>'<button type="button" draggable="true" data-seat-player="'+esc(p.memberId)+'" class="seat-person '+(seatPicked===String(p.memberId)?'picked':'')+'">'+esc(seatLabel(p))+(p.seat?' · '+esc(p.seat):' · 未入座')+'</button>').join('');
- tables.innerHTML=Array.from({length:8},(_,i)=>'<div class="seat-table"><h3>'+(i+1)+' 號桌</h3><div class="seat-grid">'+Array.from({length:10},(_,j)=>{const code=seatCode(i+1,j+1),p=seatOwner(e,code);return '<button type="button" class="seat-slot '+(p?'occupied':'')+'" data-seat-code="'+code+'">'+(j+1)+' 號座'+(p?'<div><b>'+esc(seatLabel(p))+'</b></div>':'<div>空位</div>')+'</button>'}).join('')+'</div></div>').join('');
+ tables.innerHTML=tableOrder(e).map(t=>'<div class="seat-table" data-table="'+t+'"><h3 draggable="true" data-table-handle="'+t+'" style="cursor:grab;touch-action:none">☰ '+t+' 號桌</h3><div class="seat-grid">'+Array.from({length:10},(_,j)=>{const code=seatCode(t,j+1),p=seatOwner(e,code);return '<button type="button" class="seat-slot '+(p?'occupied':'')+'" data-seat-code="'+code+'">'+(j+1)+' 號座'+(p?'<div><b>'+esc(seatLabel(p))+'</b></div>':'<div>空位</div>')+'</button>'}).join('')+'</div></div>').join('');
 }
+async function reorderTables(from,to){
+ const e=events.find(x=>x.eventId===selected);if(!e||seatBusy||from===to)return;
+ const msg=$('seatMessage');seatBusy=true;msg.textContent='正在儲存桌子排列…';
+ try{await runTransaction(store,async tx=>{
+  const ref=doc(col,e.eventId),snap=await tx.get(ref);if(!snap.exists())throw Error('賽事不存在');
+  const current=snap.data(),order=tableOrder(current),a=order.indexOf(from),b=order.indexOf(to);
+  if(a<0||b<0)throw Error('桌號無效');order.splice(b,0,order.splice(a,1)[0]);
+  tx.update(ref,{tableOrder:order,_eventUpdatedAt:Date.now(),updatedAt:serverTimestamp()});
+ });msg.textContent='桌子排列已儲存';msg.className='message good'}
+ catch(err){msg.textContent='排列失敗：'+err.message;msg.className='message error'}
+ finally{seatBusy=false;tableMoveFrom=null;renderSeating()}
+}
+$('seatTables').addEventListener('dragstart',ev=>{const h=ev.target.closest('[data-table-handle]');if(!h)return;tableMoveFrom=Number(h.dataset.tableHandle);ev.dataTransfer?.setData('application/x-epc-table',String(tableMoveFrom))});
+$('seatTables').addEventListener('dragover',ev=>{if(tableMoveFrom&&ev.target.closest('[data-table]'))ev.preventDefault()});
+$('seatTables').addEventListener('drop',ev=>{if(!tableMoveFrom)return;const t=ev.target.closest('[data-table]');if(t){ev.preventDefault();reorderTables(tableMoveFrom,Number(t.dataset.table))}});
+let tableTouchStart=null;
+$('seatTables').addEventListener('pointerdown',ev=>{const h=ev.target.closest('[data-table-handle]');if(!h||ev.pointerType==='mouse')return;tableTouchStart={id:ev.pointerId,from:Number(h.dataset.tableHandle),x:ev.clientX,y:ev.clientY};h.setPointerCapture(ev.pointerId)});
+$('seatTables').addEventListener('pointerup',ev=>{if(!tableTouchStart||ev.pointerId!==tableTouchStart.id)return;const start=tableTouchStart;tableTouchStart=null;const target=document.elementFromPoint(ev.clientX,ev.clientY)?.closest('[data-table]');if(target&&Math.hypot(ev.clientX-start.x,ev.clientY-start.y)>25)reorderTables(start.from,Number(target.dataset.table))});
 async function moveSeat(id,destination){
  const e=events.find(x=>x.eventId===selected),message=$('seatMessage');
  if(!e||seatBusy)return;
