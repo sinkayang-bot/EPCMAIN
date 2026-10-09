@@ -159,7 +159,17 @@ $('players').addEventListener('click',async e=>{
   else patch[field]=Number(value);
  }
  busy.add(k);draft.message='儲存中…';render();
- try{const ref=doc(col,eventId);await runTransaction(store,async tx=>{const snap=await tx.get(ref);if(!snap.exists())throw Error('賽事已刪除');const updated=window.EPCStackCore.updatePlayerFields(snap.data(),id,patch,draft.baseline);tx.update(ref,{players:updated.players,_eventUpdatedAt:Date.now(),updatedAt:serverTimestamp()})});drafts.set(k,{message:'已儲存，電腦與活動會自動更新',saved:true});}
+ try{const ref=doc(col,eventId);await runTransaction(store,async tx=>{const snap=await tx.get(ref);if(!snap.exists())throw Error('賽事已刪除');const current=snap.data(),updated=window.EPCStackCore.updatePlayerFields(current,id,patch,draft.baseline);
+ const before=(current.players||[]).find(p=>String(p.memberId)===String(id));
+ const after=(updated.players||[]).find(p=>String(p.memberId)===String(id));
+ const oldHeads=Number(before?.hunterHeads||0),newHeads=Number(after?.hunterHeads||0);
+ const changes={players:updated.players,_eventUpdatedAt:Date.now(),updatedAt:serverTimestamp()};
+ if('hunterHeads' in patch&&newHeads!==oldHeads){
+  const history=Array.isArray(current.hunterHeadHistory)?current.hunterHeadHistory.slice():[];
+  history.push({id:'MH'+Date.now()+'-'+Math.random().toString(36).slice(2,9),memberId:String(id),delta:newHeads-oldHeads,previous:oldHeads,total:newHeads,at:new Date().toISOString(),source:'EPC Mobile'});
+  changes.hunterHeadHistory=history;
+ }
+ tx.update(ref,changes)});drafts.set(k,{message:'已儲存，電腦與活動會自動更新',saved:true});}
  catch(err){drafts.set(k,{...draft,message:err.message,error:true});status('儲存失敗，輸入已保留',true)}finally{busy.delete(k);render()}
 });
 $('eventSelect').addEventListener('change',()=>{selected=$('eventSelect').value;render();calculateRegistrationPrice()});$('reload').addEventListener('click',subscribe);subscribe();
