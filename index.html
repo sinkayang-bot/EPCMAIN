@@ -3407,9 +3407,17 @@ function openEventReportById(id){
 function eventCurrentTime_(){
  return new Intl.DateTimeFormat('en-GB',{timeZone:'Asia/Taipei',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).format(new Date());
 }
+function birdDiscountDefaults_(){
+ let cached=null;
+ try{cached=JSON.parse(localStorage.getItem('epcBirdDiscountDefaultsV1')||'null')}catch(_){}
+ const saved=(db.events||[]).filter(e=>+e.birdDiscountDefaultsAt>0)
+   .sort((a,b)=>(+b.birdDiscountDefaultsAt||0)-(+a.birdDiscountDefaultsAt||0))[0];
+ const source=saved&&(+saved.birdDiscountDefaultsAt||0)>=(+cached?.birdDiscountDefaultsAt||0)?saved:cached;
+ return {earlyBirdDiscount:Math.max(0,+source?.earlyBirdDiscount||0),lateBirdDiscount:Math.max(0,+source?.lateBirdDiscount||0)};
+}
 function blankEvent(){
  const time=eventCurrentTime_();
- return {id:'EV'+Date.now()+Math.floor(Math.random()*90+10),date:new Date().toISOString().slice(0,10),startTime:time,endTime:time,seq:1,level:3400,poolUnit:3000,admin:400,pricingMode:'standard',buyinTotal:3400,buyinAdmin:400,rebuyTotal:3400,rebuyAdmin:400,overbuyThreshold:10,chips:300000,jp:3,jpRound:100,payout:'50,30,20',players:[],status:'進行中',accounting:{otherIncome:0,venueIncome:0,laborExpense:0,otherExpense:0},createdAt:Date.now()};
+ return {id:'EV'+Date.now()+Math.floor(Math.random()*90+10),date:new Date().toISOString().slice(0,10),startTime:time,endTime:time,...birdDiscountDefaults_(),seq:1,level:3400,poolUnit:3000,admin:400,pricingMode:'standard',buyinTotal:3400,buyinAdmin:400,rebuyTotal:3400,rebuyAdmin:400,overbuyThreshold:10,chips:300000,jp:3,jpRound:100,payout:'50,30,20',players:[],status:'進行中',accounting:{otherIncome:0,venueIncome:0,laborExpense:0,otherExpense:0},createdAt:Date.now()};
 }
 // Migration from V1.1 single-event data to V1.2 multi-event data.
 if(!Array.isArray(db.events)){
@@ -3703,6 +3711,7 @@ function firestoreEventPayload_(e){
   eventId:e.id,businessDate:businessDateForEvent(e),date:e.date||businessDateForEvent(e),
   seq:+e.seq||1,name:eventDisplayName_(e),startTime:e.startTime||'',regClose:e.regCloseTime||'',endTime:e.endTime||'',
   earlyBirdDiscount:Math.max(0,+e.earlyBirdDiscount||0),lateBirdDiscount:Math.max(0,+e.lateBirdDiscount||0),
+  birdDiscountDefaultsAt:+e.birdDiscountDefaultsAt||0,
   level:+e.level||3400,buyin:+e.poolUnit||0,fee:+e.admin||0,pricingMode:e.pricingMode||'standard',
   buyinTotal:+e.buyinTotal||0,buyinAdmin:+e.buyinAdmin||0,rebuyTotal:+e.rebuyTotal||0,
   rebuyAdmin:+e.rebuyAdmin||0,freeAdminFrom:(+e.overbuyThreshold||10)+1,chips:+e.chips||0,
@@ -3895,8 +3904,10 @@ async function saveEvent(){
  e.jp=+$('eJP').value;
  e.jpRound=+$('eJPRound').value;
  e.payout=$('ePayout').value;
+ e.birdDiscountDefaultsAt=Date.now();
  touchEvent_(e);persist();render();
  try{await syncEventToFirestore_(e,true);}catch(err){return alert('賽事設定 Firebase 同步失敗：'+String(err?.message||err));}
+ try{localStorage.setItem('epcBirdDiscountDefaultsV1',JSON.stringify({earlyBirdDiscount:e.earlyBirdDiscount,lateBirdDiscount:e.lateBirdDiscount,birdDiscountDefaultsAt:e.birdDiscountDefaultsAt}))}catch(_){}
  alert('賽事設定已儲存並同步');
 }
 function filterAddPlayerMembers(keyword){
@@ -4207,6 +4218,7 @@ async function newEvent(){
    try{
      const remote=await window.EPCFirestore.createEvent({
        eventId:e.id,businessDate:bd,date:bd,seq:e.seq,name:eventDisplayName_(e),startTime:e.startTime,endTime:e.endTime,
+       earlyBirdDiscount:e.earlyBirdDiscount,lateBirdDiscount:e.lateBirdDiscount,
        level:e.level,buyin:e.poolUnit,fee:e.admin,buyinTotal:e.buyinTotal,buyinAdmin:e.buyinAdmin,
        rebuyTotal:e.rebuyTotal,rebuyAdmin:e.rebuyAdmin,freeAdminFrom:(+e.overbuyThreshold||10)+1,
        jpRate:e.jp,icmRound:e.jpRound,status:'open',revision:1
@@ -5068,6 +5080,7 @@ function applyFirestoreEventsToLegacy_(rows){
    return ({
    id:v.eventId,date:v.businessDate||v.date,name:v.name||'',startTime:v.startTime||'',regCloseTime:v.regClose||'',endTime:v.endTime||'',
    earlyBirdDiscount:Math.max(0,+v.earlyBirdDiscount||0),lateBirdDiscount:Math.max(0,+v.lateBirdDiscount||0),
+   birdDiscountDefaultsAt:+v.birdDiscountDefaultsAt||0,
    seq:+v.seq||1,level:+v.level||3400,poolUnit:+v.buyin||Math.max(0,(+v.buyinTotal||3400)-(+v.buyinAdmin||400)),
    admin:+v.fee||+v.buyinAdmin||400,pricingMode:(v.pricingMode||'standard'),buyinTotal:+v.buyinTotal||3400,
    buyinAdmin:+v.buyinAdmin||400,rebuyTotal:+v.rebuyTotal||3400,rebuyAdmin:+v.rebuyAdmin||400,

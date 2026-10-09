@@ -34,4 +34,13 @@ vm.runInContext(section('function firestoreEventPayload_','let EPC_FIRESTORE_EVE
 const payload=c.firestoreEventPayload_(event);assert.equal(payload.earlyBirdDiscount,200);assert.equal(payload.lateBirdDiscount,100);
 vm.runInContext(section('function applyFirestoreEventsToLegacy_','window.addEventListener(\'epcFirestoreEvents\''),c);
 c.applyFirestoreEventsToLegacy_([payload]);assert.equal(c.db.events[0].lateBirdDiscount,100);assert.equal(c.db.events[0].players[0].lateBird,true);
+let cachedDefaults=JSON.stringify({earlyBirdDiscount:100,lateBirdDiscount:50,birdDiscountDefaultsAt:10});
+c.localStorage={getItem:()=>cachedDefaults};
+vm.runInContext(section('function eventCurrentTime_','// Migration from V1.1'),c);
+let next=c.blankEvent();assert.equal(next.earlyBirdDiscount,100);assert.equal(next.lateBirdDiscount,50);
+const previous=JSON.stringify(c.db.events);
+c.db.events.push({earlyBirdDiscount:200,lateBirdDiscount:0,birdDiscountDefaultsAt:20});
+next=c.blankEvent();assert.equal(next.earlyBirdDiscount,200);assert.equal(next.lateBirdDiscount,0,'explicit zero must replace a remembered amount');
+cachedDefaults=null;next=c.blankEvent();assert.equal(next.earlyBirdDiscount,200,'another device reads defaults from saved event settings');
+assert.equal(JSON.stringify(c.db.events.slice(0,-1)),previous,'defaults do not rewrite existing events');
 console.log('PASS: bird adjustments, custom accounting, event names, searchable identities, focused edits and immediate footer refresh.');
