@@ -3,6 +3,10 @@ import {getFirestore,collection,doc,onSnapshot,runTransaction,serverTimestamp} f
 const $=id=>document.getElementById(id),esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const store=getFirestore(initializeApp(window.EPC_FIREBASE_CONFIG,'epc-phone')),col=collection(store,'epc_events');
 let events=[],selected='',unsubscribe,members=new Map();const drafts=new Map(),busy=new Set();
+// Keep the summary below the actual header height, including wrapped status text.
+const header=document.querySelector('header');
+const updateHeaderHeight=()=>document.documentElement.style.setProperty('--phone-header-height',header.getBoundingClientRect().height+'px');
+new ResizeObserver(updateHeaderHeight).observe(header);updateHeaderHeight();
 const fieldLabels={seat:'座位',stack:'下桌籌碼',hunterHeads:'獵人頭（本場累計）'};
 const key=(e,m)=>JSON.stringify([e,String(m)]),num=n=>Number(n||0).toLocaleString('zh-TW');
 function status(s,bad=false){$('status').textContent=s;$('status').className=bad?'error':''}
