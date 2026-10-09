@@ -25,9 +25,11 @@ function seatLabel(p){return [p.nickname,members.get(String(p.memberId))?.nickna
 function renderSeating(){
  const e=events.find(x=>x.eventId===selected),roster=$('seatRoster'),tables=$('seatTables');
  if(!roster||!tables)return;
- if(!e){roster.innerHTML='';tables.innerHTML='';return}
+ if(!e){roster.innerHTML='';tables.innerHTML='';$('seatWaitingCount').textContent='（0）';$('seatRosterEmpty').hidden=false;return}
  if(seatPicked&&!(e.players||[]).some(p=>String(p.memberId)===seatPicked))seatPicked='';
- roster.innerHTML=(e.players||[]).map(p=>'<button type="button" draggable="true" data-seat-player="'+esc(p.memberId)+'" class="seat-person '+(seatPicked===String(p.memberId)?'picked':'')+'">'+esc(seatLabel(p))+(p.seat?' · '+esc(p.seat):' · 未入座')+'</button>').join('');
+ const waiting=(e.players||[]).filter(p=>!String(p.seat||'').trim());
+ $('seatWaitingCount').textContent='（'+waiting.length+'）';$('seatRosterEmpty').hidden=waiting.length>0;
+ roster.innerHTML=waiting.map(p=>'<button type="button" draggable="true" data-seat-player="'+esc(p.memberId)+'" class="seat-person '+(seatPicked===String(p.memberId)?'picked':'')+'">'+esc(seatLabel(p))+(p.seat?' · '+esc(p.seat):' · 未入座')+'</button>').join('');
  tables.innerHTML=Array.from({length:6},(_,i)=>'<div class="seat-table"><h3>'+(i+1)+' 號桌</h3><div class="seat-grid">'+Array.from({length:10},(_,j)=>{const code=seatCode(i+1,j+1),p=seatOwner(e,code);return '<button type="button" class="seat-slot '+(p?'occupied':'')+'" data-seat-code="'+code+'">'+(j+1)+' 號座'+(p?'<div><b>'+esc(seatLabel(p))+'</b></div>':'<div>空位</div>')+'</button>'}).join('')+'</div></div>').join('');
 }
 async function moveSeat(id,destination){
