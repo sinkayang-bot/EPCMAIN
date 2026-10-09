@@ -16,13 +16,13 @@
   return {...e,players};
  }
  function updateStack(e,id,stack,baseline){return updatePlayerFields(e,id,{stack},{stack:baseline})}
- function protectStacks(incoming,old){
+ function protectStacks(incoming,old,options={}){
   const previous=new Map((old.players||[]).map(p=>[String(p.memberId),p]));
   return {...incoming,players:(incoming.players||[]).map(p=>{
    const before=previous.get(String(p.memberId));if(!before)return p;const next={...p};
    for(const [field,rev] of Object.entries(revisions)){
     const a=Number(p[rev])||0,b=Number(before[rev])||0;
-    if(a<b){next[field]=before[field]??null;next[rev]=b}
+    if(a<b){if(options.settle&&p[field]!==before[field])throw Error('玩家資料已有較新修改，請重新讀取並重算獎金後再結算');next[field]=before[field]??null;next[rev]=b}
     else if(a===b&&b>0&&p[field]!==before[field])throw Error('玩家資料已有較新修改，請重新讀取後再編輯');
    }
    return next;

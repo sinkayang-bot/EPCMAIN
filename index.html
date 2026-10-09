@@ -4023,7 +4023,9 @@ function setManualPrize(i,value){
 }
 function setStackFast_(i,value){
  const e=currentEvent();if(!e||!e.players[i])return;
+ if(e.status==='已結算'||e.status==='settled')return;
  e.players[i].stack=Math.max(0,+value||0);
+ e.players[i]._stackRevision=(+e.players[i]._stackRevision||0)+1;
  e.players[i].prize=(+e.players[i].stack||0)>0?(+e.players[i].prize||0):0;
  persist();
  const totalGroups=e.players.reduce((s,p)=>s+calcPlayerForEvent(p,e).groups,0);
@@ -4937,25 +4939,36 @@ function confirmSettlement(){
 function closeSettlementConfirm(){
  $('settlementConfirmModal').style.display='none';
 }
+let settlementInFlight_=false;
 async function executeFormalSettlement(){
- let e=requireEvent();if(!e)return;
- 
+ let e=requireEvent();if(!e||settlementInFlight_)return;
  let v=validateSettlement();
  if(!v.ok){closeSettlementConfirm();actionMsg(v.msg,true);return;}
- db.members.forEach(m=>m.history=memberHistory_(m).filter(h=>h.eventId!==e.id));
+ const prizeCheck=manualPrizeValidation(e);
+ if(!prizeCheck.ok||!e.endTime){closeSettlementConfirm();actionMsg(prizeCheck.ok?'請先輸入實際結束時間。':prizeCheck.message,true);return;}
+ // Build the final snapshot without locking the local event or changing history.
+ const candidate=JSON.parse(JSON.stringify(e));
+ candidate.finalJP=poolInfo(candidate).jp;
+ candidate.finalAccounting={...accountingInfo(candidate)};
+ candidate.status='已結算';
+ touchEvent_(candidate);
+ settlementInFlight_=true;
+ try{
+   const saved=await syncEventToFirestore_(candidate,true,{settle:true});
+   if(!saved)throw Error('Firebase 尚未連線，請稍後再試');
+ }catch(err){
+   closeSettlementConfirm();actionMsg('Firebase 結算同步失敗：'+String(err?.message||err),true);return;
+ }finally{settlementInFlight_=false;}
+ e=(db.events||[]).find(x=>String(x.id)===String(candidate.id))||e;
+ Object.assign(e,candidate);
+ db.members.forEach(m=>m.history=memberHistory_(m).filter(h=>String(h.eventId)!==String(e.id)));
  e.players.forEach(p=>{
    let m=db.members.find(x=>x.id===p.memberId);if(!m)return;
    let c=calcPlayerForEvent(p,e);
    m.history=memberHistory_(m);
    m.history.push({eventId:e.id,date:e.date,eventSeq:e.seq,level:e.level,groups:c.groups,paid:c.paid,prize:+p.prize||0,net:(+p.prize||0)-c.paid,group:p.group||m.name});
  });
- let acc=accountingInfo(e);
- e.finalJP=poolInfo(e).jp;
- e.finalAccounting={...acc};
- e.status='已結算';
- touchEvent_(e);
  persist();
- try{await syncEventToFirestore_(e,true);}catch(err){closeSettlementConfirm();return actionMsg('Firebase 結算同步失敗：'+String(err?.message||err),true);}
  closeSettlementConfirm();
  render();
  if(cloudReady)await saveCloudNow(false);
@@ -6949,7 +6962,7 @@ async function epcShowRecoveryAudit_(){
 }
 </script>
 <script src="firebase-config.js?v=20261007-0780"></script>
-<script src="phone/stack-core.js?v=20261009-phone-seat-heads"></script>
-<script src="firebase-events.js?v=20261009-phone-seat-heads"></script>
+<script src="phone/stack-core.js?v=20261009-settlement-confirmed"></script>
+<script src="firebase-events.js?v=20261009-settlement-confirmed"></script>
 <script src="sync-v3.js?v=20261007-0780"></script>
 <script src="app.js?v=20261009-activity-live-refresh"></script></body></html>

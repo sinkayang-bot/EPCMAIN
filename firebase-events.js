@@ -22,12 +22,13 @@
      const settled=x=>x==='settled'||x==='已結算';
      if(options.rename&&snap.exists()){tx.update(ref,{name:String(e.name||''),updatedAt:fs.serverTimestamp()});return;}
      if(settled(old.status)&&!options.unlock){
+      if(options.settle)throw Error('這場賽事已在雲端結算，請重新整理查看正式結果');
       if(!settled(e.status))throw Error('這場賽事已結算，已阻止舊資料覆蓋；請重新整理');
       // A settled event is immutable until explicitly unlocked.
       return;
      }
      if(old._eventUpdatedAt&&e._eventUpdatedAt&&Number(old._eventUpdatedAt)>Number(e._eventUpdatedAt))throw Error('賽事已有較新修改，請重新整理後再編輯');
-     const protectedEvent=window.EPCStackCore.protectStacks(e,old);
+     const protectedEvent=window.EPCStackCore.protectStacks(e,old,options);
      const row={...clean(protectedEvent),status:settled(e.status)?'settled':'open',updatedAt:fs.serverTimestamp()};
      if(options.unlock){row.finalJP=fs.deleteField();row.finalAccounting=fs.deleteField();}
      tx.set(ref,row,{merge:true});
