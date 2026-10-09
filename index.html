@@ -1842,6 +1842,37 @@ button.epc-clicked-now,.btn.epc-clicked-now{transform:scale(.985);filter:brightn
  html body .page .pnl-zero,html[data-epc-theme] body .page .pnl-zero{color:#15191d!important}
 }
 </style>
+<style id="epcUnifiedLayout20261009">
+/* Unified screen-only controls; keep print and business logic unchanged. */
+@media screen and (min-width: 1050px){
+ .page .formgrid{gap:10px 12px}
+ .page .formgrid>div{min-width:0}
+ #members>.card:first-of-type>.formgrid{grid-template-columns:repeat(5,minmax(0,1fr))!important}
+ #members>.card:first-of-type>.formgrid>div{grid-column:auto!important}
+}
+@media screen{
+ .page .card{border-radius:12px}
+ .page .formgrid>div>label{min-height:16px;margin-bottom:5px;line-height:1.3}
+ .page input:not([type=checkbox]):not([type=radio]):not([type=range]),
+ .page select:not([size]),.page textarea{min-width:0;max-width:100%;border-radius:8px}
+ .page button,.page .btn{border-radius:8px}
+ .page .toolbar{align-items:center;gap:8px}
+ .page .tablewrap{max-width:100%;overflow-x:auto}
+ .page table th{white-space:nowrap}
+ .page .card>.formgrid{align-items:end}
+}
+@media screen and (min-width: 801px){
+ .page input:not([type=checkbox]):not([type=radio]):not([type=range]),
+ .page select:not([size]){height:38px;min-height:38px;padding:7px 10px}
+ .page .toolbar button{min-height:38px}
+}
+@media screen and (max-width: 800px){
+ #members>.card:first-of-type>.formgrid{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+}
+@media screen and (max-width: 520px){
+ #members>.card:first-of-type>.formgrid{grid-template-columns:1fr!important}
+}
+</style>
 </head>
 <script>
 (function(){
