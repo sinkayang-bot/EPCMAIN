@@ -2126,6 +2126,7 @@ window.addEventListener('error',function(e){
   </div>
   <div class="small" style="margin-top:8px">座位、玩家、實收可自行勾選顯示；買入、重買、總組數固定顯示；結帳群組僅供後台分帳使用。綽號輸入完成離開欄位後，會同步到會員資料。<button type="button" onclick="syncEventNicknames_()">本場綽號同步會員</button></div>
  </div>
+ <div class="card" id="epcDesktopSeating"><h3 style="margin:0 0 8px">桌位管理｜1～8 號桌（每桌 10 座）</h3><div id="epcSeatRoster" style="display:flex;flex-wrap:wrap;gap:7px;margin-bottom:12px"></div><div id="epcSeatGrid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px"></div><div class="small" id="epcSeatHint">先點選未入座玩家，再點座位；點擊已入座玩家可移動或換位。</div></div>
  <div class="card">
   <table id="eventPlayerTable" style="width:100%;table-layout:auto">
    <thead><tr id="eventPlayerHead"></tr></thead>
@@ -5549,7 +5550,28 @@ document.addEventListener('focusout',event=>{
   else if(epcPlayerRenderPending_){epcPlayerRenderPending_=false;renderEventFast_()}
  },0);
 });
+let epcSeatSelected_='';
+function epcDesktopSeatRender_(){
+ const e=currentEvent(),roster=$('epcSeatRoster'),grid=$('epcSeatGrid');if(!roster||!grid||!e)return;
+ const ps=e.players||[],name=p=>{const m=(db.members||[]).find(x=>String(x.id)===String(p.memberId));return m?.name||p.nickname||p.name||String(p.memberId)};
+ const seat=(t,s)=>t+'-'+s;
+ roster.innerHTML=ps.map((p,i)=>({p,i})).filter(x=>!String(x.p.seat||'').trim()).map(({p,i})=>'<button type="button" data-epc-seat-player="'+i+'" style="background:'+(String(i)===epcSeatSelected_?'#9b7737':'#30475e')+';color:white;padding:8px;border-radius:8px">'+String(name(p)).replace(/&/g,'&amp;').replace(/</g,'&lt;')+'</button>').join('')||'<span class="small">所有玩家均已入座</span>';
+ grid.innerHTML=Array.from({length:8},(_,t)=>'<div style="border:1px solid #46566b;border-radius:12px;padding:10px"><b style="color:#e6bc59">'+(t+1)+' 號桌</b><div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:8px">'+Array.from({length:10},(_,s)=>{const code=seat(t+1,s+1),i=ps.findIndex(p=>String(p.seat||'')===code),p=ps[i];return '<button type="button" data-epc-seat-target="'+code+'" style="min-height:52px;background:#192b3b;color:white;border:1px solid #4b6179;border-radius:7px">'+(s+1)+' 號座'+(p?'<div>'+String(name(p)).replace(/&/g,'&amp;').replace(/</g,'&lt;')+'</div>':'<div>空位</div>')+'</button>'}).join('')+'</div></div>').join('');
+}
+document.addEventListener('click',function(ev){
+ const pick=ev.target.closest('[data-epc-seat-player]'),target=ev.target.closest('[data-epc-seat-target]');if(!pick&&!target)return;
+ const e=currentEvent();if(!e||['settled','已結算'].includes(e.status))return;
+ if(pick){epcSeatSelected_=pick.dataset.epcSeatPlayer;epcDesktopSeatRender_();return}
+ const destination=target.dataset.epcSeatTarget,ps=e.players||[],occupied=ps.findIndex(p=>String(p.seat||'')===destination);
+ if(epcSeatSelected_===''){if(occupied>=0){epcSeatSelected_=String(occupied);epcDesktopSeatRender_()}return}
+ const idx=Number(epcSeatSelected_);if(!ps[idx]){epcSeatSelected_='';return}
+ const previous=String(ps[idx].seat||'');
+ if(occupied>=0&&occupied!==idx){ps[occupied].seat=previous;ps[occupied]._seatRevision=(+ps[occupied]._seatRevision||0)+1}
+ ps[idx].seat=destination;ps[idx]._seatRevision=(+ps[idx]._seatRevision||0)+1;
+ epcSeatSelected_='';persist();renderEventFast_();
+});
 function renderEventFast_(){
+ epcDesktopSeatRender_();
  const editing=epcPlayerEditing_();
  if(editing)epcPlayerRenderPending_=true;
  const ev=currentEvent();if(!ev)return;
