@@ -6057,7 +6057,14 @@ async function hunterDel_(id){
  if(cloudReady)await saveCloudNow(false);
 }
 function hunterRows_(){
- const phone=(db.events||[]).flatMap(e=>(e.players||[]).filter(p=>(+p.hunterHeads||0)>0).map(p=>({id:'PHONE:'+e.id+':'+p.memberId,date:actBusinessDate_(e),eventId:e.id,killer:String(p.memberId),points:+p.hunterHeads,phone:true,note:'手機本場累計人頭'})));
+ const phone=(db.events||[]).flatMap(e=>{
+  const history=Array.isArray(e.hunterHeadHistory)?e.hunterHeadHistory:[];
+  const byMember=new Map();
+  for(const h of history){const k=String(h.memberId||'');if(k)byMember.set(k,(byMember.get(k)||0)+Number(h.delta||0))}
+  const records=history.map(h=>({id:String(h.id),date:String(h.at||'').slice(0,10)||actBusinessDate_(e),eventId:e.id,killer:String(h.memberId),points:Number(h.delta||0),phone:true,note:'手機人頭登記｜'+Number(h.previous||0)+' → '+Number(h.total||0)}));
+  const legacy=(e.players||[]).filter(p=>Number(p.hunterHeads||0)!==Number(byMember.get(String(p.memberId))||0)).map(p=>({id:'PHONE:'+e.id+':'+p.memberId,date:actBusinessDate_(e),eventId:e.id,killer:String(p.memberId),points:Number(p.hunterHeads||0)-Number(byMember.get(String(p.memberId))||0),phone:true,note:'歷史累計／其他來源調整'}));
+  return [...records,...legacy];
+ });
  const {from,to}=actActivityRange_('hunter');
  return [...(db.activityManagement.hunter||[]),...phone].filter(x=>(!from||x.date>=from)&&(!to||x.date<=to));
 }
