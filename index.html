@@ -3402,8 +3402,12 @@ function openEventReportById(id){
  setCurrentEventDevice_(e.id);localStorage.setItem('epcV1',JSON.stringify(db));openEventReport();
 }
 
+function eventCurrentTime_(){
+ return new Intl.DateTimeFormat('en-GB',{timeZone:'Asia/Taipei',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).format(new Date());
+}
 function blankEvent(){
- return {id:'EV'+Date.now()+Math.floor(Math.random()*90+10),date:new Date().toISOString().slice(0,10),seq:1,level:3400,poolUnit:3000,admin:400,pricingMode:'standard',buyinTotal:3400,buyinAdmin:400,rebuyTotal:3400,rebuyAdmin:400,overbuyThreshold:10,chips:300000,jp:3,jpRound:100,payout:'50,30,20',players:[],status:'進行中',accounting:{otherIncome:0,venueIncome:0,laborExpense:0,otherExpense:0},createdAt:Date.now()};
+ const time=eventCurrentTime_();
+ return {id:'EV'+Date.now()+Math.floor(Math.random()*90+10),date:new Date().toISOString().slice(0,10),startTime:time,endTime:time,seq:1,level:3400,poolUnit:3000,admin:400,pricingMode:'standard',buyinTotal:3400,buyinAdmin:400,rebuyTotal:3400,rebuyAdmin:400,overbuyThreshold:10,chips:300000,jp:3,jpRound:100,payout:'50,30,20',players:[],status:'進行中',accounting:{otherIncome:0,venueIncome:0,laborExpense:0,otherExpense:0},createdAt:Date.now()};
 }
 // Migration from V1.1 single-event data to V1.2 multi-event data.
 if(!Array.isArray(db.events)){
@@ -4186,14 +4190,14 @@ function eventDisplayName_(e){
 async function newEvent(){
  let e=blankEvent();
  let bd=$('eventBusinessDate')?.value||new Date().toISOString().slice(0,10);
- e.date=bd;e.businessDate=bd;e.startTime=db.settings.businessStart||'16:00';
+ e.date=bd;e.businessDate=bd;
  let same=db.events.filter(x=>businessDateForEvent(x)===bd);
  e.seq=same.length?Math.max(...same.map(x=>+x.seq||0))+1:1;
  // The visible legacy button comes here. Firestore must be the first authoritative write.
  if(window.EPCFirestore?.ready&&typeof window.EPCFirestore.createEvent==='function'){
    try{
      const remote=await window.EPCFirestore.createEvent({
-       eventId:e.id,businessDate:bd,date:bd,seq:e.seq,name:eventDisplayName_(e),startTime:e.startTime,
+       eventId:e.id,businessDate:bd,date:bd,seq:e.seq,name:eventDisplayName_(e),startTime:e.startTime,endTime:e.endTime,
        level:e.level,buyin:e.poolUnit,fee:e.admin,buyinTotal:e.buyinTotal,buyinAdmin:e.buyinAdmin,
        rebuyTotal:e.rebuyTotal,rebuyAdmin:e.rebuyAdmin,freeAdminFrom:(+e.overbuyThreshold||10)+1,
        jpRate:e.jp,icmRound:e.jpRound,status:'open',revision:1
