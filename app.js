@@ -507,12 +507,11 @@ async function refreshActivityCloudV3_(){
  EPC_ACTIVITY_READING=true;
  try{
   const r=await api('activity.get',{}),ldb=legacyDb_();
-  if(!window.EPC_ACTIVITY_LOADED&&!Number(r.revision)&&!Object.keys(r.data||{}).length&&meaningfulActivity_(ldb?.activityManagement)){
-   // One-time recovery of pre-fix local activity records into an empty cloud.
-   window.EPC_ACTIVITY_REVISION=0;window.saveActivityCloudV3();
-  }else if(!applyActivitySnapshot_(r.data,r.revision)&&!Number(r.revision)&&!Object.keys(r.data||{}).length){
-   window.EPC_ACTIVITY_LOADED=true;activitySyncState_('雲端尚無活動資料，新增後會自動同步');
-  }
+  if(!Number(r.revision)&&!Object.keys(r.data||{}).length){
+   window.EPC_ACTIVITY_REVISION=0;window.EPC_ACTIVITY_LOADED=true;
+   activitySyncState_(meaningfulActivity_(ldb?.activityManagement)?'雲端尚無活動資料；請在這台按「上傳本機活動資料」':'雲端尚無活動資料；請由有完整資料的電腦上傳');
+  }else applyActivitySnapshot_(r.data,r.revision);
+
  }catch(e){activitySyncState_('活動讀取失敗：'+e.message,true);console.warn('activity cloud read',e)}
  finally{EPC_ACTIVITY_READING=false}
 }
@@ -535,6 +534,23 @@ window.saveActivityCloudV3=function(){
  EPC_ACTIVITY_PENDING={data:JSON.parse(JSON.stringify(ldb.activityManagement)),revision:Number(window.EPC_ACTIVITY_REVISION||0),sequence:++EPC_ACTIVITY_SEQUENCE};
  localStorage.setItem(ACTIVITY_PENDING_KEY,JSON.stringify(EPC_ACTIVITY_PENDING));activitySyncState_('活動資料等待同步…');
  EPC_ACTIVITY_SAVE_TIMER=setTimeout(flushActivityCloudV3_,250);
+};
+window.uploadLocalActivityV3=async function(){
+ if(EPC_ACTIVITY_SAVING||EPC_ACTIVITY_READING){activitySyncState_('正在同步，請稍後再試');return}
+ const data=legacyDb_()?.activityManagement;if(!meaningfulActivity_(data)){activitySyncState_('這台沒有完整活動紀錄，請在原本有資料的電腦操作',true);return}
+ const candidate=JSON.parse(JSON.stringify(data));EPC_ACTIVITY_READING=true;
+ try{
+  const remote=await api('activity.get',{});
+  if(JSON.stringify(candidate)!==JSON.stringify(legacyDb_()?.activityManagement))throw Error('本機活動資料已變更，請重新按上傳');
+  if(Object.keys(remote.data||{}).length&&JSON.stringify(remote.data)!==JSON.stringify(candidate)){
+   if(!window.confirm('雲端已有活動資料。確定以這台電腦目前的活動設定與紀錄取代嗎？其他裝置會收到這份資料。'))return;
+  }
+  clearTimeout(EPC_ACTIVITY_SAVE_TIMER);EPC_ACTIVITY_SAVE_TIMER=null;
+  EPC_ACTIVITY_PENDING={data:candidate,revision:Number(remote.revision||0),sequence:++EPC_ACTIVITY_SEQUENCE};
+  localStorage.setItem(ACTIVITY_PENDING_KEY,JSON.stringify(EPC_ACTIVITY_PENDING));
+  await flushActivityCloudV3_();
+ }catch(e){activitySyncState_('上傳失敗：'+e.message+'；本機資料已保留',true)}
+ finally{EPC_ACTIVITY_READING=false}
 };
 window.retryActivityCloudV3=()=>EPC_ACTIVITY_PENDING?flushActivityCloudV3_():refreshActivityCloudV3_();
 if(EPC_ACTIVITY_PENDING){window.EPC_ACTIVITY_REVISION=Number(EPC_ACTIVITY_PENDING.revision||0);const ldb=legacyDb_();if(ldb)ldb.activityManagement=JSON.parse(JSON.stringify(EPC_ACTIVITY_PENDING.data));setTimeout(flushActivityCloudV3_,0)}
