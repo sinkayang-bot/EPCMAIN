@@ -1,0 +1,37 @@
+const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
+const html=fs.readFileSync('index.html','utf8');
+const section=(a,b)=>html.slice(html.indexOf(a),html.indexOf(b,html.indexOf(a)));
+const event={id:'E',date:'2026-10-09',seq:2,level:3400,poolUnit:3000,admin:400,earlyBirdDiscount:200,lateBirdDiscount:100,players:[{memberId:'A',buyin:1,rebuy:2,manualDiscount:50,earlyBird:true}]};
+const cells=Object.fromEntries(['groups','rebuyDiscount','overbuyDiscount','totalDiscount','paid'].map(k=>[k,{textContent:''}]));
+const checks={earlyBird:{checked:true},lateBird:{checked:false}};
+const row={querySelector:s=>s.endsWith(' input')?checks[s.slice(5,-6)]:cells[s.slice(5)]};
+const rows={children:[row]};Object.defineProperty(rows,'innerHTML',{set(){throw Error('focused player input must not be replaced')}});
+const nodes={playerRows:rows,eventPlayerTotals:{innerHTML:''},eventPlayerColgroup:{innerHTML:''},eventPlayerHead:{innerHTML:''}};
+let saves=0,lists=0;
+const c={db:{members:[{id:'A',name:'王本名',nickname:'阿王'}],events:[event]},currentEvent:()=>event,epcPlayerEditing_:()=>true,$:id=>nodes[id],playerVisibleCols:()=>new Set(['name','paid','manualDiscount','totalDiscount']),money:x=>'$'+x,renderEventList:()=>lists++,persist:()=>{saves++;assert.match(nodes.eventPlayerTotals.innerHTML,/\$9650/,'totals refresh before persistence')},alert:()=>{}};
+vm.createContext(c);
+vm.runInContext(section('function calcPlayerForEvent(p,e)','function memberHistoryInRange'),c);
+vm.runInContext(section('function eventOrdinalName_','async function newEvent('),c);
+vm.runInContext(section('function renderEventFast_','function setPlayerColumnPreference'),c);
+vm.runInContext(section('function setP(i,k,v)','function removePlayerSafe'),c);
+vm.runInContext(section('function memberSearchLabel_','function actResolveMember_'),c);
+let x=c.calcPlayerForEvent(event.players[0],event);
+assert.equal(x.paid,9550);assert.equal(x.netAdmin,550);assert.equal(x.pool,9000);assert.equal(x.totalDiscount,650);
+assert.equal(c.eventDisplayName_(event),'EPC#2 3400限時錦標賽');
+assert.equal(c.eventDisplayName_({...event,name:'特別場'}),'特別場');
+assert.equal(c.memberSearchLabel_(c.db.members[0]),'王本名 / 綽號：阿王 (A)');
+c.setP(0,'lateBird',true);
+assert.equal(event.players[0].earlyBird,false);assert.equal(event.players[0].lateBird,true);
+assert.equal(cells.paid.textContent,'$9650');assert.match(nodes.eventPlayerTotals.innerHTML,/1 人/);
+// More rebuys must not multiply a one-time bird discount; focus stays intact.
+event.players[0].rebuy=3;c.renderEventFast_();assert.equal(cells.paid.textContent,'$12850');
+// Custom pricing uses the same one-time adjustment and keeps the prize pool unchanged.
+Object.assign(event,{pricingMode:'custom',buyinTotal:6900,buyinAdmin:900,rebuyTotal:6500,rebuyAdmin:500,overbuyThreshold:10});
+x=c.calcPlayerForEvent(event.players[0],event);assert.equal(x.lateDiscount,100);assert.equal(x.paid,26250);assert.equal(x.pool,24000);
+event.players[0].buyin=0;event.players[0].rebuy=0;assert.equal(c.calcPlayerForEvent(event.players[0],event).lateDiscount,0);
+Object.assign(c,{businessDateForEvent:e=>e.date,accountingGroupForEvent:()=>'',window:{},renderMemberRows:()=>{},renderDashboardSummary:()=>{}});
+vm.runInContext(section('function firestoreEventPayload_','let EPC_FIRESTORE_EVENT_SAVE_TIMERS'),c);
+const payload=c.firestoreEventPayload_(event);assert.equal(payload.earlyBirdDiscount,200);assert.equal(payload.lateBirdDiscount,100);
+vm.runInContext(section('function applyFirestoreEventsToLegacy_','window.addEventListener(\'epcFirestoreEvents\''),c);
+c.applyFirestoreEventsToLegacy_([payload]);assert.equal(c.db.events[0].lateBirdDiscount,100);assert.equal(c.db.events[0].players[0].lateBird,true);
+console.log('PASS: bird adjustments, custom accounting, event names, searchable identities, focused edits and immediate footer refresh.');

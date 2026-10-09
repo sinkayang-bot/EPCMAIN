@@ -2000,7 +2000,7 @@ window.addEventListener('error',function(e){
  </div>
  <div class="card tablewrap">
   <table>
-   <thead><tr><th>營業日</th><th>場次</th><th>級別</th><th>玩家數</th><th>重買數</th><th>總組數</th><th>獎池</th><th>JP</th><th>狀態</th><th>操作</th></tr></thead>
+   <thead><tr><th>營業日</th><th>場次</th><th>級別</th><th>玩家數</th><th>早鳥</th><th>晚鳥</th><th>重買數</th><th>總組數</th><th>獎池</th><th>JP</th><th>狀態</th><th>操作</th></tr></thead>
    <tbody id="eventRows"></tbody>
   </table>
  </div>
@@ -2012,7 +2012,7 @@ window.addEventListener('error',function(e){
  <div class="card">
   <div class="formgrid">
    <div><label>日期</label><input type="date" id="eDate"></div>
-   <div><label>場次名稱</label><input id="eName" placeholder="預設：第一場、第二場…；可手動修改"></div>
+   <div><label>場次名稱</label><input id="eName" placeholder="預設：EPC#1 3400限時錦標賽；可手動修改"></div>
  <div><label>開賽時間</label><input id="eStartTime" inputmode="numeric" placeholder="例如 16:00"></div>
  <div><label>預計截止買入時間</label><input id="eRegCloseTime" inputmode="numeric" placeholder="例如 18:30"></div>
    <div><label>級別</label><input id="eLevel" type="number" min="0" step="100" inputmode="numeric" placeholder="例如 1200、3400、6600、11000"></div>
@@ -2027,6 +2027,8 @@ window.addEventListener('error',function(e){
    <div><label>起始籌碼 / 組</label><input type="number" id="eChips" value="300000"></div>
    <div><label>JP %</label><input type="number" step=".1" id="eJP" value="3"></div>
    <div><label>JP 取整單位</label><input type="number" id="eJPRound" value="100"></div>
+   <div><label>早鳥折扣金額</label><input id="eEarlyBirdDiscount" type="number" min="0" step="1" value="0"></div>
+   <div><label>晚鳥折扣金額</label><input id="eLateBirdDiscount" type="number" min="0" step="1" value="0"></div>
    <div><label>ICM 獎金梯度 %</label><input id="ePayout" value="50,30,20" placeholder="例如 50,30,20"></div>
   </div>
   <div class="toolbar"><button class="primary" onclick="saveEvent()">儲存賽事設定</button></div>
@@ -2066,7 +2068,7 @@ window.addEventListener('error',function(e){
    <tfoot><tr id="eventPlayerTotals" style="font-weight:900;background:#17222d"></tr></tfoot>
   </table>
  </div>
- <div class="notice" id="pricingNotice">標準模式：第 1 組行政費原價；第 2～10 組行政費半價；第 11 組起免行政費。自訂模式：第 2 組至超買門檻依重買價計價；超過門檻後免重買行政費。優惠分為重買優惠、超買優惠、手動優惠。</div>
+ <div class="notice" id="pricingNotice">標準模式：第 1 組行政費原價；第 2～10 組行政費半價；第 11 組起免行政費。自訂模式：第 2 組至超買門檻依重買價計價；超過門檻後免重買行政費。早鳥／晚鳥依本場設定折抵一次，同一玩家擇一勾選；重買、超買及手動優惠另外計算。</div>
 </section>
 
 <section id="settle" class="page">
@@ -3700,6 +3702,7 @@ function firestoreEventPayload_(e){
  return {
   eventId:e.id,businessDate:businessDateForEvent(e),date:e.date||businessDateForEvent(e),
   seq:+e.seq||1,name:eventDisplayName_(e),startTime:e.startTime||'',regClose:e.regCloseTime||'',endTime:e.endTime||'',
+  earlyBirdDiscount:Math.max(0,+e.earlyBirdDiscount||0),lateBirdDiscount:Math.max(0,+e.lateBirdDiscount||0),
   level:+e.level||3400,buyin:+e.poolUnit||0,fee:+e.admin||0,pricingMode:e.pricingMode||'standard',
   buyinTotal:+e.buyinTotal||0,buyinAdmin:+e.buyinAdmin||0,rebuyTotal:+e.rebuyTotal||0,
   rebuyAdmin:+e.rebuyAdmin||0,freeAdminFrom:(+e.overbuyThreshold||10)+1,chips:+e.chips||0,
@@ -3868,9 +3871,12 @@ async function saveEvent(){
  let e=requireEvent();if(!e)return;
  
  e.date=$('eDate').value;
- e.name=($('eName')?.value||'').trim();
+ const name=($('eName')?.value||'').trim();
+ e.name=name===eventDisplayName_({...e,name:''})?'':name;
  e.startTime=($('eStartTime')?.value||'').trim();
  e.regCloseTime=($('eRegCloseTime')?.value||'').trim();
+ e.earlyBirdDiscount=Math.max(0,+$('eEarlyBirdDiscount')?.value||0);
+ e.lateBirdDiscount=Math.max(0,+$('eLateBirdDiscount')?.value||0);
  e.level=+$('eLevel').value;
  e.pricingMode=$('ePricingMode')?.value||'standard';
  e.poolUnit=+$('ePoolUnit').value;
@@ -3905,7 +3911,7 @@ function filterAddPlayerMembers(keyword){
    return !q || name.includes(q) || nickname.includes(q) || id.includes(q) || group.includes(q);
  });
  sel.innerHTML=list.length
-   ? list.map(m=>`<option value="${m.id}">${epcPlayerDisplayHtml_(m)} (${m.id})</option>`).join('')
+   ? list.map(m=>`<option value="${m.id}">${epcDisplayEscape_(memberSearchLabel_(m))}</option>`).join('')
    : '<option value="">找不到符合的會員</option>';
  if(current && list.some(m=>m.id===current))sel.value=current;
  else if(list.length===1)sel.value=list[0].id;
@@ -3914,7 +3920,7 @@ function syncAddPlayerSearch(){
  const sel=$('addPlayerMember'),input=$('addPlayerSearch');if(!sel||!input)return;
  const m=db.members.find(x=>x.id===sel.value);
  if(m){
-   input.value=`${epcPlayerDisplayName_(m)} (${m.id})`;
+   input.value=memberSearchLabel_(m);
    if($('addPlayerGroup'))$('addPlayerGroup').value=m.group||'';
  }
 }
@@ -3948,9 +3954,12 @@ async function syncEventNicknames_(){
 }
 function setP(i,k,v){
  let e=currentEvent();if(!e)return;
- if(e.status==='已結算')return alert('此賽事已完成結算並鎖定，不能再修改。');
+ if(e.status==='已結算'||e.status==='settled')return alert('此賽事已完成結算並鎖定，不能再修改。');
  const p=e.players[i]; if(!p)return;
- p[k]=((k==='group'||k==='nickname'||k==='seat')?v:+v);
+ if(k==='earlyBird'||k==='lateBird'){
+   p[k]=!!v;
+   if(v)p[k==='earlyBird'?'lateBird':'earlyBird']=false;
+ }else p[k]=((k==='group'||k==='nickname'||k==='seat')?v:+v);
  if(k==='stack'){p._stackRevision=(+p._stackRevision||0)+1;}
  if(k==='seat'){p._seatRevision=(+p._seatRevision||0)+1;}
  if(k==='manualDiscount'){
@@ -3959,7 +3968,7 @@ function setP(i,k,v){
    p._manualDiscountEditedAt=Date.now();
    p._manualDiscountEditedValue=+v||0;
  }
- persist();renderEventFast_();
+ renderEventFast_();persist();
 }
 function removePlayerSafe(memberId){
  const e=currentEvent();if(!e)return;
@@ -4185,7 +4194,7 @@ function eventOrdinalName_(seq){
 }
 function eventDisplayName_(e){
  const manual=String(e?.name||'').trim();
- return manual||eventOrdinalName_(e?.seq||1);
+ return manual||`EPC#${Math.max(1,+e?.seq||1)} ${+e?.level||3400}限時錦標賽`;
 }
 async function newEvent(){
  let e=blankEvent();
@@ -4888,7 +4897,7 @@ function printDailyAccounting(){
    <div><span>入會費收入</span><strong>${money(ai.membershipIncome)}</strong></div>
    <div><span>重買優惠</span><strong>${money(ai.rebuyDiscount)}</strong></div>
    <div><span>組數優惠</span><strong>${money(ai.groupDiscount)}</strong></div>
-   <div><span>手動優惠</span><strong>${money(ai.manual)}</strong></div>
+   <div><span>早晚鳥／手動優惠</span><strong>${money(ai.manual)}</strong></div>
    <div><span>折扣支出</span><strong>${money(ai.discountExpense)}</strong></div>
    <div><span>實收行政費</span><strong>${money(ai.netAdmin)}</strong></div>
    <div><span>其他收入</span><strong>${money(ai.itemIncome)}</strong></div>
@@ -4901,7 +4910,7 @@ function printDailyAccounting(){
   <h2>其他收支</h2>
   <table><thead><tr><th>類型</th><th>項目</th><th>金額</th></tr></thead><tbody>${itemRows}</tbody></table>
   <h2>當日賽事明細</h2>
-  <table><thead><tr><th>場次</th><th>賽事</th><th>組數</th><th>行政費收入</th><th>重買優惠</th><th>組數優惠</th><th>手動優惠</th><th>折扣支出</th><th>實收行政費</th><th>JP</th></tr></thead><tbody>${eventRows}</tbody></table>
+  <table><thead><tr><th>場次</th><th>賽事</th><th>組數</th><th>行政費收入</th><th>重買優惠</th><th>組數優惠</th><th>早晚鳥／手動優惠</th><th>折扣支出</th><th>實收行政費</th><th>JP</th></tr></thead><tbody>${eventRows}</tbody></table>
   <div class="sign"><div>製表：____________________</div><div>覆核：____________________</div></div>
  </div></body></html>`;
 
@@ -5042,7 +5051,7 @@ async function unlockSettledEvent(id){
 function setEventName_(id,value){
  const e=(db.events||[]).find(x=>String(x.id)===String(id));if(!e)return;
  const v=String(value||'').trim();
- e.name=v&&v!==eventOrdinalName_(e.seq||1)?v:'';
+ e.name=v;
  touchEvent_(e);
  persist();render();
  if(window.EPCFirestore?.ready)window.EPCFirestore.upsertEvent({
@@ -5058,6 +5067,7 @@ function applyFirestoreEventsToLegacy_(rows){
    const prev=previousById.get(String(v.eventId))||{};
    return ({
    id:v.eventId,date:v.businessDate||v.date,name:v.name||'',startTime:v.startTime||'',regCloseTime:v.regClose||'',endTime:v.endTime||'',
+   earlyBirdDiscount:Math.max(0,+v.earlyBirdDiscount||0),lateBirdDiscount:Math.max(0,+v.lateBirdDiscount||0),
    seq:+v.seq||1,level:+v.level||3400,poolUnit:+v.buyin||Math.max(0,(+v.buyinTotal||3400)-(+v.buyinAdmin||400)),
    admin:+v.fee||+v.buyinAdmin||400,pricingMode:(v.pricingMode||'standard'),buyinTotal:+v.buyinTotal||3400,
    buyinAdmin:+v.buyinAdmin||400,rebuyTotal:+v.rebuyTotal||3400,rebuyAdmin:+v.rebuyAdmin||400,
@@ -5106,13 +5116,16 @@ function renderEventList(){
    let raw=pool*e.jp/100, unit=Math.max(1,e.jpRound||1), jp=raw>0?Math.ceil(raw/unit)*unit:0;
    let reportBtn=`<button type="button" onclick="openEventReportById('${e.id}')">列印報表</button>`;
    let unlockBtn=e.status==='已結算'?`<button type="button" onclick="unlockSettledEvent('${e.id}')">解鎖編輯</button>`:'';
-   return `<tr><td>${businessDateForEvent(e)}</td><td><input value="${eventDisplayName_(e).replace(/&/g,'&amp;').replace(/\"/g,'&quot;')}" style="min-width:120px" onchange="setEventName_('${e.id}',this.value)"></td><td>${e.level}</td><td>${e.players.length}</td><td>${rebuys}</td><td>${groups}</td><td>${money(pool)}</td><td>${money(jp)}</td><td><span class="pill">${e.status||'進行中'}</span></td><td><button onclick="openEvent('${e.id}')">進入</button> ${reportBtn} ${unlockBtn} <button type="button" class="danger" onclick="deleteEventSafe('${e.id}')">刪除</button></td></tr>`;
- }).join('') || '<tr><td colspan="10" style="text-align:center;color:#91a0b2">此營業日尚無賽事</td></tr>';
+   return `<tr><td>${businessDateForEvent(e)}</td><td><input value="${eventDisplayName_(e).replace(/&/g,'&amp;').replace(/\"/g,'&quot;')}" style="min-width:120px" onchange="setEventName_('${e.id}',this.value)"></td><td>${e.level}</td><td>${e.players.length}</td><td>${e.players.filter(p=>p.earlyBird).length}</td><td>${e.players.filter(p=>p.lateBird).length}</td><td>${rebuys}</td><td>${groups}</td><td>${money(pool)}</td><td>${money(jp)}</td><td><span class="pill">${e.status||'進行中'}</span></td><td><button onclick="openEvent('${e.id}')">進入</button> ${reportBtn} ${unlockBtn} <button type="button" class="danger" onclick="deleteEventSafe('${e.id}')">刪除</button></td></tr>`;
+ }).join('') || '<tr><td colspan="12" style="text-align:center;color:#91a0b2">此營業日尚無賽事</td></tr>';
 }
 function calcPlayerForEvent(p,e){
  let buyin=(+p.buyin||0), rebuy=(+p.rebuy||0), addon=(+p.addon||0);
  let groups=buyin+rebuy+addon;
- let manual=(+p.manualDiscount||0);
+ const earlyDiscount=groups>0&&p.earlyBird?Math.max(0,+e.earlyBirdDiscount||0):0;
+ const lateDiscount=groups>0&&p.lateBird?Math.max(0,+e.lateBirdDiscount||0):0;
+ const birdDiscount=earlyDiscount+lateDiscount;
+ let manual=(+p.manualDiscount||0)+birdDiscount;
 
  if((e.pricingMode||'standard')==='custom'){
    let buyinTotal=(+e.buyinTotal||0), buyinAdmin=(+e.buyinAdmin||0);
@@ -5157,7 +5170,7 @@ function calcPlayerForEvent(p,e){
    let netAdmin=Math.max(0,grossAdmin-rebuyDiscount-accountingGroupDiscount-manual);
 
    return {
-     groups, auto, manual, totalDiscount, original, paid, pool,
+     groups, auto, manual, earlyDiscount,lateDiscount,birdDiscount, totalDiscount, original, paid, pool,
      grossAdmin, netAdmin,
      rebuyDiscount, overbuyDiscount, accountingRebuyDiscount, accountingGroupDiscount, normalRebuyGroups, overbuyGroups
    };
@@ -5176,7 +5189,7 @@ function calcPlayerForEvent(p,e){
  let accountingDisc=rebuyDiscount+accountingGroupDiscount+manual;
  let grossAdmin=groups*(+e.admin||0);
  return {
-   groups, auto, manual, totalDiscount:disc,
+   groups, auto, manual, earlyDiscount,lateDiscount,birdDiscount, totalDiscount:disc,
    original:base, paid:Math.max(0,base-accountingDisc),
    pool:groups*(+e.poolUnit||0),
    grossAdmin, netAdmin:Math.max(0,grossAdmin-accountingDisc),
@@ -5455,13 +5468,14 @@ document.addEventListener('focusout',event=>{
  },0);
 });
 function renderEventFast_(){
- if(epcPlayerEditing_()){epcPlayerRenderPending_=true;return}
+ const editing=epcPlayerEditing_();
+ if(editing)epcPlayerRenderPending_=true;
  const ev=currentEvent();if(!ev)return;
  if($('currentEventLabel'))$('currentEventLabel').textContent=`${ev.date} · ${eventDisplayName_(ev)} · ${ev.level}｜開賽 ${ev.startTime||'--:--'}｜預計截止買入 ${ev.regCloseTime||'--:--'}`;
  const visible=playerVisibleCols();
  const cols=[
   ['seat','座位',visible.has('seat')],['name','玩家',visible.has('name')],['memberId','會員編號',visible.has('memberId')],['nickname','綽號',visible.has('nickname')],
-  ['buyin','買入',true],['rebuy','重買',true],['groups','總組數',true],
+  ['buyin','買入',true],['rebuy','重買',true],['earlyBird','早鳥',true],['lateBird','晚鳥',true],['groups','總組數',true],
   ['rebuyDiscount','重買優惠',visible.has('rebuyDiscount')],['overbuyDiscount','超買優惠',visible.has('overbuyDiscount')],
   ['manualDiscount','手動優惠',visible.has('manualDiscount')],['totalDiscount','總優惠',visible.has('totalDiscount')],
   ['paid','實收',visible.has('paid')],['settleGroup','結帳群組',visible.has('settleGroup')],['action','操作',true]
@@ -5472,7 +5486,7 @@ function renderEventFast_(){
  if(cg)cg.innerHTML=cols.map(x=>`<col style="width:${((baseWeights[x[0]]||1)/tw*100).toFixed(3)}%">`).join('');
  if($('eventPlayerHead'))$('eventPlayerHead').innerHTML=cols.map(x=>`<th>${x[1]}</th>`).join('');
  const rows=$('playerRows');
- if(rows)rows.innerHTML=(ev.players||[]).map((p,i)=>{
+ if(rows&&!editing)rows.innerHTML=(ev.players||[]).map((p,i)=>{
    const m=(db.members||[]).find(x=>String(x.id)===String(p.memberId))||{},cc=calcPlayerForEvent(p,ev);
    const cell={
     seat:`<td><input value="${epcDisplayEscape_(p.seat||'')}" oninput="setP(${i},'seat',this.value)"></td>`,
@@ -5480,22 +5494,31 @@ function renderEventFast_(){
     nickname:`<td><input value="${epcDisplayEscape_(p.nickname||'')}" oninput="setP(${i},'nickname',this.value)" onchange="syncPlayerNickname_('${p.memberId}',this.value)"></td>`,
     buyin:`<td><input type="number" min="0" value="${+p.buyin||0}" oninput="setP(${i},'buyin',this.value)"></td>`,
     rebuy:`<td><input type="number" min="0" value="${+p.rebuy||0}" oninput="setP(${i},'rebuy',this.value)"></td>`,
+    earlyBird:`<td><input type="checkbox" ${p.earlyBird?'checked':''} onchange="setP(${i},'earlyBird',this.checked)"></td>`,
+    lateBird:`<td><input type="checkbox" ${p.lateBird?'checked':''} onchange="setP(${i},'lateBird',this.checked)"></td>`,
     groups:`<td>${cc.groups}</td>`,rebuyDiscount:`<td>${money(cc.rebuyDiscount)}</td>`,overbuyDiscount:`<td>${money(cc.overbuyDiscount)}</td>`,
     manualDiscount:`<td><input type="number" value="${+p.manualDiscount||0}" oninput="setP(${i},'manualDiscount',this.value)"></td>`,
     totalDiscount:`<td>${money(cc.totalDiscount)}</td>`,paid:`<td>${money(cc.paid)}</td>`,
     settleGroup:`<td><input value="${epcDisplayEscape_(p.group||'')}" oninput="setP(${i},'group',this.value)"></td>`,
     action:`<td><button class="danger" onclick="delP(${i})">移除</button></td>`
-   };return '<tr>'+cols.map(x=>cell[x[0]]||'<td></td>').join('')+'</tr>';
+   };return '<tr>'+cols.map(x=>(cell[x[0]]||'<td></td>').replace('<td>',`<td class="col-${x[0]}">`)).join('')+'</tr>';
  }).join('');
- const totals=$('playerTotals');
+ if(rows&&editing)(ev.players||[]).forEach((p,i)=>{
+   const c=calcPlayerForEvent(p,ev),row=rows.children[i];if(!row)return;
+   const values={groups:c.groups,rebuyDiscount:money(c.rebuyDiscount),overbuyDiscount:money(c.overbuyDiscount),totalDiscount:money(c.totalDiscount),paid:money(c.paid)};
+   Object.entries(values).forEach(([key,value])=>{const cell=row.querySelector('.col-'+key);if(cell)cell.textContent=value;});
+   ['earlyBird','lateBird'].forEach(key=>{const input=row.querySelector('.col-'+key+' input');if(input)input.checked=!!p[key]});
+ });
+ const totals=$('eventPlayerTotals');
  if(totals){
    const sums={groups:0,rebuyDiscount:0,overbuyDiscount:0,manualDiscount:0,totalDiscount:0,paid:0};
-   (ev.players||[]).forEach(p=>{const x=calcPlayerForEvent(p,ev);sums.groups+=x.groups;sums.rebuyDiscount+=x.rebuyDiscount;sums.overbuyDiscount+=x.overbuyDiscount;sums.manualDiscount+=x.manual;sums.totalDiscount+=x.totalDiscount;sums.paid+=x.paid;});
-   const totalCell={seat:'',name:'本場總計',memberId:'',nickname:'',buyin:'',rebuy:'',groups:String(sums.groups),
+   (ev.players||[]).forEach(p=>{const x=calcPlayerForEvent(p,ev);sums.groups+=x.groups;sums.rebuyDiscount+=x.rebuyDiscount;sums.overbuyDiscount+=x.overbuyDiscount;sums.manualDiscount+=+p.manualDiscount||0;sums.totalDiscount+=x.totalDiscount;sums.paid+=x.paid;});
+   const totalCell={seat:'',name:'本場總計',memberId:'',nickname:'',buyin:'',rebuy:'',earlyBird:String(ev.players.filter(p=>p.earlyBird).length)+' 人',lateBird:String(ev.players.filter(p=>p.lateBird).length)+' 人',groups:String(sums.groups),
     rebuyDiscount:money(sums.rebuyDiscount),overbuyDiscount:money(sums.overbuyDiscount),manualDiscount:money(sums.manualDiscount),
     totalDiscount:money(sums.totalDiscount),paid:money(sums.paid),settleGroup:'',action:''};
-   totals.innerHTML='<tr style="font-weight:800">'+cols.map((x,idx)=>'<td>'+(idx===0?'本場總計':(totalCell[x[0]]||''))+'</td>').join('')+'</tr>';
+   totals.innerHTML=cols.map((x,idx)=>'<td>'+(idx===0?'本場總計':(totalCell[x[0]]||''))+'</td>').join('');
  }
+ renderEventList();
 }
 function setPlayerColumnPreference(k,v){
  const visible=new Set(loadPlayerVisibleCols());
@@ -5587,7 +5610,7 @@ function actRangeEditor_(kind){
 }
 function actBusinessDate_(e){return businessDateForEvent(e)||String(e?.businessDate||e?.date||'')}
 function actNeedsSettled_(kind){return ['rank','hunter'].includes(String(kind||''))}
-function isPioneerEvent_(e){return /^第(?:一|1)場$/.test(String(eventDisplayName_(e)).trim());}
+function isPioneerEvent_(e){return /^(?:第(?:一|1)場|EPC#1\s+\d+限時錦標賽)$/.test(String(eventDisplayName_(e)).trim());}
 function actEvents_(kind=actTab_){
  const {from,to}=actActivityRange_(kind),needsSettled=actNeedsSettled_(kind);
  return (db.events||[]).filter(e=>{
@@ -5598,13 +5621,21 @@ function actEvents_(kind=actTab_){
 }
 function actMember_(id){return (db.members||[]).find(m=>String(m.id)===String(id))||{}}
 
-function actMemberOptions_(){return (db.members||[]).map(m=>`<option value="${m.id}">${epcPlayerDisplayHtml_(m)} (${m.id||''})</option>`).join('')}
+function actMemberOptions_(){return (db.members||[]).map(m=>`<option value="${m.id}">${epcDisplayEscape_(memberSearchLabel_(m))}</option>`).join('')}
+function memberSearchLabel_(m,profile){
+ const id=String(m.id||m.memberId||'');
+ const member=profile||(m.id?m:(db.members||[]).find(x=>String(x.id)===id))||m;
+ const name=String(member.name||m.name||'').trim();
+ const nickname=String(m.nickname||member.nickname||'').trim();
+ return [name,nickname&&nickname!==name?'綽號：'+nickname:''].filter(Boolean).join(' / ')+' ('+id+')';
+}
 function actMemberSearchOptions_(members){
  return (members||db.members||[]).map(m=>{
   const id=String(m.id||m.memberId||'');
   const mm=m.id?m:actMember_(id);
   const name=activityIdentityMode_()==='id'?epcDisplayEscape_(id):epcPlayerDisplayHtml_(m,mm);
-  return '<option value="'+(name===epcDisplayEscape_(id)?name:name+' ('+epcDisplayEscape_(id)+')')+'"></option>';
+  const value=name===epcDisplayEscape_(id)?name:name+' ('+epcDisplayEscape_(id)+')';
+  return '<option value="'+value+'" data-label="'+epcDisplayEscape_(memberSearchLabel_(m,mm))+'"></option>';
  }).join('');
 }
 function actResolveMember_(inputId){
@@ -5738,7 +5769,7 @@ function togglePioneerCard_(eventId,btn){
 function actPioneer_(){
  const A=db.activityManagement;
  const cards=actEvents_('pioneer').map(e=>{const P=A.pioneer[e.id];if(!P)return `<div class="card" style="margin-top:10px"><b>${actEventLabel_(e)}</b><div class="small">${(e.players||[]).length} 位參賽者</div><button style="margin-top:8px" onclick="pioneerLoadEvent_('${e.id}')">建立本場先鋒積分</button></div>`;
-  const opts='<option value="">--未登記--</option>'+(e.players||[]).map(p=>`<option value="${p.memberId}">${epcPlayerDisplayHtml_(p.memberId)}</option>`).join('');
+  const opts='<option value="">--未登記--</option>'+(e.players||[]).map(p=>`<option value="${p.memberId}">${epcDisplayEscape_(memberSearchLabel_(p))}</option>`).join('');
   return `<div class="card pioneer-event-card" id="pioneerCard_${e.id}" style="margin-top:10px"><div class="pioneer-event-head"><h3>${actEventLabel_(e)}</h3><button type="button" class="pioneer-collapse-btn" onclick="togglePioneerCard_(\'${e.id}\',this)">收合 ▲</button></div><div class="pioneer-event-body"><div class="formgrid" style="grid-template-columns:repeat(4,1fr)">${[0,1,2,3].map(i=>`<div><label>第${i+1}位</label><select id="pioneerFirst_${e.id}_${i}" onchange="pioneerSetFirst_('${e.id}',${i},this.value)">${opts.replace(`value="${P.first4[i]||''}"`,`value="${P.first4[i]||''}" selected`)}</select></div>`).join('')}</div>
   <table style="margin-top:10px"><thead><tr><th>玩家</th><th>是否前4</th><th>本場積分（自動）</th></tr></thead><tbody>${(e.players||[]).map(p=>`<tr><td>${epcPlayerDisplayHtml_(p.memberId)}</td><td>${P.first4.includes(p.memberId)?'是':'否'}</td><td><input id="pioneerScore_${e.id}_${p.memberId}" type="number" style="width:90px" readonly value="${P.first4.includes(p.memberId)?[5,4,3,2][P.first4.indexOf(p.memberId)]:1}" onchange="pioneerScore_('${e.id}','${p.memberId}',this.value)"></td></tr>`).join('')}</tbody></table><div style="display:flex;gap:12px;align-items:center;margin-top:12px"><button onclick="pioneerConfirm_('${e.id}')">${P.confirmed?'更新本場排名':'確認本場排名'}</button><span class="small">${P.confirmed?'✓ 已儲存':'尚未確認儲存'}</span></div></div></div>`}).join('');
  const totals=pioneerTotals_();
@@ -6023,7 +6054,7 @@ function selectBoss_(id){db.activityManagement.boss.activeBossId=id;persist();if
 function addBossAttack_(){const B=db.activityManagement.boss,b=activeBoss_(),id=actResolveMember_('bossMember');if(!b)return actionMsg('請先新增魔王',true);if(!id)return actionMsg('請選攻擊玩家',true);const success=!!$('bossSuccess').checked;if(b.killed)return actionMsg('此魔王已擊殺，不能再次登記',true);if(success){const end=$('bossKillEnd')?.value;if(!end)return actionMsg('請選擊殺時的結束場次',true);const events=bossOrderedEvents_(),i=b.startEventId?events.findIndex(e=>String(e.id)===String(b.startEventId)):0,j=events.findIndex(e=>String(e.id)===end);if(i<0||j<i)return actionMsg('結束場次不能早於起始場次',true);b.startEventId=b.startEventId||events[i]?.id;b.endEventId=end;}const S=bossStats_(),table=Math.max(1,+$('bossTableCount').value||1),pool=Math.min(+B.cap||Infinity,S.pool);let dmg=Math.max(0,+$('bossDamage').value||0),killer=0,other=0;if(success){dmg=Math.max(dmg,bossCurrentHp_());b.frozenStats={...S};b.closedAt=new Date().toISOString();b.killed=true;const others=Math.max(0,table-1);if(others){other=Math.floor((pool*.5/others)/100)*100;killer=pool-other*others}else killer=pool}b.attacks=b.attacks||[];b.attacks.unshift({id:'B'+Date.now(),date:$('bossDate').value,memberId:id,method:$('bossMethod').value,damage:dmg,execute:+$('bossExecute').value||0,success,note:$('bossNote').value||'',poolAtKill:success?pool:0,tableCount:success?table:0,killerPrize:killer,otherPrize:other});persist();if(window.saveActivityCloudV3)window.saveActivityCloudV3();renderActivities()}
 function bossAttackDel_(id){const b=activeBoss_();if(!b)return;b.attacks=(b.attacks||[]).filter(x=>x.id!==id);b.killed=b.attacks.some(x=>x.success);if(!b.killed){delete b.frozenStats;delete b.closedAt;}persist();if(window.saveActivityCloudV3)window.saveActivityCloudV3();renderActivities()}
 function actBoss_(){const B=db.activityManagement.boss,S=bossStats_(),b=activeBoss_(),hp=bossCurrentHp_(),range=(db.events||[]).filter(e=>(!B.activityFrom||e.date>=B.activityFrom)&&(!B.activityTo||e.date<=B.activityTo));const stage=(name,p,people,groups)=>`<div class="card"><h3>${name}</h3><div class="formgrid" style="grid-template-columns:repeat(3,1fr)"><div><label>人數加碼｜多少人</label><input type="number" value="${B[p+'PersonStep']}" onchange="bossSet_('${p}PersonStep',this.value)"></div><div><label>+多少錢</label><input type="number" value="${B[p+'PersonAmount']}" onchange="bossSet_('${p}PersonAmount',this.value)"></div><div><label>忽略不計人數</label><input type="number" value="${B[p+'PersonIgnore']}" onchange="bossSet_('${p}PersonIgnore',this.value)"></div><div><label>組數加碼｜多少組</label><input type="number" value="${B[p+'GroupStep']}" onchange="bossSet_('${p}GroupStep',this.value)"></div><div><label>+多少錢</label><input type="number" value="${B[p+'GroupAmount']}" onchange="bossSet_('${p}GroupAmount',this.value)"></div><div><label>忽略不計組數</label><input type="number" value="${B[p+'GroupIgnore']}" onchange="bossSet_('${p}GroupIgnore',this.value)"></div></div><div class="small">此階段目前 ${people} 人／${groups} 組</div></div>`;return `<div class="card"><h3>雙十狩主｜活動區間與規則</h3><div class="formgrid" style="grid-template-columns:repeat(4,1fr)"><div><label>活動開始日</label><input type="date" value="${B.activityFrom}" onchange="bossSet_('activityFrom',this.value)"></div><div><label>活動結束日</label><input type="date" value="${B.activityTo}" onchange="bossSet_('activityTo',this.value)"></div><div><label>起始獎金</label><input type="number" value="${B.startPrize}" onchange="bossSet_('startPrize',this.value)"></div><div><label>封頂</label><input type="number" value="${B.cap}" onchange="bossSet_('cap',this.value)"></div><div><label>自動啟動標準線</label><input type="number" value="${B.attackThreshold}" onchange="bossSet_('attackThreshold',this.value)"></div><div><label>魔王預設HP</label><input type="number" value="${B.initialHp}" onchange="bossSet_('initialHp',this.value)"></div><div><label>手動開啟攻擊階段</label><input type="checkbox" ${(b?.cycleVersion?b.attackEnabled:B.attackEnabled)?'checked':''} onchange="bossToggleAttack_(this.checked)"><div class="small">未達自動門檻時可強制開啟；取消後若仍未達門檻，會回到未啟用。</div></div></div><h3>不計算場次</h3><div class="formgrid" style="grid-template-columns:1fr auto;align-items:end"><div><label>選擇場次</label><select id="bossExcludeSelect"><option value="">選擇要排除的場次</option>${range.filter(e=>!(B.excludedEventIds||[]).includes(String(e.id))).map(e=>`<option value="${e.id}">${actEventLabel_(e)}</option>`).join('')}</select></div><div><button onclick="bossAddExclude_()">＋新增</button></div></div><div style="margin-top:8px">${(B.excludedEventIds||[]).map(id=>{const e=(db.events||[]).find(x=>String(x.id)===String(id));return e?`<span style="display:inline-flex;align-items:center;gap:6px;margin:3px;padding:6px 8px;border:1px solid #33495b;border-radius:8px">${actEventLabel_(e)} <button class="danger" style="padding:2px 6px" onclick="bossRemoveExclude_('${id}')">×</button></span>`:''}).join('')||'<span class="small">目前沒有不計算場次</span>'}</div></div><div class="card" style="margin-top:12px"><h3>魔王管理｜目前狀態</h3><div style="display:flex;gap:8px;flex-wrap:wrap">${(B.bosses||[]).map(x=>`<button onclick="selectBoss_('${x.id}')">${x.name}${x.killed?'（已擊殺）':''}</button>`).join('')}<button onclick="addNewBoss_()">＋新增魔王</button>${b?`<button class="danger" onclick="deleteBoss_('${b.id}')">刪除目前魔王</button>`:''}</div>${b?`<div class="formgrid" style="grid-template-columns:2fr 1fr;align-items:end;margin-top:12px"><div><label>目前魔王名稱</label><input type="text" value="${String(b.name||'').replace(/\"/g,'&quot;')}" onchange="bossRename_('${b.id}',this.value)" placeholder="例如：赤焰白虎王"></div><div><label>HP 狀態</label><div style="padding:10px 0">初始 ${b.initialHp}｜剩餘 <b>${hp}</b></div></div></div>${bossBoundsUi_(b)}<div class="small">修改名稱後會立即儲存；重新套用 DISPLAY 後，電視畫面會同步顯示新名稱。</div>`:''}</div><div class="grid" style="grid-template-columns:1fr 1fr;gap:12px;margin-top:12px">${stage('一般模式','normal',S.np,S.ng)}${stage('狩王模式','hunt',S.hp,S.hg)}</div><div class="card" style="margin-top:12px"><h3>區間統計</h3><table><thead><tr><th>模式</th><th>人數</th><th>人數加碼</th><th>累積總組數</th><th>符合組數加碼場次</th><th>組數加碼</th></tr></thead><tbody><tr><td>一般模式</td><td>${S.np}</td><td>${money(S.npb)}</td><td>${S.ng}</td><td>${S.normalQualifyingEvents}</td><td>${money(S.ngb)}</td></tr><tr><td>攻擊模式</td><td>${S.hp}</td><td>${money(S.hpb)}</td><td>${S.hg}</td><td>${S.huntQualifyingEvents}</td><td>${money(S.hgb)}</td></tr></tbody></table><div class="small" style="margin-top:9px">組數加碼採「每場獨立計算」，不同場次的組數不合併湊級距；累積總組數僅顯示活動期間實際總組數。</div><h3>目前累積 ${money(S.pool)}｜攻擊模式：${S.active?'已啟用':'未啟用'}</h3></div>${b&&S.active&&!b.killed?`<div class="card" style="margin-top:12px"><h3>攻擊登記</h3><div class="formgrid" style="grid-template-columns:repeat(8,1fr)"><div><label>日期</label><input type="date" id="bossDate" value="${new Date().toISOString().slice(0,10)}"></div><div><label>攻擊玩家</label><input id="bossMember" list="bossMemberList" placeholder="姓名 / ID"><datalist id="bossMemberList">${actMemberSearchOptions_()}</datalist></div><div><label>形式</label><select id="bossMethod"><option>10Xo</option><option>TT</option><option>斬殺</option><option>其他</option></select></div><div><label>傷害</label><input type="number" id="bossDamage" value="10"></div><div><label>第幾次斬殺</label><input type="number" id="bossExecute" value="0"></div><div><label>擊殺結束場次（勾選擊殺才需填）</label><select id="bossKillEnd"><option value="">請選結束場次</option>${bossEventOptions_(b.endEventId)}</select></div><div><label>擊殺魔王</label><input type="checkbox" id="bossSuccess"></div><div><label>桌上總人數（含擊殺者）</label><input type="number" id="bossTableCount" value="2" min="1"></div><div><label>備註</label><input id="bossNote"></div></div><button onclick="addBossAttack_()">登記攻擊</button></div>`:''}${b?`<div class="card" style="margin-top:12px"><h3>攻擊／分配紀錄</h3><table><thead><tr><th>日期</th><th>玩家</th><th>形式</th><th>傷害</th><th>擊殺</th><th>當下獎池</th><th>擊殺者</th><th>其他每人</th><th>桌上人數</th><th></th></tr></thead><tbody>${(b.attacks||[]).map(x=>`<tr><td>${x.date}</td><td>${epcPlayerDisplayHtml_(x.memberId)}</td><td>${x.method}</td><td>${x.damage}</td><td>${x.success?'是':'否'}</td><td>${x.success?money(x.poolAtKill):'-'}</td><td>${x.success?money(x.killerPrize):'-'}</td><td>${x.success?money(x.otherPrize):'-'}</td><td>${x.success?x.tableCount:'-'}</td><td><button class="danger" onclick="bossAttackDel_('${x.id}')">刪除</button></td></tr>`).join('')}</tbody></table></div>`:''}`}
-function enhanceSearchCombos_(){document.querySelectorAll('input[list]').forEach(inp=>{if(inp.dataset.comboDone)return;inp.dataset.comboDone='1';const dl=document.getElementById(inp.getAttribute('list'));if(!dl)return;const wrap=document.createElement('div');wrap.className='searchCombo';inp.parentNode.insertBefore(wrap,inp);wrap.appendChild(inp);const menu=document.createElement('div');menu.className='searchComboMenu';wrap.appendChild(menu);const draw=()=>{const q=(inp.value||'').toLowerCase();const a=[...dl.querySelectorAll('option')].filter(o=>!q||o.value.toLowerCase().includes(q)).slice(0,150);menu.innerHTML=a.map(o=>'<div class="searchComboItem" data-v="'+o.value.replace(/"/g,'&quot;')+'">'+o.value+'</div>').join('');menu.classList.toggle('open',a.length>0&&document.activeElement===inp)};inp.addEventListener('input',draw);inp.addEventListener('focus',draw);menu.addEventListener('mousedown',e=>{const x=e.target.closest('.searchComboItem');if(!x)return;e.preventDefault();inp.value=x.dataset.v;menu.classList.remove('open');inp.dispatchEvent(new Event('change',{bubbles:true}))});inp.addEventListener('blur',()=>setTimeout(()=>menu.classList.remove('open'),100))})}
+function enhanceSearchCombos_(){document.querySelectorAll('input[list]').forEach(inp=>{if(inp.dataset.comboDone)return;inp.dataset.comboDone='1';const dl=document.getElementById(inp.getAttribute('list'));if(!dl)return;const wrap=document.createElement('div');wrap.className='searchCombo';inp.parentNode.insertBefore(wrap,inp);wrap.appendChild(inp);const menu=document.createElement('div');menu.className='searchComboMenu';wrap.appendChild(menu);const draw=()=>{const q=(inp.value||'').toLowerCase();const a=[...dl.querySelectorAll('option')].filter(o=>!q||[o.value,o.dataset.label||'',o.textContent||''].join(' ').toLowerCase().includes(q)).slice(0,150);menu.innerHTML=a.map(o=>'<div class="searchComboItem" data-v="'+epcDisplayEscape_(o.value)+'">'+epcDisplayEscape_(o.dataset.label||o.textContent||o.value)+'</div>').join('');menu.classList.toggle('open',a.length>0&&document.activeElement===inp)};inp.addEventListener('input',draw);inp.addEventListener('focus',draw);menu.addEventListener('mousedown',e=>{const x=e.target.closest('.searchComboItem');if(!x)return;e.preventDefault();inp.value=x.dataset.v;menu.classList.remove('open');inp.dispatchEvent(new Event('change',{bubbles:true}))});inp.addEventListener('blur',()=>setTimeout(()=>menu.classList.remove('open'),100))})}
 function renderActivities(){
  if(!$('activities'))return;ensureActDb_();
  const previous=window.epcActivityIdentityMode_,mode=activityIdentityMode_();
@@ -6045,14 +6076,14 @@ function renderActivities(){
 function render(){
  if(epcPlayerEditing_()){epcFullRenderPending_=true;return}
  renderDashboardSummary();
- renderActivities();setTimeout(enhanceSearchCombos_,0);
+ if($('activities')?.classList.contains('active')){renderActivities();setTimeout(enhanceSearchCombos_,0);}
  syncAccountingBusinessHours();
  let ev=currentEvent();
  if($('btnUnlockEvent'))$('btnUnlockEvent').style.display=(ev?.status==='已結算'||ev?.status==='settled')?'inline-block':'none';
  renderEventList();
  renderAccountingManager();
  renderSettlementManager();
- renderMemberRows();
+ if($('members')?.classList.contains('active'))renderMemberRows();
  bindAccountingControls();
  if(db.currentAccountingDate)renderDailyAccountingDetail();
  if(!ev){
@@ -6068,6 +6099,8 @@ function render(){
      : `每組獎池 ${money(ev.poolUnit)}＋行政費 ${money(ev.admin)}`;
    $('settleEventMeta').textContent=`${priceText}｜每組籌碼 ${Number(ev.chips).toLocaleString()}｜狀態：${ev.status}`;
  }
+ if($('eEarlyBirdDiscount'))$('eEarlyBirdDiscount').value=ev.earlyBirdDiscount||0;
+ if($('eLateBirdDiscount'))$('eLateBirdDiscount').value=ev.lateBirdDiscount||0;
  if($('settleStartTime'))$('settleStartTime').value=ev.startTime||'';
  if($('settleRegCloseTime'))$('settleRegCloseTime').value=ev.regCloseTime||'';
  if($('settleEndTime'))$('settleEndTime').value=ev.endTime||'';
@@ -6081,11 +6114,10 @@ function render(){
  togglePricingMode();
  $('eChips').value=ev.chips;$('eJP').value=ev.jp;$('eJPRound').value=ev.jpRound;$('ePayout').value=ev.payout;
  filterAddPlayerMembers($('addPlayerSearch')?.value||'');
- renderMemberRows();
  const visible=playerVisibleCols();
  const cols=[
   ['seat','座位',visible.has('seat')],['name','玩家',visible.has('name')],['memberId','會員編號',visible.has('memberId')],['nickname','綽號',visible.has('nickname')],
-  ['buyin','買入',true],['rebuy','重買',true],['groups','總組數',true],
+  ['buyin','買入',true],['rebuy','重買',true],['earlyBird','早鳥',true],['lateBird','晚鳥',true],['groups','總組數',true],
   ['rebuyDiscount','重買優惠',visible.has('rebuyDiscount')],['overbuyDiscount','超買優惠',visible.has('overbuyDiscount')],
   ['manualDiscount','手動優惠',visible.has('manualDiscount')],['totalDiscount','總優惠',visible.has('totalDiscount')],
   ['paid','實收',visible.has('paid')],['settleGroup','結帳群組',visible.has('settleGroup')],['action','操作',true]
@@ -6114,12 +6146,14 @@ function render(){
     name:`<span style="white-space:nowrap">${epcPlayerDisplayHtml_(p,m)}</span>`,
     memberId:`<span style="white-space:nowrap">${m.id||p.memberId||''}</span>`,
     nickname:`<input value="${p.nickname??m.nickname??''}" placeholder="綽號" style="width:100%;min-width:0" onchange="setP(${i},'nickname',this.value);syncPlayerNickname_('${p.memberId}',this.value)">`,
-    buyin:`<input type="number" min="0" value="${p.buyin}" style="width:100%;min-width:0" onchange="setP(${i},'buyin',this.value)">`,
-    rebuy:`<input type="number" min="0" value="${p.rebuy}" style="width:100%;min-width:0" onchange="setP(${i},'rebuy',this.value)">`,
+    buyin:`<input type="number" min="0" value="${p.buyin}" style="width:100%;min-width:0" oninput="setP(${i},'buyin',this.value)">`,
+    rebuy:`<input type="number" min="0" value="${p.rebuy}" style="width:100%;min-width:0" oninput="setP(${i},'rebuy',this.value)">`,
+    earlyBird:`<input type="checkbox" ${p.earlyBird?'checked':''} onchange="setP(${i},'earlyBird',this.checked)">`,
+    lateBird:`<input type="checkbox" ${p.lateBird?'checked':''} onchange="setP(${i},'lateBird',this.checked)">`,
     groups:`<span style="white-space:nowrap">${c.groups}</span>`,
     rebuyDiscount:`<span style="white-space:nowrap">${money(c.rebuyDiscount||0)}</span>`,
     overbuyDiscount:`<span style="white-space:nowrap">${money(c.overbuyDiscount||0)}</span>`,
-    manualDiscount:`<input type="number" min="0" value="${p.manualDiscount}" style="width:100%;min-width:0" onchange="setP(${i},'manualDiscount',this.value)">`,
+    manualDiscount:`<input type="number" min="0" value="${p.manualDiscount}" style="width:100%;min-width:0" oninput="setP(${i},'manualDiscount',this.value)">`,
     totalDiscount:`<b style="white-space:nowrap">${money(c.totalDiscount||0)}</b>`,
     paid:`<span style="white-space:nowrap">${money(c.paid)}</span>`,
     settleGroup:`<input value="${p.group??''}" placeholder="結帳群組" style="width:100%;min-width:0" onchange="setP(${i},'group',this.value)">`,
@@ -6133,13 +6167,14 @@ function render(){
    a.groups+=c.groups||0;
    a.rebuyDiscount+=c.rebuyDiscount||0;
    a.overbuyDiscount+=c.overbuyDiscount||0;
-   a.manualDiscount+=c.manual||(+r.p.manualDiscount||0);
+   a.manualDiscount+=+r.p.manualDiscount||0;
    a.totalDiscount+=c.totalDiscount||0;
    a.paid+=c.paid||0;
    return a;
  },{groups:0,rebuyDiscount:0,overbuyDiscount:0,manualDiscount:0,totalDiscount:0,paid:0});
  const totalVals={
   name:'<b style="white-space:nowrap">本場總計</b>',memberId:'',nickname:'',buyin:'',rebuy:'',
+  earlyBird:ev.players.filter(p=>p.earlyBird).length+' 人',lateBird:ev.players.filter(p=>p.lateBird).length+' 人',
   groups:`<b>${totals.groups.toLocaleString()}</b>`,
   rebuyDiscount:`<b>${money(totals.rebuyDiscount)}</b>`,
   overbuyDiscount:`<b>${money(totals.overbuyDiscount)}</b>`,
