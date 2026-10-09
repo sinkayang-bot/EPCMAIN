@@ -2389,7 +2389,7 @@ window.addEventListener('error',function(e){
   <div class="formgrid" style="grid-template-columns:1fr 1fr 1.2fr auto">
    <div><label>查詢開始日</label><input type="date" id="actFrom" onchange="renderActivities()"></div>
    <div><label>查詢結束日</label><input type="date" id="actTo" onchange="renderActivities()"></div>
-   <div><label>會員查詢</label><input id="actSearch" placeholder="姓名 / 會員ID" oninput="renderActivities()"></div>
+   <div><label>會員查詢</label><input id="actSearch" list="actSearchList" autocomplete="off" placeholder="本名 / 綽號 / 會員編號" oninput="renderActivities(true)" onchange="renderActivities(true)"><datalist id="actSearchList"></datalist></div>
    <div style="align-self:end"><button class="secondary" onclick="actThisMonth_()">本月</button></div>
   </div>
  </div>
@@ -6070,6 +6070,8 @@ function actBoss_(){const B=db.activityManagement.boss,S=bossStats_(),b=activeBo
 function enhanceSearchCombos_(){document.querySelectorAll('input[list]').forEach(inp=>{if(inp.dataset.comboDone)return;inp.dataset.comboDone='1';const dl=document.getElementById(inp.getAttribute('list'));if(!dl)return;const wrap=document.createElement('div');wrap.className='searchCombo';inp.parentNode.insertBefore(wrap,inp);wrap.appendChild(inp);const menu=document.createElement('div');menu.className='searchComboMenu';wrap.appendChild(menu);const draw=()=>{const q=(inp.value||'').toLowerCase();const a=[...dl.querySelectorAll('option')].filter(o=>!q||[o.value,o.dataset.label||'',o.textContent||''].join(' ').toLowerCase().includes(q)).slice(0,150);menu.innerHTML=a.map(o=>'<div class="searchComboItem" data-v="'+epcDisplayEscape_(o.value)+'">'+epcDisplayEscape_(o.dataset.label||o.textContent||o.value)+'</div>').join('');menu.classList.toggle('open',a.length>0&&document.activeElement===inp)};inp.addEventListener('input',draw);inp.addEventListener('focus',draw);menu.addEventListener('mousedown',e=>{const x=e.target.closest('.searchComboItem');if(!x)return;e.preventDefault();inp.value=x.dataset.v;menu.classList.remove('open');inp.dispatchEvent(new Event('change',{bubbles:true}))});inp.addEventListener('blur',()=>setTimeout(()=>menu.classList.remove('open'),100))})}
 function renderActivities(){
  if(!$('activities'))return;ensureActDb_();
+ if($('actSearchList'))$('actSearchList').innerHTML=(db.members||[]).map(m=>`<option value="${epcDisplayEscape_(m.id)}" data-label="${epcDisplayEscape_(memberSearchLabel_(m))}"></option>`).join('');
+ setTimeout(enhanceSearchCombos_,0);
  const previous=window.epcActivityIdentityMode_,mode=activityIdentityMode_();
  if($('activityIdentityMode'))$('activityIdentityMode').value=mode;
  window.epcActivityIdentityMode_=mode;
@@ -7040,7 +7042,8 @@ render=function(){
 };
 const epcActivitiesBeforeStrongGuard_=renderActivities;
 renderActivities=function(){
- if(epcStrongEditing_()){epcStrongPendingActivities_=true;return}
+ const searching=arguments[0]===true&&document.activeElement?.id==='actSearch';
+ if(epcStrongEditing_()&&!searching){epcStrongPendingActivities_=true;return}
  return epcActivitiesBeforeStrongGuard_.apply(this,arguments);
 };
 document.addEventListener('focusout',function(e){

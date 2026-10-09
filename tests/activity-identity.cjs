@@ -3,10 +3,18 @@ const html=fs.readFileSync('index.html','utf8'),part=(a,b)=>html.slice(html.inde
 const nodes=new Map(),storage=new Map(),node=id=>{if(!nodes.has(id))nodes.set(id,{value:'',innerHTML:'',style:{}});return nodes.get(id)};
 const member={id:'348750',name:'正式姓名',nickname:'美技'},c={db:{members:[member]},$:node,localStorage:{getItem:k=>storage.get(k),setItem:(k,v)=>storage.set(k,v)},document:{querySelectorAll:()=>[]},ensureActDb_(){},actRangeEditor_:()=>'',actTab_:'weekly'};c.window=c;vm.createContext(c);
 vm.runInContext(part('function epcPlayerDisplayName_','const CLOUD_API'),c);vm.runInContext(part('function activityIdentityMode_','let actTab_='),c);
+vm.runInContext(part('function memberSearchLabel_','function actMemberSearchOptions_'),c);
+c.setTimeout=()=>{};c.enhanceSearchCombos_=()=>{};
 for(const fn of ['actWeekly_','actPioneer_','actRank_','actHunter_','actUmbrella_','actBoss_'])c[fn]=()=>c.epcPlayerDisplayName_('348750');
 vm.runInContext(part('function renderActivities(){','function render(){'),c);
 c.renderActivities();for(const id of ['actWeekly','actPioneer','actRank','actHunter','actUmbrella','actBoss'])assert.equal(node(id).innerHTML,'美技');
+assert.match(node('actSearchList').innerHTML,/value="348750"/);assert.match(node('actSearchList').innerHTML,/正式姓名.*美技.*348750/);
 c.setActivityIdentityMode_('id');for(const id of ['actWeekly','actPioneer','actRank','actHunter','actUmbrella','actBoss'])assert.equal(node(id).innerHTML,'348750');
 assert.equal(storage.get('epcActivityIdentityModeV1'),'id');assert.equal(c.epcPlayerDisplayName_('348750'),'美技','display outside backend activities remains nickname-first');
 c.actBoss_=()=>{throw Error('render fail')};assert.throws(()=>c.renderActivities(),/render fail/);assert.equal(c.epcActivityIdentityMode_,undefined,'render scope is restored even on errors');assert.deepEqual(member,{id:'348750',name:'正式姓名',nickname:'美技'});
+let draws=0;c.renderActivities=()=>draws++;c.epcStrongEditing_=()=>true;c.epcStrongPendingActivities_=false;
+vm.runInContext(part('const epcActivitiesBeforeStrongGuard_=','document.addEventListener(\'focusout\',function(e){'),c);
+c.document.activeElement={id:'actSearch'};c.renderActivities(true);assert.equal(draws,1,'typing in member query refreshes immediately');
+c.renderActivities();assert.equal(draws,1,'background redraw remains protected');
+c.document.activeElement={id:'bossDamage'};c.renderActivities(true);assert.equal(draws,1,'manual activity edits remain protected');
 console.log('PASS: all six activity panes switch identity, preference persists, stored members and other display contexts stay unchanged.');
