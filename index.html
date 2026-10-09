@@ -2126,15 +2126,13 @@ window.addEventListener('error',function(e){
   </div>
   <div class="small" style="margin-top:8px">座位、玩家、實收可自行勾選顯示；買入、重買、總組數固定顯示；結帳群組僅供後台分帳使用。綽號輸入完成離開欄位後，會同步到會員資料。<button type="button" onclick="syncEventNicknames_()">本場綽號同步會員</button></div>
  </div>
- <div class="card" id="epcDesktopSeating"><h3 style="margin:0 0 8px">桌位管理｜選擇玩家、桌號與座位</h3>
- <div style="display:flex;gap:10px;align-items:end;flex-wrap:wrap">
-  <label style="flex:2;min-width:190px">選擇玩家<select id="epcSeatPlayerSelect" onchange="epcDesktopSeatChoosePlayer_(this.value)" style="width:100%;margin-top:5px"><option value="">請選擇玩家</option></select></label>
-  <label style="flex:1;min-width:120px">選擇桌號<select id="epcSeatTableSelect" onchange="epcDesktopSeatRender_()" style="width:100%;margin-top:5px"><option value="">請選擇桌號</option><option value="1">1 號桌</option><option value="2">2 號桌</option><option value="3">3 號桌</option><option value="4">4 號桌</option><option value="5">5 號桌</option><option value="6">6 號桌</option><option value="7">7 號桌</option><option value="8">8 號桌</option></select></label>
-  <label style="flex:1;min-width:120px">選擇座位<select id="epcSeatNumberSelect" style="width:100%;margin-top:5px"><option value="">請選擇座位</option></select></label>
-  <button type="button" onclick="epcDesktopSeatAssign_()" style="min-width:90px">確認安排</button>
- </div>
- <div class="small" id="epcSeatHint" style="margin-top:8px">選擇玩家、桌號及座位後按確認；已有玩家的座位將互換。資料仍與原賽事同步。</div>
- <div id="epcSeatRoster" hidden></div><div id="epcSeatGrid" hidden></div>
+ <div class="card" id="epcDesktopSeating">
+ <details id="epcSeatDetails">
+ <summary style="cursor:pointer;font-size:18px;font-weight:800;color:#e6bc59;padding:5px 0">桌位管理｜1～8 號桌（每桌 10 座）　<span style="font-size:13px;color:#91a0b2">點擊展開／收合</span></summary>
+ <div id="epcSeatRoster" style="display:flex;flex-wrap:wrap;gap:7px;margin:14px 0 12px"></div>
+ <div id="epcSeatGrid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px"></div>
+ <div class="small" id="epcSeatHint" style="margin-top:8px">先點選未入座玩家，再點座位；點擊已入座玩家可移動或換位。</div>
+ </details>
  </div>
  <div class="card">
   <table id="eventPlayerTable" style="width:100%;table-layout:auto">
@@ -5562,18 +5560,12 @@ document.addEventListener('focusout',event=>{
 let epcSeatSelected_='';
 function epcDesktopSeatChoosePlayer_(value){epcSeatSelected_=value;epcDesktopSeatRender_()}
 function epcDesktopSeatRender_(){
- const e=currentEvent(),roster=$('epcSeatRoster'),grid=$('epcSeatGrid'),playerSelect=$('epcSeatPlayerSelect'),tableSelect=$('epcSeatTableSelect'),seatSelect=$('epcSeatNumberSelect');
- if(!e||!playerSelect||!tableSelect||!seatSelect)return;
+ const e=currentEvent(),roster=$('epcSeatRoster'),grid=$('epcSeatGrid');if(!roster||!grid||!e)return;
  const ps=e.players||[],name=p=>{const m=(db.members||[]).find(x=>String(x.id)===String(p.memberId));return m?.name||p.nickname||p.name||String(p.memberId)};
- const safe=v=>String(v??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
- const selected=playerSelect.value||epcSeatSelected_;
- playerSelect.innerHTML='<option value="">請選擇玩家</option>'+ps.map((p,i)=>'<option value="'+i+'">'+safe(name(p))+(p.seat?'（'+safe(p.seat)+'）':'（未入座）')+'</option>').join('');
- if(selected!==''&&ps[Number(selected)])playerSelect.value=String(selected);
- epcSeatSelected_=playerSelect.value;
- const table=Number(tableSelect.value||0),oldSeat=seatSelect.value;
- seatSelect.innerHTML='<option value="">請選擇座位</option>'+(table?Array.from({length:10},(_,i)=>{const code=table+'-'+(i+1),occupant=ps.find(p=>String(p.seat||'')===code);return '<option value="'+(i+1)+'">'+(i+1)+' 號座'+(occupant?'｜'+safe(name(occupant)):'｜空位')+'</option>'}).join(''):'');
- if(table&&oldSeat&&Number(oldSeat)>=1&&Number(oldSeat)<=10)seatSelect.value=oldSeat;
- if(roster)roster.innerHTML='';if(grid)grid.innerHTML='';
+ const safe=v=>String(v??'').replace(/&/g,'&amp;').replace(/</g,'&lt;');
+ const seat=(t,s)=>t+'-'+s;
+ roster.innerHTML=ps.map((p,i)=>({p,i})).filter(x=>!String(x.p.seat||'').trim()).map(({p,i})=>'<button type="button" data-epc-seat-player="'+i+'" style="background:'+(String(i)===epcSeatSelected_?'#9b7737':'#30475e')+';color:white;padding:8px;border-radius:8px">'+safe(name(p))+'</button>').join('')||'<span class="small">所有玩家均已入座</span>';
+ grid.innerHTML=Array.from({length:8},(_,t)=>'<div style="border:1px solid #46566b;border-radius:12px;padding:10px"><b style="color:#e6bc59">'+(t+1)+' 號桌</b><div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:8px">'+Array.from({length:10},(_,s)=>{const code=seat(t+1,s+1),i=ps.findIndex(p=>String(p.seat||'')===code),p=ps[i];return '<button type="button" data-epc-seat-target="'+code+'" style="min-height:52px;background:#192b3b;color:white;border:1px solid #4b6179;border-radius:7px">'+(s+1)+' 號座'+(p?'<div>'+safe(name(p))+'</div>':'<div>空位</div>')+'</button>'}).join('')+'</div></div>').join('');
 }
 function epcDesktopSeatAssign_(){
  const e=currentEvent();if(!e||['settled','已結算'].includes(e.status))return;
