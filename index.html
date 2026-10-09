@@ -3908,7 +3908,7 @@ function filterAddPlayerMembers(keyword){
    const nickname=String(m.nickname||'').toLowerCase();
    const id=String(m.id||'').toLowerCase();
    const group=String(m.group||m.settleGroup||m.settlementGroup||m.accountGroup||'').toLowerCase();
-   return !q || name.includes(q) || nickname.includes(q) || id.includes(q) || group.includes(q);
+   return !q || name.includes(q) || nickname.includes(q) || id.includes(q) || group.includes(q) || memberSearchLabel_(m).toLowerCase().includes(q);
  });
  sel.innerHTML=list.length
    ? list.map(m=>`<option value="${m.id}">${epcDisplayEscape_(memberSearchLabel_(m))}</option>`).join('')
