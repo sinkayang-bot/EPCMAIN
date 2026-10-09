@@ -5629,7 +5629,7 @@ function actBusinessDate_(e){return businessDateForEvent(e)||String(e?.businessD
 function actNeedsSettled_(kind){return ['rank','hunter'].includes(String(kind||''))}
 function isPioneerEvent_(e){return /^(?:第(?:一|1)場|EPC#1\s+\d+限時錦標賽)$/.test(String(eventDisplayName_(e)).trim());}
 function actEvents_(kind=actTab_){
- const {from,to}=actActivityRange_(kind),needsSettled=actNeedsSettled_(kind);
+ const {from,to}=actActivityRange_(kind),needsSettled=kind==='weekly'?false:actNeedsSettled_(kind);
  return (db.events||[]).filter(e=>{
   const d=actBusinessDate_(e),settled=e.status==='已結算'||e.status==='settled';
   if(kind==='pioneer'&&!isPioneerEvent_(e))return false;
@@ -5671,11 +5671,11 @@ function actEventLabel_(e){return `${actBusinessDate_(e)} ${eventDisplayName_(e)
 function actGroups_(p,e){try{return +calcPlayerForEvent(p,e).groups||0}catch(_){return (+p.buyin||0)+(+p.rebuy||0)+(+p.addon||0)}}
 function actPlayerStats_(kind=actTab_){
  const {q}=actRange_(),map={};
- actEvents_(kind).forEach(e=>(e.players||[]).forEach(p=>{
-  const m=actMember_(p.memberId),id=String(p.memberId||'');if(!id)return;
+ actEvents_(kind).forEach(e=>{ const countedMembers=new Set(); (e.players||[]).forEach(p=>{
+  const m=actMember_(p.memberId),id=String(p.memberId||'');if(!id||countedMembers.has(id))return; countedMembers.add(id);
   if(!map[id])map[id]={id,name:epcPlayerDisplayName_(id,m),games:0,dates:new Set(),groups:0};
   map[id].games++;map[id].dates.add(actBusinessDate_(e));map[id].groups+=actGroups_(p,e);
- }));
+ }); });
  return Object.values(map).map(x=>({...x,days:x.dates.size})).filter(x=>!q||[x.name,x.id,actMember_(x.id).name,actMember_(x.id).nickname].some(v=>String(v||'').toLowerCase().includes(q)));
 }
 function actSave_(){persist();if(window.saveActivityCloudV3)window.saveActivityCloudV3();renderActivities()}
