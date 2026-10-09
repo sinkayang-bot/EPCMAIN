@@ -1906,7 +1906,21 @@ button.epc-clicked-now,.btn.epc-clicked-now{transform:scale(.985);filter:brightn
  body .page>h1,body .page>h2,body .page .page-title{font-size:22px!important}
 }
 </style>
-</head>
+<style id="epcEventPrintOnePageFix20261009">
+@media print{
+ @page{size:A4 portrait;margin:6mm}
+ html:has(body.printing-event-report),body.printing-event-report{height:auto!important;min-height:0!important;max-height:none!important;margin:0!important;padding:0!important;overflow:hidden!important}
+ body.printing-event-report>#eventPrintOnly{display:block!important;position:static!important;float:none!important;clear:none!important;width:196mm!important;min-width:0!important;max-width:196mm!important;height:277mm!important;min-height:0!important;max-height:277mm!important;margin:0 auto!important;padding:0!important;overflow:hidden!important;break-after:avoid!important;page-break-after:avoid!important}
+ #eventPrintOnly #eventReportPaper{width:196mm!important;min-width:0!important;max-width:196mm!important;height:277mm!important;min-height:0!important;max-height:277mm!important;margin:0!important;padding:0!important;overflow:hidden!important;break-after:avoid!important;page-break-after:avoid!important}
+ #eventPrintOnly #eventReportRows td.pnl-positive,#eventPrintOnly #eventReportRows td.pnl-negative,
+ #eventPrintOnly #eventReportRows td.positive,#eventPrintOnly #eventReportRows td.negative,
+ #eventPrintOnly #eventReportRows td.profit,#eventPrintOnly #eventReportRows td.loss,
+ #eventPrintOnly #eventReportRows td[class*="pnl"],#eventPrintOnly #eventReportRows td[class*="Pnl"]{background:#fff!important;background-color:#fff!important;color:#111!important;border-color:#aaa!important;-webkit-print-color-adjust:economy!important;print-color-adjust:economy!important}
+ #eventPrintOnly .tablewrap{overflow:hidden!important}
+ #eventPrintOnly tbody tr,#eventPrintOnly tbody td,#eventPrintOnly .blank-report-row td{height:7.5mm!important;min-height:0!important;max-height:7.5mm!important}
+ #eventPrintOnly .report-summary-footer{height:12mm!important;min-height:12mm!important;max-height:12mm!important}
+}
+</style></head>
 <script>
 (function(){
  try{
@@ -6802,8 +6816,8 @@ function printEventReport(){
  // 固定區：標題13 + 賽事資料48 + 區塊間距4 + 表頭8 + 底部14 ≈ 87mm。
  // 剩餘高度扣除規則後，平均分配給固定 20 列。
  const fixedMm=87;
- const availableRowsMm=291-fixedMm-ruleMm;
- const rowMm=Math.max(6.2,Math.min(10.0,availableRowsMm/20));
+ const availableRowsMm=277-fixedMm-ruleMm;
+ const rowMm=Math.max(6.2,Math.min(7.5,availableRowsMm/20));
 
  if(clonedPaper){
    clonedPaper.style.setProperty('--rule-h',ruleMm+'mm');
