@@ -17,6 +17,47 @@ function renderChipSummary(e){
  $('summary').innerHTML=`<div class="chip-summary"><div class="meta">${(e.players||[]).length} 位玩家｜${num(s.groups)} 組${s.missing?'｜'+s.missing+' 位未輸入':''}</div><div class="chip-totals"><div>應有籌碼<strong>${num(s.expected)}</strong></div><div>已儲存籌碼<strong>${num(s.saved)}</strong></div></div><div class="chip-gap ${s.difference===0?'good':'error'}">${gap(s.difference)}</div>${s.pending?`<div class="chip-preview">目前輸入合計：${num(s.preview)}<br><span class="${s.invalid||s.previewDifference!==0?'error':'good'}">${s.invalid?'有 '+s.invalid+' 位籌碼輸入不完整':gap(s.previewDifference)}</span><div class="meta">${s.pending} 位籌碼尚未儲存，按「儲存」才會同步電腦。</div></div>`:''}</div>`;
 }
 
+
+let seatPicked='',seatBusy=false;
+const seatCode=(table,seat)=>table+'-'+seat;
+function seatOwner(e,code){return (e.players||[]).find(p=>String(p.seat||'')===code)}
+function seatLabel(p){return [p.nickname,members.get(String(p.memberId))?.nickname,members.get(String(p.memberId))?.name,p.name,p.memberId].find(Boolean)||'玩家'}
+function renderSeating(){
+ const e=events.find(x=>x.eventId===selected),roster=$('seatRoster'),tables=$('seatTables');
+ if(!roster||!tables)return;
+ if(!e){roster.innerHTML='';tables.innerHTML='';return}
+ if(seatPicked&&!(e.players||[]).some(p=>String(p.memberId)===seatPicked))seatPicked='';
+ roster.innerHTML=(e.players||[]).map(p=>'<button type="button" draggable="true" data-seat-player="'+esc(p.memberId)+'" class="seat-person '+(seatPicked===String(p.memberId)?'picked':'')+'">'+esc(seatLabel(p))+(p.seat?' · '+esc(p.seat):' · 未入座')+'</button>').join('');
+ tables.innerHTML=Array.from({length:6},(_,i)=>'<div class="seat-table"><h3>'+(i+1)+' 號桌</h3><div class="seat-grid">'+Array.from({length:10},(_,j)=>{const code=seatCode(i+1,j+1),p=seatOwner(e,code);return '<button type="button" class="seat-slot '+(p?'occupied':'')+'" data-seat-code="'+code+'">'+(j+1)+' 號座'+(p?'<div><b>'+esc(seatLabel(p))+'</b></div>':'<div>空位</div>')+'</button>'}).join('')+'</div></div>').join('');
+}
+async function moveSeat(id,destination){
+ const e=events.find(x=>x.eventId===selected),message=$('seatMessage');
+ if(!e||seatBusy)return;
+ seatBusy=true;message.textContent='正在同步座位…';message.className='message';
+ try{
+  await runTransaction(store,async tx=>{
+   const ref=doc(col,e.eventId),snap=await tx.get(ref);
+   if(!snap.exists())throw Error('賽事不存在');
+   const current=snap.data();
+   if(['settled','已結算','deleted'].includes(current.status))throw Error('賽事已結算');
+   const ps=(current.players||[]).map(p=>({...p})),p=ps.find(p=>String(p.memberId)===String(id));
+   if(!p)throw Error('玩家不在本場');
+   const other=ps.find(x=>String(x.seat||'')===destination&&String(x.memberId)!==String(id));
+   const previous=String(p.seat||'');
+   if(other){other.seat=previous;other._seatRevision=(Number(other._seatRevision)||0)+1}
+   p.seat=destination;p._seatRevision=(Number(p._seatRevision)||0)+1;
+   tx.update(ref,{players:ps,_eventUpdatedAt:Date.now(),updatedAt:serverTimestamp()});
+  });
+  seatPicked='';message.textContent='座位已儲存並同步';message.className='message good';
+ }catch(err){message.textContent='座位更新失敗：'+err.message;message.className='message error'}
+ finally{seatBusy=false;renderSeating()}
+}
+$('seatRoster').addEventListener('click',e=>{const b=e.target.closest('[data-seat-player]');if(!b)return;seatPicked=b.dataset.seatPlayer;renderSeating()});
+$('seatTables').addEventListener('click',e=>{const b=e.target.closest('[data-seat-code]');if(!b)return;const current=events.find(x=>x.eventId===selected),p=seatOwner(current,b.dataset.seatCode);if(!seatPicked){if(p){seatPicked=String(p.memberId);renderSeating();$('seatMessage').textContent='已選擇 '+seatLabel(p)+'，請點擊目標座位'}else $('seatMessage').textContent='請先選擇上方玩家';return}moveSeat(seatPicked,b.dataset.seatCode)});
+$('seatRoster').addEventListener('dragstart',e=>{const b=e.target.closest('[data-seat-player]');if(!b)return;seatPicked=b.dataset.seatPlayer;e.dataTransfer?.setData('text/plain',seatPicked)});
+$('seatTables').addEventListener('dragover',e=>{if(e.target.closest('[data-seat-code]'))e.preventDefault()});
+$('seatTables').addEventListener('drop',e=>{const b=e.target.closest('[data-seat-code]');if(!b)return;e.preventDefault();const id=e.dataTransfer?.getData('text/plain')||seatPicked;if(id)moveSeat(id,b.dataset.seatCode)});
+
 let activePanel='';
 function showPanel(id=''){
  activePanel=id;
@@ -28,6 +69,7 @@ document.querySelectorAll('[data-panel]').forEach(btn=>btn.addEventListener('cli
 $('backDashboard').addEventListener('click',()=>showPanel());
 function updateDashboard(){
  const e=events.find(x=>x.eventId===selected),ps=e?.players||[];
+ renderSeating();
  $('dashEventName').textContent=e?.name||'目前沒有進行中的賽事';
  $('dashPlayers').textContent=ps.length+' 人';
  $('dashRebuys').textContent=ps.reduce((n,p)=>n+(+p.rebuy||0),0)+' 組';
