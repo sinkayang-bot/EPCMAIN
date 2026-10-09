@@ -98,13 +98,40 @@ function updateDashboard(){
  $('overviewStats').textContent=e?'賽事：'+(e.name||'')+'｜報名 '+ps.length+' 人｜總買入 '+ps.reduce((n,p)=>n+(+p.buyin||0)+(+p.rebuy||0)+(+p.addon||0),0)+' 組':'無進行中賽事';
 }
 
+function renderRebuy(){
+ const e=events.find(x=>x.eventId===selected),sel=$('rebuyPlayer');if(!sel)return;
+ const old=sel.value;sel.innerHTML=(e?.players||[]).map(p=>'<option value="'+esc(p.memberId)+'">'+esc(seatLabel(p))+'｜已重買 '+num(p.rebuy)+' 組</option>').join('');
+ if((e?.players||[]).some(p=>String(p.memberId)===old))sel.value=old;
+ const n=Number($('rebuyGroups').value||0),p=(e?.players||[]).find(p=>String(p.memberId)===sel.value);
+ const unit=Number(e?.rebuyTotal||e?.buyinTotal||e?.level||0),discount=Number($('rebuyManualDiscount').value||0);
+ $('rebuyPriceNote').textContent=p?'本次新增 '+n+' 組｜每組 '+num(unit)+' 元｜參考應收 '+num(Math.max(0,n*unit-discount))+' 元（優惠計價仍須核對電腦帳務規則）':'請先選擇已報名玩家';
+}
+$('rebuyPlayer').addEventListener('change',renderRebuy);
+$('rebuyGroups').addEventListener('input',renderRebuy);
+$('rebuyManualDiscount').addEventListener('input',renderRebuy);
+$('rebuySaveBtn').addEventListener('click',async()=>{
+ const e=events.find(x=>x.eventId===selected),id=$('rebuyPlayer').value,groups=Number($('rebuyGroups').value),discount=Number($('rebuyManualDiscount').value),msg=$('rebuyMessage'),btn=$('rebuySaveBtn');
+ if(!e||!id||!Number.isSafeInteger(groups)||groups<1||groups>100||!Number.isSafeInteger(discount)||discount<0||discount>0){msg.textContent='請選擇玩家並輸入 1～100 組；手動優惠尚未支援安全帳務累加，請設為 0';msg.className='message error';return}
+ if(!confirm('確定為此玩家新增 '+groups+' 組重買？'))return;
+ btn.disabled=true;msg.textContent='正在儲存重買…';msg.className='message';
+ try{await runTransaction(store,async tx=>{
+  const ref=doc(col,e.eventId),snap=await tx.get(ref);if(!snap.exists())throw Error('賽事不存在');
+  const cur=snap.data();if(['settled','已結算','deleted'].includes(cur.status))throw Error('賽事已結算');
+  const players=(cur.players||[]).map(p=>({...p})),p=players.find(p=>String(p.memberId)===id);
+  if(!p)throw Error('玩家不在本場');
+  p.rebuy=(Number(p.rebuy)||0)+groups;p._rebuyRevision=(Number(p._rebuyRevision)||0)+1;
+  tx.update(ref,{players,_eventUpdatedAt:Date.now(),updatedAt:serverTimestamp()});
+ });msg.textContent='重買成功，新增 '+groups+' 組';msg.className='message good';$('rebuyGroups').value='1'}
+ catch(err){msg.textContent='重買失敗：'+err.message;msg.className='message error'}
+ finally{btn.disabled=false;renderRebuy()}
+});
 function render(){
  const open=events.filter(e=>!['settled','已結算','deleted'].includes(e.status)).sort((a,b)=>String(b.businessDate||b.date||'').localeCompare(String(a.businessDate||a.date||''))||Number(b.seq||1)-Number(a.seq||1));
  if(!open.some(e=>e.eventId===selected))selected=open[0]?.eventId||'';
  $('eventSelect').innerHTML=open.map(e=>`<option value="${esc(e.eventId)}">${esc(e.businessDate||e.date||'')}｜${esc(e.name||'賽事')}</option>`).join('');$('eventSelect').value=selected;
  const e=open.find(e=>e.eventId===selected);if(!e){updateDashboard();$('summary').textContent='';$('players').innerHTML='<div class="empty">目前沒有進行中的賽事</div>';return}
  const players=(e.players||[]).slice().sort((a,b)=>String(a.seat||'').localeCompare(String(b.seat||''),'zh-TW',{numeric:true}));
- renderChipSummary(e);updateDashboard();
+ renderChipSummary(e);updateDashboard();renderRebuy();
  const total=(e.players||[]).reduce((a,p)=>a+(+p.buyin||0)+(+p.rebuy||0)+(+p.addon||0),0);
  const reb=(e.players||[]).reduce((a,p)=>a+(+p.rebuy||0),0);
  if($('entrySummary'))$('entrySummary').textContent='報名 '+(e.players||[]).length+' 人｜重買 '+reb+' 組｜總買入 '+total+' 組';
