@@ -23,6 +23,9 @@ function render(){
  const e=open.find(e=>e.eventId===selected);if(!e){$('summary').textContent='';$('players').innerHTML='<div class="empty">目前沒有進行中的賽事</div>';return}
  const players=(e.players||[]).slice().sort((a,b)=>String(a.seat||'').localeCompare(String(b.seat||''),'zh-TW',{numeric:true}));
  renderChipSummary(e);
+ const total=(e.players||[]).reduce((a,p)=>a+(+p.buyin||0)+(+p.rebuy||0)+(+p.addon||0),0);
+ const reb=(e.players||[]).reduce((a,p)=>a+(+p.rebuy||0),0);
+ if($('entrySummary'))$('entrySummary').textContent='報名 '+(e.players||[]).length+' 人｜重買 '+reb+' 組｜總買入 '+total+' 組';
  const focus=document.activeElement?.dataset.member,focusField=document.activeElement?.dataset.field,start=document.activeElement?.selectionStart;
  $('players').innerHTML=players.map(p=>{const id=String(p.memberId),d=drafts.get(key(selected,id)),m=members.get(id);return `<div class="card"><div class="name">${esc([p.nickname,m?.nickname,m?.name,p.name,id].map(v=>String(v??'').trim()).find(Boolean))}</div><div class="meta">會員編號 ${esc(id)}｜${num((+p.buyin||0)+(+p.rebuy||0)+(+p.addon||0))} 組｜已儲存籌碼：${p.stack==null?'未輸入':num(p.stack)}｜人頭：${num(p.hunterHeads)}</div>${Object.entries(fieldLabels).map(([field,label])=>`<label>${label}</label><input type="text" ${field==='seat'?'maxlength="20"':'inputmode="numeric" pattern="[0-9]*"'} data-member="${esc(id)}" data-field="${field}" value="${esc(d?.patch&&field in d.patch?d.patch[field]:(p[field]??(field==='hunterHeads'?0:'')))}" ${busy.has(key(selected,id))?'disabled':''}>`).join('')}<div class="toolbar"><button data-save="${esc(id)}" ${busy.has(key(selected,id))?'disabled':''}>${busy.has(key(selected,id))?'儲存中':'儲存'}</button></div><div class="message ${d?.error?'error':d?.saved?'good':''}">${esc(d?.message||'')}</div></div>`}).join('');
  if(focus){const input=Array.from($('players').querySelectorAll('input')).find(x=>x.dataset.member===focus&&x.dataset.field===focusField);if(input&&!input.disabled){input.focus();if(start!=null)input.setSelectionRange(start,start)}}
@@ -52,4 +55,28 @@ $('players').addEventListener('click',async e=>{
 });
 $('eventSelect').addEventListener('change',()=>{selected=$('eventSelect').value;render()});$('reload').addEventListener('click',subscribe);subscribe();
 // Read-only member labels; roster and writes always use EPCMAIN Firestore.
-fetch('https://script.google.com/macros/s/AKfycbwZi5bXuFJdtXiE6oxPmn4NZti-wZyOwEfTKZ8VPo5nXP5GK1mPOYrfkxz714AN4UQx9w/exec',{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({action:'member.list'})}).then(r=>r.json()).then(r=>{if(r.ok){members=new Map((r.members||[]).map(m=>[String(m.memberId),m]));render()}}).catch(()=>{});
+const API='https://script.google.com/macros/s/AKfycbwZi5bXuFJdtXiE6oxPmn4NZti-wZyOwEfTKZ8VPo5nXP5GK1mPOYrfkxz714AN4UQx9w/exec';
+let memberRows=[];
+async function api(action,data={}){
+ const response=await fetch(API,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({action,...data})});
+ if(!response.ok)throw Error('伺服器 HTTP '+response.status);
+ const result=await response.json();if(!result.ok)throw Error(result.error||result.message||'操作失敗');return result;
+}
+function renderMemberOptions(){
+ const q=($('memberSearch')?.value||'').trim().toLowerCase(),previous=$('memberSelect')?.value;
+ const list=q?memberRows.filter(m=>[m.name,m.nickname,m.memberId].some(x=>String(x||'').toLowerCase().includes(q))).slice(0,60):[];
+ $('memberSelect').innerHTML='<option value="">'+(q?'請選擇會員':'先輸入姓名或會員編號')+'</option>'+list.map(m=>'<option value="'+esc(m.memberKey)+'">'+esc([m.name,m.nickname,m.memberId].filter(Boolean).join(' / '))+'</option>').join('');
+ if(list.some(m=>m.memberKey===previous))$('memberSelect').value=previous;
+}
+$('memberSearch').addEventListener('input',renderMemberOptions);
+$('registerBtn').addEventListener('click',async()=>{
+ const e=events.find(x=>x.eventId===selected),memberKey=$('memberSelect').value,m=memberRows.find(x=>String(x.memberKey)===memberKey),msg=$('registerMessage');
+ if(!e||!m){msg.textContent='請先選擇賽事及會員';msg.className='message error';return}
+ if(['settled','已結算','deleted'].includes(e.status)){msg.textContent='賽事已結算，禁止報名';msg.className='message error';return}
+ if((e.players||[]).some(p=>String(p.memberKey||'')===memberKey||String(p.memberId||'')===String(m.memberId))){msg.textContent='此會員已報名本場，請勿重複加入';msg.className='message error';return}
+ const btn=$('registerBtn');btn.disabled=true;msg.textContent='報名寫入中…';msg.className='message';
+ try{await api('player.add',{eventId:e.eventId,memberKey});msg.textContent='報名成功，等待賽事名單即時同步';msg.className='message good';$('memberSearch').value='';renderMemberOptions();}
+ catch(err){msg.textContent='報名失敗：'+err.message;msg.className='message error'}
+ finally{btn.disabled=false}
+});
+api('member.list').then(r=>{memberRows=r.members||[];members=new Map(memberRows.map(m=>[String(m.memberId),m]));renderMemberOptions();render()}).catch(err=>{$('registerMessage').textContent='會員載入失敗：'+err.message;$('registerMessage').className='message error'});
