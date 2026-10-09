@@ -81,18 +81,22 @@ async function api(action,data={}){
  if(!response.ok)throw Error('伺服器 HTTP '+response.status);
  const result=await response.json();if(!result.ok)throw Error(result.error||result.message||'操作失敗');return result;
 }
+function memberKeyOf(m){return String(m.memberKey||m.memberId||'')}
 function renderMemberOptions(){
  const q=($('memberSearch').value||'').trim().toLowerCase();
- const list=q?memberRows.filter(m=>[m.name,m.nickname,m.memberId].some(x=>String(x||'').toLowerCase().includes(q))).slice(0,25):[];
- $('memberResults').innerHTML=list.map(m=>'<button type="button" class="member-result" data-memberkey="'+esc(m.memberKey)+'">'+esc([m.name,m.nickname,m.memberId].filter(Boolean).join(' / '))+'</button>').join('');
- if(q&&!list.length)$('memberResults').innerHTML='<div class="meta">找不到符合的會員</div>';
+ const list=memberRows.filter(m=>!q||[m.name,m.nickname,m.memberId,m.pokerfansId,m.POKERFANSID].some(x=>String(x||'').toLowerCase().includes(q))).slice(0,50);
+ $('memberResults').innerHTML=list.map(m=>'<button type="button" class="member-result" data-memberkey="'+esc(memberKeyOf(m))+'">'+esc([m.name,m.nickname,m.memberId].filter(Boolean).join(' / '))+'</button>').join('');
+ if(!memberRows.length)$('memberResults').innerHTML='<div class="meta">會員資料尚未載入，請稍候或重新整理</div>';
+ else if(q&&!list.length)$('memberResults').innerHTML='<div class="meta">找不到符合的會員（目前已載入 '+memberRows.length+' 筆）</div>';
 }
+$('memberSearch').addEventListener('focus',renderMemberOptions);
 $('memberSearch').addEventListener('input',()=>{$('memberSelect').value='';$('memberChosen').textContent='尚未選擇會員';renderMemberOptions()});
 $('memberResults').addEventListener('click',e=>{
  const btn=e.target.closest('[data-memberkey]');if(!btn)return;
- const m=memberRows.find(x=>String(x.memberKey)===btn.dataset.memberkey);if(!m)return;
- $('memberSelect').innerHTML='<option value="'+esc(m.memberKey)+'">'+esc(m.name||m.memberId)+'</option>';
- $('memberSelect').value=String(m.memberKey);
+ const m=memberRows.find(x=>memberKeyOf(x)===btn.dataset.memberkey);if(!m)return;
+ const k=memberKeyOf(m);
+ $('memberSelect').innerHTML='<option value="'+esc(k)+'">'+esc(m.name||m.memberId)+'</option>';
+ $('memberSelect').value=k;
  $('memberSearch').value=[m.name,m.nickname,m.memberId].filter(Boolean).join(' / ');
  $('memberChosen').textContent='已選擇：'+$('memberSearch').value;
  $('memberResults').innerHTML='';
@@ -110,7 +114,7 @@ $('buyinGroups').addEventListener('input',calculateRegistrationPrice);
 $('birdType').addEventListener('change',calculateRegistrationPrice);
 $('manualDiscount').addEventListener('input',calculateRegistrationPrice);
 $('registerBtn').addEventListener('click',async()=>{
- const e=selectedEvent(),memberKey=$('memberSelect').value,m=memberRows.find(x=>String(x.memberKey)===memberKey),msg=$('registerMessage');
+ const e=selectedEvent(),memberKey=$('memberSelect').value,m=memberRows.find(x=>memberKeyOf(x)===memberKey),msg=$('registerMessage');
  if(!e||!m){msg.textContent='請先選擇賽事及會員';msg.className='message error';return}
  const groups=Number($('buyinGroups').value),amount=Number($('amountPaid').value),unit=Number(e.buyinTotal||e.level||0),bird=$('birdType').value;
  const discount=bird==='early'?Number(e.earlyBirdDiscount||0):bird==='late'?Number(e.lateBirdDiscount||0):0;
@@ -125,7 +129,7 @@ $('registerBtn').addEventListener('click',async()=>{
    if(['settled','已結算','deleted'].includes(current.status))throw Error('賽事已結算，禁止報名');
    const players=Array.isArray(current.players)?current.players.slice():[];
    if(players.some(p=>String(p.memberKey||'')===memberKey||String(p.memberId||'')===String(m.memberId)))throw Error('此會員已報名本場');
-   players.push({memberId:String(m.memberId),memberKey:String(m.memberKey),name:m.name||'',nickname:m.nickname||'',group:m.group||'',buyin:groups,rebuy:0,addon:0,earlyBird:bird==='early',lateBird:bird==='late',manualDiscount:manual,stack:null,hunterHeads:0,seat:'',prize:0});
+   players.push({memberId:String(m.memberId),memberKey:memberKeyOf(m),name:m.name||'',nickname:m.nickname||'',group:m.group||'',buyin:groups,rebuy:0,addon:0,earlyBird:bird==='early',lateBird:bird==='late',manualDiscount:manual,stack:null,hunterHeads:0,seat:'',prize:0});
    tx.update(ref,{players,_eventUpdatedAt:Date.now(),updatedAt:serverTimestamp()});
   });
   msg.textContent='報名成功｜'+groups+' 組｜應收 '+num(amount)+' 元';msg.className='message good';
@@ -133,4 +137,4 @@ $('registerBtn').addEventListener('click',async()=>{
  }catch(err){msg.textContent='報名失敗：'+err.message;msg.className='message error'}
  finally{btn.disabled=false}
 });
-api('member.list').then(r=>{memberRows=r.members||[];members=new Map(memberRows.map(m=>[String(m.memberId),m]));renderMemberOptions();render()}).catch(err=>{$('registerMessage').textContent='會員載入失敗：'+err.message;$('registerMessage').className='message error'});
+api('member.list').then(r=>{memberRows=Array.isArray(r.members)?r.members:[];members=new Map(memberRows.map(m=>[String(m.memberId),m]));renderMemberOptions();render();$('memberChosen').textContent='會員已載入 '+memberRows.length+' 筆，點擊搜尋框選擇'}).catch(err=>{$('registerMessage').textContent='會員載入失敗：'+err.message;$('registerMessage').className='message error'});
