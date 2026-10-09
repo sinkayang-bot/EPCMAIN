@@ -1822,7 +1822,26 @@ main{margin-left:0!important;width:auto!important;max-width:none!important;paddi
 }
 button.epc-clicked-now,.btn.epc-clicked-now{transform:scale(.985);filter:brightness(1.28);transition:transform .04s,filter .04s}
 </style>
-<style>@media screen{.pos{color:var(--good,#35d98b)!important}.neg{color:var(--bad,#ff525d)!important}.pnl-zero{color:var(--text,#e8eef5)!important;font-weight:700}}</style>
+<style id="epcPnlColors">
+@media screen{
+ html body .page .pos,html[data-epc-theme] body .page .pos{color:#35d98b!important;font-weight:700}
+ html body .page .neg,html[data-epc-theme] body .page .neg{color:#ff525d!important;font-weight:700}
+ html body .page .pnl-zero,html[data-epc-theme] body .page .pnl-zero{color:inherit!important;font-weight:700}
+ html[data-epc-theme="light"] body .page .pos{color:#008a45!important}
+ html[data-epc-theme="light"] body .page .neg{color:#d62828!important}
+}
+#eventreport #eventReportPaper .pos,#eventPrintOnly #eventReportPaper .pos,#accountingPrintSheet .pos,#dailyAccountingPaper .pos{color:#008a45!important}
+#eventreport #eventReportPaper .neg,#eventPrintOnly #eventReportPaper .neg,#accountingPrintSheet .neg,#dailyAccountingPaper .neg{color:#d62828!important}
+#eventreport #eventReportPaper .pnl-zero,#eventPrintOnly #eventReportPaper .pnl-zero,#accountingPrintSheet .pnl-zero,#dailyAccountingPaper .pnl-zero{color:#15191d!important}
+@media print{
+ #eventPrintOnly .pos,#eventPrintOnly .neg,#accountingPrintSheet .pos,#accountingPrintSheet .neg{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+ html body .page .pos,html[data-epc-theme] body .page .pos,
+ body.printing-accounting-direct #dailyAccountingPaper .pos{color:#008a45!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+ html body .page .neg,html[data-epc-theme] body .page .neg,
+ body.printing-accounting-direct #dailyAccountingPaper .neg{color:#d62828!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+ html body .page .pnl-zero,html[data-epc-theme] body .page .pnl-zero{color:#15191d!important}
+}
+</style>
 </head>
 <script>
 (function(){
@@ -4827,7 +4846,7 @@ function printDailyAccounting(){
     <td class="num">${money(group)}</td>
     <td class="num">${money(manual)}</td>
     <td class="num">${money(disc)}</td>
-    <td class="num">${money(net)}</td>
+    <td class="num ${epcPnlClass_(net)}">${money(net)}</td>
     <td class="num">${money(eventOwnJP(e))}</td>
    </tr>`;
  }).join('') || '<tr><td colspan="10">本營業日尚無賽事</td></tr>';
@@ -4837,6 +4856,8 @@ function printDailyAccounting(){
  <title>EPC 當日帳務報表 ${esc(date)}</title>
  <style>
  @page{size:A4 portrait;margin:10mm}
+ .pos{color:#008a45!important}.neg{color:#d62828!important}.pnl-zero{color:#15191d!important}
+ .pos,.neg{-webkit-print-color-adjust:exact;print-color-adjust:exact}
  *{box-sizing:border-box}
  html,body{margin:0;padding:0;background:#fff;color:#111;font-family:Arial,"Microsoft JhengHei",sans-serif}
  .page{width:190mm;margin:0 auto;background:#fff}
@@ -4870,7 +4891,7 @@ function printDailyAccounting(){
    <div><span>其他支出</span><strong>${money(ai.itemExpense)}</strong></div>
    <div><span>EPC 總收入</span><strong>${money(ai.revenue)}</strong></div>
    <div><span>EPC 總支出</span><strong>${money(ai.expense)}</strong></div>
-   <div><span>當日淨收入</span><strong>${money(ai.net)}</strong></div>
+   <div><span>當日淨收入</span><strong class="${epcPnlClass_(ai.net)}">${money(ai.net)}</strong></div>
    <div><span>JP 提撥（由獎池扣，不扣行政費）</span><strong>${money(ai.jp)}</strong></div>
   </div>
   <h2>其他收支</h2>
@@ -6457,6 +6478,8 @@ function printReport(id){
  }
  const css=`
   @page{size:A4;margin:12mm}
+  .pos{color:#008a45!important}.neg{color:#d62828!important}.pnl-zero{color:#15191d!important}
+  .pos,.neg{-webkit-print-color-adjust:exact;print-color-adjust:exact}
   body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans TC",sans-serif;color:#000;margin:0}
   h2,h3{margin:0 0 10px}.small{font-size:11px;color:#333}
   table{width:100%;border-collapse:collapse;font-size:11px}
@@ -6551,7 +6574,7 @@ function renderEventReport(){
  if($('eventReportHead'))$('eventReportHead').innerHTML=fields.map(([,label])=>`<th>${label}</th>`).join('');
  let rows=e.players.map((p,i)=>{
    let m=db.members.find(x=>String(x.id)===String(p.memberId))||{name:'未知',id:p.memberId};
-   let c=calcPlayerForEvent(p,e), growth=chipGrowthFor(p,e);
+   let c=calcPlayerForEvent(p,e), growth=chipGrowthFor(p,e),net=(+p.prize||0)-c.paid;
    let vals={
      seat:p.seat||'',player:epcPlayerDisplayHtml_(p,m),
      nickname:epcDisplayEscape_(epcNickname_(p,m)),
@@ -6565,7 +6588,7 @@ function renderEventReport(){
      signature:'________________',
      note:''
    };
-   return {html:fields.map(([k])=>`<td>${vals[k]}</td>`).join(''),growth};
+   return {html:fields.map(([k])=>`<td${k==='net'||k==='growth'?` class="${epcPnlClass_(k==='net'?net:growth)}"`:''}>${vals[k]}</td>`).join(''),growth};
  }).sort((a,b)=>b.growth-a.growth);
  if($('eventReportTotalGroups'))$('eventReportTotalGroups').textContent=totalGroups.toLocaleString();
  if($('eventReportTotalChips')){
