@@ -48,5 +48,13 @@ assert.equal(t.ctx.epcPlayerDisplayName_({memberId:'MISSING',name:'歷史姓名'
 assert.equal(t.ctx.epcPlayerDisplayName_('MISSING'),'MISSING');
 assert.equal(t.ctx.epcPlayerDisplayHtml_({nickname:'<貓&狗>"'}),'&lt;貓&amp;狗&gt;&quot;');
 assert.equal(JSON.stringify(t.db),before,'rendering and payload generation must not rewrite persisted records');
+assert.equal(t.ctx.epcMemberDisplayName_('A'),'甲姓名','member column always uses real name');
+assert.equal(t.ctx.epcNickname_('A'),'同綽號');assert.equal(t.ctx.epcNickname_('C'),'','nickname never falls back to real name');
+assert.equal(t.ctx.epcMemberDisplayName_({memberId:'A',name:'舊姓名',nickname:'桌上綽號'}),'甲姓名');
+assert.equal(t.ctx.epcPlayerDisplayName_({memberId:'A',nickname:'桌上綽號'}),'桌上綽號');
+t.inputs.set('memberRows',{});t.ctx.window={EPCFirestore:{ready:true}};t.ctx.memberHistoryInRange=()=>[];t.ctx.memberParticipationInRange_=()=>[];t.ctx.memberLastVisit_=()=> '—';t.ctx.money=String;t.ctx.epcPnlClass_=()=>'';
+vm.runInContext(section(html,'function renderMemberRows(){','function setMemberRangeThisMonth'),t.ctx);t.ctx.renderMemberRows();
+assert.match(t.inputs.get('memberRows').innerHTML,/<td>甲姓名<\/td><td>同綽號<\/td><td>同綽號<\/td>/);
+assert.match(t.inputs.get('memberRows').innerHTML,/<td>丙姓名<\/td><td>丙姓名<\/td><td>—<\/td>/);
 let scripts=0;for(const match of html.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/gi))new vm.Script(match[1],{filename:'inline-'+(++scripts)});
 console.log('PASS: nickname/name fallback, duplicate identities, activity/TV/settlement integration, unchanged amounts and scores, safe rendering and '+scripts+' inline scripts.');
