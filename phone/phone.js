@@ -82,30 +82,40 @@ async function api(action,data={}){
  const result=await response.json();if(!result.ok)throw Error(result.error||result.message||'操作失敗');return result;
 }
 function renderMemberOptions(){
- const q=($('memberSearch')?.value||'').trim().toLowerCase(),previous=$('memberSelect')?.value;
- const list=q?memberRows.filter(m=>[m.name,m.nickname,m.memberId].some(x=>String(x||'').toLowerCase().includes(q))).slice(0,60):[];
- $('memberSelect').innerHTML='<option value="">'+(q?'請選擇會員':'先輸入姓名或會員編號')+'</option>'+list.map(m=>'<option value="'+esc(m.memberKey)+'">'+esc([m.name,m.nickname,m.memberId].filter(Boolean).join(' / '))+'</option>').join('');
- if(list.some(m=>m.memberKey===previous))$('memberSelect').value=previous;
+ const q=($('memberSearch').value||'').trim().toLowerCase();
+ const list=q?memberRows.filter(m=>[m.name,m.nickname,m.memberId].some(x=>String(x||'').toLowerCase().includes(q))).slice(0,25):[];
+ $('memberResults').innerHTML=list.map(m=>'<button type="button" class="member-result" data-memberkey="'+esc(m.memberKey)+'">'+esc([m.name,m.nickname,m.memberId].filter(Boolean).join(' / '))+'</button>').join('');
+ if(q&&!list.length)$('memberResults').innerHTML='<div class="meta">找不到符合的會員</div>';
 }
-$('memberSearch').addEventListener('input',renderMemberOptions);
+$('memberSearch').addEventListener('input',()=>{$('memberSelect').value='';$('memberChosen').textContent='尚未選擇會員';renderMemberOptions()});
+$('memberResults').addEventListener('click',e=>{
+ const btn=e.target.closest('[data-memberkey]');if(!btn)return;
+ const m=memberRows.find(x=>String(x.memberKey)===btn.dataset.memberkey);if(!m)return;
+ $('memberSelect').innerHTML='<option value="'+esc(m.memberKey)+'">'+esc(m.name||m.memberId)+'</option>';
+ $('memberSelect').value=String(m.memberKey);
+ $('memberSearch').value=[m.name,m.nickname,m.memberId].filter(Boolean).join(' / ');
+ $('memberChosen').textContent='已選擇：'+$('memberSearch').value;
+ $('memberResults').innerHTML='';
+});
 function selectedEvent(){return events.find(x=>x.eventId===selected)}
 function calculateRegistrationPrice(){
- const e=selectedEvent(),groups=Number($('buyinGroups').value),bird=$('birdType').value;
+ const e=selectedEvent(),groups=Number($('buyinGroups').value),bird=$('birdType').value,manual=Number($('manualDiscount').value||0);
  if(!e||!Number.isSafeInteger(groups)||groups<1||groups>100){$('priceNote').textContent='請選擇賽事並輸入有效組數';return}
  const unit=Number(e.buyinTotal||e.level||0),discount=bird==='early'?Number(e.earlyBirdDiscount||0):bird==='late'?Number(e.lateBirdDiscount||0):0;
- const base=groups*unit,amount=Math.max(0,base-discount);
+ const base=groups*unit,amount=Math.max(0,base-discount-Math.max(0,manual));
  $('amountPaid').value=amount;
- $('priceNote').textContent='每組 '+num(unit)+' 元 × '+groups+' 組；'+(discount?'優惠 '+num(discount)+' 元':'無早晚鳥優惠')+'；應收 '+num(amount)+' 元';
+ $('priceNote').textContent='每組 '+num(unit)+' 元 × '+groups+' 組；'+(discount?'優惠 '+num(discount)+' 元':'無早晚鳥優惠')+'；手動優惠 '+num(manual)+' 元；應收 '+num(amount)+' 元';
 }
 $('buyinGroups').addEventListener('input',calculateRegistrationPrice);
 $('birdType').addEventListener('change',calculateRegistrationPrice);
+$('manualDiscount').addEventListener('input',calculateRegistrationPrice);
 $('registerBtn').addEventListener('click',async()=>{
  const e=selectedEvent(),memberKey=$('memberSelect').value,m=memberRows.find(x=>String(x.memberKey)===memberKey),msg=$('registerMessage');
  if(!e||!m){msg.textContent='請先選擇賽事及會員';msg.className='message error';return}
  const groups=Number($('buyinGroups').value),amount=Number($('amountPaid').value),unit=Number(e.buyinTotal||e.level||0),bird=$('birdType').value;
  const discount=bird==='early'?Number(e.earlyBirdDiscount||0):bird==='late'?Number(e.lateBirdDiscount||0):0;
- const standard=groups*unit-discount;
- if(!Number.isSafeInteger(groups)||groups<1||groups>100||!Number.isSafeInteger(amount)||amount<0||amount>standard||!Number.isFinite(unit)||unit<=0){msg.textContent='組數或金額無效，應收金額不可超過標準金額';msg.className='message error';return}
+ const standard=groups*unit-discount,manual=Number($('manualDiscount').value);
+ if(!Number.isSafeInteger(groups)||groups<1||groups>100||!Number.isSafeInteger(manual)||manual<0||manual>standard||!Number.isSafeInteger(amount)||amount<0||amount!==standard-manual||!Number.isFinite(unit)||unit<=0){msg.textContent='組數或金額無效，應收金額不可超過標準金額';msg.className='message error';return}
  const btn=$('registerBtn');btn.disabled=true;msg.textContent='正在寫入賽事…';msg.className='message';
  try{
   await runTransaction(store,async tx=>{
@@ -115,11 +125,11 @@ $('registerBtn').addEventListener('click',async()=>{
    if(['settled','已結算','deleted'].includes(current.status))throw Error('賽事已結算，禁止報名');
    const players=Array.isArray(current.players)?current.players.slice():[];
    if(players.some(p=>String(p.memberKey||'')===memberKey||String(p.memberId||'')===String(m.memberId)))throw Error('此會員已報名本場');
-   players.push({memberId:String(m.memberId),memberKey:String(m.memberKey),name:m.name||'',nickname:m.nickname||'',group:m.group||'',buyin:groups,rebuy:0,addon:0,earlyBird:bird==='early',lateBird:bird==='late',manualDiscount:standard-amount,stack:null,hunterHeads:0,seat:'',prize:0});
+   players.push({memberId:String(m.memberId),memberKey:String(m.memberKey),name:m.name||'',nickname:m.nickname||'',group:m.group||'',buyin:groups,rebuy:0,addon:0,earlyBird:bird==='early',lateBird:bird==='late',manualDiscount:manual,stack:null,hunterHeads:0,seat:'',prize:0});
    tx.update(ref,{players,_eventUpdatedAt:Date.now(),updatedAt:serverTimestamp()});
   });
   msg.textContent='報名成功｜'+groups+' 組｜應收 '+num(amount)+' 元';msg.className='message good';
-  $('memberSearch').value='';renderMemberOptions();
+  $('memberSearch').value='';$('memberSelect').innerHTML='<option value="">尚未選擇</option>';$('memberChosen').textContent='尚未選擇會員';renderMemberOptions();
  }catch(err){msg.textContent='報名失敗：'+err.message;msg.className='message error'}
  finally{btn.disabled=false}
 });
