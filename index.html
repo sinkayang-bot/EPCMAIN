@@ -5578,8 +5578,12 @@ function epcDesktopSeatRender_(){
  const ps=e.players||[],name=p=>{const m=(db.members||[]).find(x=>String(x.id)===String(p.memberId));return m?.name||p.nickname||p.name||String(p.memberId)};
  const safe=v=>String(v??'').replace(/&/g,'&amp;').replace(/</g,'&lt;');
  const seat=(t,s)=>t+'-'+s;
- roster.innerHTML=ps.map((p,i)=>({p,i})).filter(x=>!String(x.p.seat||'').trim()).map(({p,i})=>'<button type="button" data-epc-seat-player="'+i+'" style="background:'+(String(i)===epcSeatSelected_?'#9b7737':'#30475e')+';color:white;padding:8px;border-radius:8px">'+safe(name(p))+'</button>').join('')||'<span class="small">所有玩家均已入座</span>';
- grid.innerHTML=Array.from({length:8},(_,t)=>'<div style="border:1px solid #46566b;border-radius:12px;padding:10px"><b style="color:#e6bc59">'+(t+1)+' 號桌</b><div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:8px">'+Array.from({length:10},(_,s)=>{const code=seat(t+1,s+1),i=ps.findIndex(p=>String(p.seat||'')===code),p=ps[i];return '<button type="button" data-epc-seat-target="'+code+'" style="min-height:52px;background:#192b3b;color:white;border:1px solid #4b6179;border-radius:7px">'+(s+1)+' 號座'+(p?'<div>'+safe(name(p))+'</div>':'<div>空位</div>')+'</button>'}).join('')+'</div></div>').join('');
+ const normalizeSeat=v=>{const raw=String(v??'').trim();const m=raw.match(/^(?:T)?([1-8])\s*[-－–—_／/,:：]\s*(?:S)?(10|[1-9])$/i);return m?Number(m[1])+'-'+Number(m[2]):''};
+ const validSeats=new Set(Array.from({length:8},(_,t)=>Array.from({length:10},(_,s)=>seat(t+1,s+1))).flat());
+ const seated=new Set(ps.map(p=>normalizeSeat(p.seat)).filter(Boolean));
+ roster.innerHTML=ps.map((p,i)=>({p,i})).filter(x=>!normalizeSeat(x.p.seat)).map(({p,i})=>'<button type="button" data-epc-seat-player="'+i+'" style="background:'+(String(i)===epcSeatSelected_?'#9b7737':'#30475e')+';color:white;padding:8px;border-radius:8px">'+safe(name(p))+'</button>').join('')||'<span class="small">所有玩家均已入座（'+seated.size+' 個有效座位）</span>';
+ if(ps.length&&!seated.size)roster.insertAdjacentHTML('afterbegin','<span class="small" style="color:#d9a84e;width:100%">目前沒有有效的桌號／座號，請先點玩家再安排座位。</span>');
+ grid.innerHTML=Array.from({length:8},(_,t)=>'<div style="border:1px solid #46566b;border-radius:12px;padding:10px"><b style="color:#e6bc59">'+(t+1)+' 號桌</b><div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:8px">'+Array.from({length:10},(_,s)=>{const code=seat(t+1,s+1),i=ps.findIndex(p=>normalizeSeat(p.seat)===code),p=ps[i];return '<button type="button" data-epc-seat-target="'+code+'" style="min-height:52px;background:#192b3b;color:white;border:1px solid #4b6179;border-radius:7px">'+(s+1)+' 號座'+(p?'<div>'+safe(name(p))+'</div>':'<div>空位</div>')+'</button>'}).join('')+'</div></div>').join('');
 }
 function epcDesktopSeatAssign_(){
  const e=currentEvent();if(!e||['settled','已結算'].includes(e.status))return;
