@@ -6699,7 +6699,7 @@ async function saveDisplayApi_(){
  catch(e){$('displayApiStatus').textContent='連線失敗：'+e.message;actionMsg('Display API 連線失敗：'+e.message,true)}
 }
 function displayContentOptions_(v){
- const a=[['weekly','每週任務卡'],['pioneer','開桌先鋒'],['rank','週排行榜'],['hunter','獵人排行榜'],['umbrella','保護傘'],['boss','雙十狩王'],['rotate','活動輪播']];
+ const a=[['weekly','每週任務卡'],['pioneer','開桌先鋒'],['rank','週排行榜'],['hunter','獵人排行榜'],['umbrella','保護傘'],['boss','雙十狩王'],['parallel','活動並排'],['rotate','活動輪播']];
  return a.map(x=>`<option value="${x[0]}" ${v===x[0]?'selected':''}>${x[1]}</option>`).join('');
 }
 async function pairDisplay_(){
@@ -6720,6 +6720,11 @@ function displaySpecificControls_(id,type,sec,ui){
  if(type==='weekly')return identity+'<div><label>顯示玩家</label><select id="displayLimit_'+id+'"><option value="5" '+(limit==='5'?'selected':'')+'>5 位</option><option value="10" '+(limit==='10'?'selected':'')+'>10 位</option><option value="20" '+(limit==='20'?'selected':'')+'>20 位</option></select></div><div><label>任務資訊</label><select id="displayWeeklyMode_'+id+'"><option value="progress">出席天數＋參賽場次</option></select></div>'+common;
  if(type==='umbrella')return identity+'<div><label>顯示玩家</label><select id="displayLimit_'+id+'"><option value="5" '+(limit==='5'?'selected':'')+'>5 位</option><option value="10" '+(limit==='10'?'selected':'')+'>10 位</option></select></div><div><label>顯示內容</label><select id="displayUmbrellaMode_'+id+'"><option value="coupons">保護傘／折價券數</option></select></div>'+common;
  if(type==='boss')return identity+'<div><label>BOSS 畫面</label><select id="displayBossMode_'+id+'"><option value="battle">完整戰況：人數＋組數＋獎池＋HP＋攻擊紀錄</option></select></div><div><label>背景</label><select disabled><option>雙十狩王專屬背景</option></select></div>'+common;
+ if(type==='parallel'){
+  const acts=[['weekly','每週任務卡'],['pioneer','開桌先鋒'],['rank','週排行榜'],['hunter','獵人排行榜'],['umbrella','保護傘'],['boss','雙十狩王']];
+  const sel=Array.isArray(ui.parallelItems)?ui.parallelItems:['rank','boss'];
+  return identity+'<div><label>每個活動顯示人數</label><select id="displayLimit_'+id+'">'+[5,10].map(n=>'<option value="'+n+'" '+(+ui.limit===n?'selected':'')+'>'+n+' 位</option>').join('')+'</select></div><div style="grid-column:1/-1"><label>同時顯示的活動</label><div style="display:flex;flex-wrap:wrap;gap:14px;margin:10px 0">'+acts.map(x=>'<label style="display:flex;gap:6px;align-items:center"><input id="displayParallel_'+id+'_'+x[0]+'" type="checkbox" '+(sel.includes(x[0])?'checked':'')+'>'+x[1]+'</label>').join('')+'</div><div class="small">勾選的活動會同時並排顯示，依數量自動分成 2～3 欄，不會輪播。</div></div>';
+ }
  if(type==='rotate'){const acts=[['weekly','每週任務卡'],['pioneer','開桌先鋒'],['rank','週排行榜'],['hunter','獵人排行榜'],['umbrella','保護傘'],['boss','雙十狩王']];const sel=Array.isArray(ui.rotateItems)?ui.rotateItems:acts.map(x=>x[0]);const secs=ui.rotateSeconds||{};return '<div style="grid-column:1/-1"><label>輪播玩家資料顯示</label><div style="display:flex;gap:16px;align-items:center;margin:7px 0 12px"><label style="display:flex;gap:5px;align-items:center"><input id="displayShowName_'+id+'" type="checkbox"'+checked(ui.showName,true)+'>名字</label><label style="display:flex;gap:5px;align-items:center"><input id="displayShowMemberId_'+id+'" type="checkbox"'+checked(ui.showMemberId,false)+'>會員編號</label><span class="small">兩個都勾就同時顯示</span></div><label>輪播活動與停留時間</label><div style="display:grid;grid-template-columns:repeat(3,minmax(220px,1fr));gap:8px;margin-top:7px">'+acts.map(x=>'<div style="display:flex;align-items:center;gap:8px;border:1px solid var(--line);border-radius:8px;padding:8px"><input id="displayRotate_'+id+'_'+x[0]+'" type="checkbox" '+(sel.includes(x[0])?'checked':'')+'><b style="flex:1">'+x[1]+'</b><input id="displayRotateSec_'+id+'_'+x[0]+'" type="number" min="5" value="'+Math.max(5,+(secs[x[0]]||15))+'" style="width:72px"><span>秒</span></div>').join('')+'</div><div class="small" style="margin-top:6px">只會播放勾選的活動；每個活動可設定不同停留秒數。</div></div>';}
  return common;
 }
@@ -6787,6 +6792,7 @@ function displayPayload_(type){
   return {type,title:'每週任務卡',activityFrom:range.from,activityTo:range.to,rows:actPlayerStats_('weekly').map(x=>({id:x.id,memberId:x.id,name:x.name||x.id,games:x.games||0,days:x.days||0})).sort((a,b)=>b.games-a.games||b.days-a.days).slice(0,10)};
  }
  const titles={pioneer:'開桌先鋒',rank:'週排行榜',hunter:'獵人排行榜',umbrella:'保護傘'};
+ if(type==='parallel')return {type,title:'EPC 活動並排',panels:[]};
  if(type==='rotate')return {type,title:'EPC 活動輪播',slides:[]};
  return {type,title:titles[type]||'EPC 活動',activityFrom:range.from,activityTo:range.to,rows:displayLeaderboard_(type)};
 }
@@ -6794,9 +6800,15 @@ async function publishDisplay_(deviceId,silent=false){
  const type=$('displayType_'+deviceId)?.value||(displayDevicesCache.find(x=>x.deviceId===deviceId)?.contentType)||'boss';
  const sec=Math.max(5,+($('displaySec_'+deviceId)?.value||15));
  const ui={kind:type,limit:Math.max(3,+($('displayLimit_'+deviceId)?.value||10)),layout:$('displayLayout_'+deviceId)?.value||'classic',showRank:$('displayShowRank_'+deviceId)?.checked!==false,showName:$('displayShowName_'+deviceId)?.checked!==false,showMemberId:!!$('displayShowMemberId_'+deviceId)?.checked,showScore:$('displayShowScore_'+deviceId)?.checked!==false,rankFontScale:Math.min(160,Math.max(80,+($('displayRankFontScale_'+deviceId)?.value||100)))};
+ if(type==='parallel'){
+  ui.limit=Math.max(1,+($('displayLimit_'+deviceId)?.value||5));
+  ui.parallelItems=['weekly','pioneer','rank','hunter','umbrella','boss'].filter(t=>$('displayParallel_'+deviceId+'_'+t)?.checked);
+  if(!ui.parallelItems.length)return actionMsg('請至少勾選一個活動',true);
+ }
  if(type==='rotate'){const acts=['weekly','pioneer','rank','hunter','umbrella','boss'];ui.rotateItems=acts.filter(t=>$('displayRotate_'+deviceId+'_'+t)?.checked);ui.rotateSeconds={};acts.forEach(t=>ui.rotateSeconds[t]=Math.max(5,+($('displayRotateSec_'+deviceId+'_'+t)?.value||15)));}
  const payload=displayPayload_(type);payload.ui=ui;
  if(type==='rotate'){payload.slides=(ui.rotateItems||[]).map(t=>{const s=displayPayload_(t);s.ui=Object.assign({},ui,{kind:t});s.duration=Math.max(5,+(ui.rotateSeconds||{})[t]||15);return s})}
+ if(type==='parallel'){payload.panels=(ui.parallelItems||[]).map(t=>{const panel=displayPayload_(t);panel.ui=Object.assign({},ui,{kind:t,compact:true});if(Array.isArray(panel.rows))panel.rows=panel.rows.slice(0,ui.limit);return panel})}
  if(Array.isArray(payload.rows))payload.rows=payload.rows.slice(0,ui.limit);
  try{await displayFetch_({action:'publish',deviceId,contentType:type,rotateSeconds:sec,payload},true);saveDisplayPref_(deviceId,{type,sec,ui});if(!silent){actionMsg('已套用 '+(payload.title||'活動')+' 專屬顯示版型');await loadDisplays_()}}
  catch(e){if(!silent)actionMsg('顯示器更新失敗：'+e.message,true)}
@@ -6816,7 +6828,8 @@ async function publishAllDisplays_(){
    ui.kind=type;
    const payload=displayPayload_(type);payload.ui=ui;
    if(type==='rotate'){payload.slides=(ui.rotateItems||[]).map(t=>{const s=displayPayload_(t);s.ui=Object.assign({},ui,{kind:t});s.duration=Math.max(5,+(ui.rotateSeconds||{})[t]||15);return s})}
-   if(Array.isArray(payload.rows))payload.rows=payload.rows.slice(0,ui.limit);
+   if(type==='parallel'){payload.panels=(ui.parallelItems||[]).map(t=>{const panel=displayPayload_(t);panel.ui=Object.assign({},ui,{kind:t,compact:true});if(Array.isArray(panel.rows))panel.rows=panel.rows.slice(0,ui.limit);return panel})}
+ if(Array.isArray(payload.rows))payload.rows=payload.rows.slice(0,ui.limit);
    await displayFetch_({action:'publish',deviceId:d.deviceId,contentType:type,rotateSeconds:sec,payload},true);
   }catch(_){}
  }
