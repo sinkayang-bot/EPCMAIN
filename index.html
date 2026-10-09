@@ -1943,7 +1943,8 @@ window.addEventListener('error',function(e){
 <section id="members" class="page">
  <h2>會員管理</h2>
  <div class="card">
-  <div class="formgrid">
+  <div class="formgrid" style="grid-template-columns:repeat(5,minmax(0,1fr));gap:10px">
+
    <div><label>會員（本名）</label><input id="mName"></div>
    <div><label>綽號</label><input id="mNickname" placeholder="可留白"></div>
    <div><label>會員 ID（可留白自動產生）</label><input id="mId"></div>
