@@ -8,9 +8,16 @@ const extract=(s,a,b)=>s.slice(s.indexOf(a),s.indexOf(b,s.indexOf(a)));
  await ctx.publishDisplay_('TV');assert.equal(writes[0].payload.panels.length,2);assert.equal(writes[0].payload.panels[0].type,'rank');assert.equal(writes[0].payload.panels[0].rows.length,5);assert.equal(writes[0].payload.panels[1].pool,7100);assert.equal(writes[0].payload.slides,undefined);
  controls={};await ctx.publishAllDisplays_();assert.equal(writes[1].payload.panels.length,2,'automatic refresh uses saved selection, not current form');
  const host={innerHTML:'',className:'',children:[],style:{setProperty(k,v){this[k]=v}},appendChild(c){this.children.push(c)}};let scheduled=0;
- const s={host,esc:String,money:n=>'$'+n,timer:1,clearTimeout:()=>{},setTimeout:()=>scheduled++,document:{createElement:()=>({innerHTML:'',className:''})}};
+ const s={host,esc:String,money:n=>'$'+n,timer:1,clearTimeout:()=>{},setTimeout:()=>scheduled++,getComputedStyle:()=>({paddingTop:'0',paddingBottom:'0'}),document:{createElement:()=>({innerHTML:'',className:'',style:{},children:[],clientHeight:500,scrollHeight:500,appendChild(c){this.children.push(c)},querySelector(){return this.children[0]}})}};
  vm.createContext(s);vm.runInContext(extract(screen,'function identity','try{\n cloud='),s);
- s.show({paired:true,payload:writes[0].payload});assert.equal(host.className,'parallel-screen');assert.equal(host.children.length,2);assert.match(host.children[0].innerHTML,/P0/);assert.match(host.children[1].innerHTML,/7100/);assert.equal(scheduled,0,'parallel content never starts rotation timer');
+ s.show({paired:true,payload:writes[0].payload});assert.equal(host.className,'parallel-screen');assert.equal(host.children.length,2);assert.match(host.children[0].innerHTML,/P0/);assert.match(host.children[1].children[0].innerHTML,/7100/);assert.match(host.children[1].className,/boss-panel/);assert.equal(host.children[1].style.gridColumn,'span 2');assert.equal(scheduled,0,'parallel content never starts rotation timer');
+ for(let n=1;n<=6;n++){
+  const panels=Array.from({length:n},(_,i)=>({type:i===n-1?'boss':'rank'}));
+  const layout=s.parallelLayout(panels);assert.equal(layout.items.reduce((sum,x)=>sum+x.span,0),layout.columns*layout.rows,'boss layout fills screen for '+n+' activities');
+  if(n>1)assert.ok(layout.items.at(-1).span>1,'only boss gets wider');
+  const ordinary=s.parallelLayout(panels.map(()=>({type:'rank'})));assert.equal(ordinary.items.reduce((sum,x)=>sum+x.span,0),ordinary.columns*ordinary.rows,'odd layout fills screen without boss');
+ }
+ const five=s.parallelLayout(['pioneer','rank','hunter','umbrella','boss'].map(type=>({type})));assert.equal(five.columns,3);assert.equal(five.items.at(-1).span,2);
  s.show({paired:true,payload:{type:'rank',rows:[]}});assert.equal(host.className,'','switching mode clears grid layout');
  controls={displayType_TV:{value:'parallel'}};await ctx.publishDisplay_('TV');assert.equal(writes.length,2,'empty activity selection cannot overwrite TV');
  console.log('PASS: selected simultaneous activities, limits, saved preferences on refresh, real TV renderer, no rotation timer, and mode switching.');
