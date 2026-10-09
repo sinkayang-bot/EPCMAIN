@@ -20,5 +20,10 @@ const extract=(a,b)=>html.slice(html.indexOf(a),html.indexOf(b,html.indexOf(a)))
  await c.executeFormalSettlement();assert.equal(event.status,'進行中');assert.equal(event.finalJP,undefined);assert.equal(c.db.members[0].history,history);assert.equal(writes,0);assert.match(messages.at(-1),/conflict/);
  fail=false;const pending=c.executeFormalSettlement();await c.executeFormalSettlement();assert.equal(event.status,'進行中');release();await pending;
  assert.equal(event.status,'已結算');assert.equal(event.finalJP,4200);assert.equal(writes,1);assert.equal(c.db.members[0].history.length,2);
+ const settledHistory=c.db.members[0].history;
+ Object.assign(c,{confirm:()=>true,businessDateForEvent:e=>e.date,eventDisplayName_:()=> '第四場',syncEventToFirestore_:async(candidate,immediate,options)=>{assert.equal(event.status,'已結算');assert.equal(options.unlock,true);assert.equal(candidate.status,'進行中');throw Error('unlock conflict');}});
+ vm.runInContext(extract('async function unlockSettledEvent','function setEventName_'),c);
+ await c.unlockSettledEvent('E');assert.equal(event.status,'已結算');assert.equal(event.finalJP,4200);assert.equal(c.db.members[0].history,settledHistory);assert.equal(writes,1);
+ c.syncEventToFirestore_=async()=>true;await c.unlockSettledEvent('E');assert.equal(event.status,'進行中');assert.equal(event.finalJP,undefined);assert.equal(event.finalAccounting,undefined);assert.equal(c.db.members[0].history.length,1);assert.equal(writes,2);
  console.log('PASS: report stack revision, real conflict protection, failed settlement preserves status/history, confirmed commit and duplicate-click guard.');
 })();

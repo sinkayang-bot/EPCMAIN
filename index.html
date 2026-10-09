@@ -1988,7 +1988,7 @@ window.addEventListener('error',function(e){
 
 <section id="event" class="page">
  <h2>賽事帳務 <span class="pill" id="currentEventLabel"></span></h2>
- <div class="toolbar no-print"><button onclick="goEvents()">← 返回賽事管理</button><button class="primary" onclick="goICM()">ICM / 結算 →</button></div>
+ <div class="toolbar no-print"><button onclick="goEvents()">← 返回賽事管理</button><button class="primary" onclick="goICM()">ICM / 結算 →</button><button type="button" id="btnUnlockEvent" onclick="unlockSettledEvent(currentEvent()?.id)" style="display:none">解鎖編輯</button></div>
  <div class="card">
   <div class="formgrid">
    <div><label>日期</label><input type="date" id="eDate"></div>
@@ -4977,20 +4977,23 @@ async function executeFormalSettlement(){
 }
 
 async function unlockSettledEvent(id){
- const e=(db.events||[]).find(x=>String(x.id)===String(id));
+ let e=(db.events||[]).find(x=>String(x.id)===String(id));
  if(!e)return actionMsg('找不到這場賽事',true);
- if(e.status!=='已結算')return actionMsg('這場賽事目前不是已結算狀態',true);
+ if(e.status!=='已結算'&&e.status!=='settled')return actionMsg('這場賽事目前不是已結算狀態',true);
  const label=`${businessDateForEvent(e)} ${eventDisplayName_(e)} ${Number(e.level||0).toLocaleString()} 賽事`;
  if(!confirm(`確定要解鎖「${label}」嗎？\n\n解鎖後可修改買入、優惠、籌碼、獎金與帳務。\n原本的會員結算紀錄會先移除，修改完成後請重新「正式結算」。`))return;
+ const candidate=JSON.parse(JSON.stringify(e));
+ candidate.status='進行中';delete candidate.finalJP;delete candidate.finalAccounting;touchEvent_(candidate);
+ try{
+  const saved=await syncEventToFirestore_(candidate,true,{unlock:true});
+  if(!saved)throw Error('Firebase 尚未連線，請稍後再試');
+ }catch(err){return actionMsg('Firebase 解鎖同步失敗：'+String(err?.message||err),true);}
+ e=(db.events||[]).find(x=>String(x.id)===String(id))||e;
+ Object.assign(e,candidate);delete e.finalJP;delete e.finalAccounting;
  (db.members||[]).forEach(m=>{
    m.history=memberHistory_(m).filter(h=>String(h.eventId)!==String(e.id));
  });
- e.status='進行中';
- delete e.finalJP;
- delete e.finalAccounting;
- touchEvent_(e);
  persist();
- try{await syncEventToFirestore_(e,true,{unlock:true});}catch(err){return actionMsg('Firebase 解鎖同步失敗：'+String(err?.message||err),true);}
  render();
  if(cloudReady)await saveCloudNow(false);
  actionMsg(`已解鎖：${label}；修改完成後請重新正式結算`);
@@ -6005,6 +6008,7 @@ function render(){
  renderActivities();setTimeout(enhanceSearchCombos_,0);
  syncAccountingBusinessHours();
  let ev=currentEvent();
+ if($('btnUnlockEvent'))$('btnUnlockEvent').style.display=(ev?.status==='已結算'||ev?.status==='settled')?'inline-block':'none';
  renderEventList();
  renderAccountingManager();
  renderSettlementManager();
