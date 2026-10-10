@@ -89,6 +89,79 @@ table{width:100%;border-collapse:collapse;margin:20px 0}td,th{padding:10px;borde
  #epcLiveEvent{padding:7px 12px!important}
  #epcLiveEvent .big{font-size:22px!important}
 }
+</style><style id="epcInternationalLayout">
+/* International event-board composition: high contrast, one 16:9 screen */
+@media(min-width:951px){
+body{background:radial-gradient(ellipse at 52% 20%,#23252a 0%,#101116 48%,#07080b 100%)}
+header{height:58px;padding:13px 28px;border-bottom:1px solid #cba35766;background:#090a0e;font-size:17px}
+header:after{content:"TOURNAMENT LIVE · EPC"}
+main{display:grid;grid-template-columns:minmax(240px,.95fr) minmax(390px,1.9fr) minmax(240px,.95fr);grid-template-rows:auto auto auto;column-gap:14px;row-gap:12px;max-width:1920px;padding:14px 22px}
+.layout{display:contents}
+.layout>.panel{height:auto!important;min-height:0!important;grid-row:1 / 3}
+.layout>.panel:first-child{grid-column:2;grid-row:2;display:grid;grid-template-columns:1fr 1fr;grid-template-rows:auto auto;gap:2px;padding:12px;background:linear-gradient(145deg,#1b1d22,#101115);border:1px solid #d4b06b3d}
+.layout>.panel:first-child>.label{font-size:12px;letter-spacing:.08em}
+.layout>.panel:first-child>.label:first-child{grid-column:1;grid-row:1}
+.layout>.panel:first-child>#current{grid-column:1;grid-row:2}
+.layout>.panel:first-child>.label:nth-of-type(2){grid-column:2;grid-row:1}
+.layout>.panel:first-child>#ante{grid-column:2;grid-row:2}
+.layout>.panel:first-child .big{margin:5px 0!important;font-size:clamp(25px,3vw,53px)!important;color:#e8c879!important}
+.layout>.panel:nth-child(2){grid-column:2;grid-row:1;height:clamp(260px,43vh,480px)!important;padding:12px;background:radial-gradient(ellipse at 50% 44%,#25262a 0%,#101115 67%);border-color:#d4b06b55}
+.clock{width:min(42vh,440px);height:min(42vh,440px);border-width:5px;border-radius:50%;box-shadow:0 0 0 1px #c7a05e77,0 0 40px #c49c2b22,inset 0 0 45px #000a}
+.time{font-size:clamp(75px,8vw,145px);letter-spacing:-.075em}
+.layout>.panel:last-child{grid-column:2;grid-row:3;display:grid;grid-template-columns:1fr 1fr;grid-template-rows:auto auto;gap:3px;padding:10px;background:#121419;border:1px solid #cba35735}
+.layout>.panel:last-child>.label:first-child{grid-column:1;grid-row:1}
+.layout>.panel:last-child>#next{grid-column:1;grid-row:2}
+.layout>.panel:last-child>.label:nth-of-type(2){grid-column:2;grid-row:1}
+.layout>.panel:last-child>#nextante{grid-column:2;grid-row:2}
+.layout>.panel:last-child .big{font-size:clamp(22px,2.3vw,37px)!important;margin:3px 0!important;color:#e9edf1!important}
+#epcLiveEvent{grid-column:3;grid-row:1 / 4;display:flex;flex-direction:column;justify-content:flex-start;margin:0!important;padding:18px!important;background:linear-gradient(155deg,#1d2026,#101115)!important;border-radius:16px!important}
+#epcLiveEvent>div:first-child{display:block!important}
+#epcLiveEvent h2{font-size:clamp(16px,1.5vw,25px)!important;line-height:1.3;margin:8px 0 14px!important}
+#epcLiveEvent label{display:block;font-size:12px}
+#epcLiveEvent select{width:100%;min-width:0!important;font-size:12px;padding:7px!important}
+#epcLiveEvent>div:nth-child(2){display:grid!important;grid-template-columns:1fr 1fr!important;gap:10px!important;margin-top:20px!important}
+#epcLiveEvent .panel{min-height:110px!important;padding:12px 4px!important;background:#0c0e12!important;border:1px solid #ffffff12!important}
+#epcLiveEvent .big{font-size:clamp(28px,3vw,54px)!important;margin:9px 0!important}
+#epcLiveEvent .label{font-size:12px!important}
+.epcExtras{display:contents}
+.epcPrize{grid-column:1;grid-row:1 / 4;padding:20px!important;border-radius:16px!important;background:linear-gradient(150deg,#1d2026,#0e1014)!important}
+.epcPrizeHead{display:block;padding:12px 0!important}
+.epcPrizeHead>div{margin:5px 0 16px}
+.epcPrizeHead strong{font-size:clamp(26px,3vw,46px)!important}
+.epcPrizeRows{display:block!important}
+.epcPrizeRow{display:flex!important;flex-direction:row!important;align-items:center!important;border-bottom:1px solid #ffffff17!important;padding:9px 2px!important;font-size:15px!important}
+.epcPrizeRow strong{font-size:clamp(18px,1.8vw,29px)!important}
+.epcPrizeNote{font-size:11px!important;line-height:1.5}
+.epcAnnounce{grid-column:1 / 4;grid-row:4;display:grid;grid-template-columns:140px minmax(0,1fr);align-items:center;gap:8px 20px;padding:10px 18px!important;border-radius:10px!important}
+.epcAnnounce .epcExtraTitle{margin:0!important}
+.epcAnnounce .epcExtraTitle[style]{margin:0!important;grid-column:1;grid-row:2}
+.epcAnnounceText{grid-column:2;grid-row:1;min-height:0!important;max-height:48px!important;overflow:hidden;font-size:clamp(16px,1.5vw,25px)!important}
+.epcTicker{grid-column:2;grid-row:2;padding:5px 0!important}
+.epcTicker>div{font-size:17px!important}
+main>p:has(button){grid-column:1 / 4;grid-row:5;margin:0!important;gap:6px!important}
+main>p:has(button) button{padding:6px 14px!important;font-size:13px!important}
+main>.hint{grid-column:1 / 4;grid-row:6;display:none}
+main>details{grid-column:1 / 4;grid-row:auto;margin-top:0!important}
+:fullscreen header{height:48px}
+:fullscreen main{max-width:1920px;padding:8px 18px;row-gap:7px}
+:fullscreen .layout>.panel:nth-child(2){height:38vh!important}
+:fullscreen .clock{width:37vh;height:37vh}
+:fullscreen .epcAnnounce{display:grid}
+:fullscreen #epcLiveEvent{display:flex}
+:fullscreen main>p:has(button),:fullscreen main>details{display:none}
+}
+@media(min-width:951px) and (max-height:750px){
+header{height:43px!important;padding:8px 20px!important}
+main{row-gap:6px;padding:7px 16px}
+.layout>.panel:nth-child(2){height:34vh!important}
+.clock{width:33vh;height:33vh}
+.time{font-size:clamp(62px,7vw,110px)}
+#epcLiveEvent .panel{min-height:72px!important}
+#epcLiveEvent>div:nth-child(2){margin-top:10px!important}
+.epcPrizeHead>div{margin:2px 0 8px}
+.epcPrizeRow{padding:4px 2px!important}
+.epcAnnounceText{max-height:30px!important}
+}
 </style><header>EPC POKER MANAGEMENT｜賽事計時器</header><main><div class="layout"><section class="panel"><div class="label">目前盲注</div><div id="current" class="big"></div><div class="label">前注</div><div id="ante" class="big"></div></section><section class="panel"><div class="clock"><div id="level" class="label"></div><div id="time" class="time">20:00</div><div id="status" class="label">準備開始</div></div></section><section class="panel"><div class="label">下一級盲注</div><div id="next" class="big"></div><div class="label">下一級前注</div><div id="nextante" class="big"></div></section></div><p><button id="play" class="gold">開始</button><button id="prev">上一級</button><button id="advance">下一級</button><button id="reset">重設本級</button><button id="full">全螢幕</button></p><section id="epcLiveEvent" style="border:1px solid #b58e4659;border-radius:16px;background:linear-gradient(120deg,#1e2229,#101216);padding:20px;margin:20px 0;text-align:left"><div style="display:flex;gap:14px;flex-wrap:wrap;align-items:center;justify-content:space-between"><div><div style="font-size:13px;color:#e8c879;letter-spacing:2px">EPC LIVE EVENT</div><h2 id="eventName" style="margin:6px 0">尚未選擇賽事</h2></div><label style="color:#bfc7d1">連動賽事 <select id="eventSelect" style="display:block;background:#171a20;color:white;padding:10px;border:1px solid #77643f;border-radius:8px;min-width:230px;margin-top:5px"></select></label></div><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:12px;margin-top:14px"><div class="panel" style="min-height:90px;padding:12px"><div class="label">參賽人數</div><div class="big" id="eventPeople" style="margin:6px 0;font-size:36px">—</div></div><div class="panel" style="min-height:90px;padding:12px"><div class="label">買入組數</div><div class="big" id="eventBuyins" style="margin:6px 0;font-size:36px">—</div></div><div class="panel" style="min-height:90px;padding:12px"><div class="label">重買組數</div><div class="big" id="eventRebuys" style="margin:6px 0;font-size:36px">—</div></div><div class="panel" style="min-height:90px;padding:12px"><div class="label">總組數</div><div class="big" id="eventGroups" style="margin:6px 0;font-size:36px">—</div></div></div><p id="eventSyncStatus" class="hint" style="margin-bottom:0">讀取本瀏覽器的 EPC 賽事資料；每 2 秒更新</p></section><section class="epcExtras"><div class="epcPrize"><div class="epcExtraTitle">◆ PRIZE POOL · 獎池分配</div><div class="epcPrizeHead"><div><small>目前預估獎池</small><strong id="epcPrizePool">—</strong></div><div><small>分配比例</small><strong id="epcPrizeRatio">—</strong></div></div><div id="epcPrizeRows" class="epcPrizeRows">請先選擇賽事</div><div id="epcPrizeNote" class="epcPrizeNote">依賽事買入、行政費與分配比例試算；實際獎金以正式結算為準。</div></div><div class="epcAnnounce"><div class="epcExtraTitle">◆ 場內公告</div><div id="epcAnnouncement" class="epcAnnounceText">歡迎來到 EPC POKER MANAGEMENT</div><div class="epcExtraTitle" style="margin-top:20px">◆ 跑馬燈</div><div class="epcTicker"><div id="epcTickerText">歡迎參加 EPC 賽事 · 請留意場內公告</div></div></div></section><details class="epcExtrasSettings"><summary>⚙ 獎池、公告與跑馬燈設定</summary><div class="epcForm"><label>獎池手動覆寫（留空使用賽事試算）<input id="epcPoolOverride" type="number" min="0" placeholder="自動計算"></label><label>分配比例（逗號分隔，例如 50,30,20）<input id="epcPayoutInput" placeholder="跟隨賽事設定"></label><label>公告文字<textarea id="epcAnnounceInput" rows="3" placeholder="輸入要顯示在計時器的公告"></textarea></label><label>跑馬燈文字<textarea id="epcTickerInput" rows="3" placeholder="輸入要循環播放的文字"></textarea></label><button class="gold" id="epcSaveExtras">儲存顯示設定</button></div></details><p class="hint">獨立計時器，不會修改會員、賽事或帳務資料；設定僅儲存在目前瀏覽器。</p><details><summary>編輯盲注級別、每級分鐘數與休息時間</summary><table><thead><tr><th>級別</th><th>小盲</th><th>大盲</th><th>前注</th><th>分鐘</th><th>休息</th></tr></thead><tbody id="rows"></tbody></table><button id="add">新增級別</button><button id="remove">刪除末級</button><button id="save" class="gold">儲存設定</button></details></main><script>
 const $=x=>document.getElementById(x),key='epc_timer_settings_v1';let levels=[[100,200,200,20,false],[200,400,400,20,false],[300,600,600,20,false],[0,0,0,5,true],[400,800,800,20,false],[500,1000,1000,20,false],[600,1200,1200,20,false],[0,0,0,5,true],[800,1600,1600,20,false]],idx=0,left=1200,playing=false,deadline=0;
 try{const v=JSON.parse(localStorage.getItem(key));if(v&&v.levels?.length){levels=v.levels;idx=Math.min(v.idx||0,levels.length-1);left=v.left??levels[idx][3]*60}}catch(e){}
