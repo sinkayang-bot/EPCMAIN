@@ -2185,7 +2185,7 @@ window.addEventListener('error',function(e){
  </div>
  <div class="card" id="epcDesktopSeating">
  <details id="epcSeatDetails">
- <summary style="cursor:pointer;font-size:18px;font-weight:800;color:#e6bc59;padding:5px 0">桌位管理｜1～8 號桌（每桌 10 座）　<span style="font-size:13px;color:#91a0b2">點擊展開／收合</span></summary>
+ <summary style="cursor:pointer;font-size:18px;font-weight:800;color:#e6bc59;padding:5px 0" onclick="event.preventDefault();var d=document.getElementById('epcSeatDetails');d.open=!d.open;this.setAttribute('aria-expanded',String(d.open));">桌位管理｜1～8 號桌（每桌 10 座）　<span style="font-size:13px;color:#91a0b2">點擊展開／收合</span></summary>
  <div id="epcSeatRoster" style="display:flex;flex-wrap:wrap;gap:7px;margin:14px 0 12px"></div>
  <div id="epcSeatGrid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px"></div>
  <div class="small" id="epcSeatHint" style="margin-top:8px">先點選未入座玩家，再點座位；點擊已入座玩家可移動或換位。</div>
