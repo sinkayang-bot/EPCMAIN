@@ -1986,11 +1986,11 @@ button.epc-clicked-now,.btn.epc-clicked-now{transform:scale(.985);filter:brightn
 
 <button id="epcThemeToggle" data-theme-control="1" type="button" onclick="event.preventDefault();event.stopPropagation();toggleEpcTheme_();return false;" title="切換深淺色模式"><span class="themeDot"></span><span id="epcThemeText">☀ 切換淺色</span></button></nav>
 <main>
-<div class="card" role="status" aria-live="polite" style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+<div id="epcGlobalMemberStatus" class="card" role="status" aria-live="polite" style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
  <div style="flex:1;min-width:220px"><strong id="eightMemberState">會員資料準備載入…</strong><div id="saveState" class="small" style="margin-top:5px">正在啟動系統</div></div>
  <button id="eightMemberRetry" type="button" onclick="eightReloadMembers_()">重新讀取會員</button>
 </div>
-<div class="card" style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+<div id="epcGlobalAccountingStatus" class="card" style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
  <div id="epcAccountingAuthState" role="status" aria-live="polite" style="flex:1">帳務：正在載入管理員登入…</div>
  <button id="epcAccountingLogin" type="button" disabled>Google 管理員登入</button>
  <button id="epcAccountingRetry" type="button" hidden>重試帳務連線</button>
@@ -2003,6 +2003,27 @@ window.addEventListener('error',function(e){
  var el=document.getElementById('saveState');
  if(el){el.textContent='畫面執行錯誤：'+e.message;el.style.color='#ff8a8a';}
 });
+</script>
+<style id="epcStatusPanelsHideWhenReady">
+/* Keep login and member loading controls available only until they are needed. */
+#epcGlobalMemberStatus.epc-status-ready,#epcGlobalAccountingStatus.epc-status-ready{display:none!important}
+</style>
+<script id="epcStatusPanelsController">
+(function(){
+ const member=document.getElementById('epcGlobalMemberStatus'),account=document.getElementById('epcGlobalAccountingStatus');
+ if(!member||!account)return;
+ function refresh(){
+  const m=document.getElementById('eightMemberState')?.textContent||'';
+  const a=document.getElementById('epcAccountingAuthState')?.textContent||'';
+  const memberReady=/會員已載入\s*\d+\s*人/.test(m);
+  const accountReady=/管理員已連線/.test(a);
+  member.classList.toggle('epc-status-ready',memberReady);
+  account.classList.toggle('epc-status-ready',accountReady);
+ }
+ new MutationObserver(refresh).observe(member,{subtree:true,childList:true,characterData:true});
+ new MutationObserver(refresh).observe(account,{subtree:true,childList:true,characterData:true});
+ refresh();
+})();
 </script>
 <div id="actionMsg" style="display:none;position:sticky;top:72px;z-index:20;padding:11px 14px;margin-bottom:12px;border-radius:10px;background:#17212c;border:1px solid #d6b35a;color:#eef3f8;font-weight:700"></div>
 <section id="dashboard" class="page active">
