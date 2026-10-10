@@ -2581,7 +2581,7 @@ window.addEventListener('error',function(e){
   <button type="button" class="secondary" onclick="selectAllSettlementGroups(false)">清除</button>
   <button type="button" class="primary" onclick="printSelectedSettlementGroups()">列印已選群組</button>
  </div>
- <div id="settlementGroupFilter" style="display:flex;gap:8px 16px;flex-wrap:wrap"></div>
+ <div id="settlementGroupFilter" style="display:flex;gap:8px 16px;flex-wrap:wrap"></div><div style="margin-top:12px"><label for="settlementPlayerSearch">搜尋玩家（姓名／會員編號）</label><input type="search" id="settlementPlayerSearch" placeholder="輸入玩家姓名或會員編號，立即篩選下方明細" oninput="filterSettlementPlayers_()" autocomplete="off"><div class="small" id="settlementPlayerSearchStatus" style="margin-top:6px">僅篩選畫面，群組與當日合計仍為完整報表數字；列印不受影響。</div></div>
 </div>
 <div id="dailyGroupDetail"></div>
  </div>
@@ -6615,7 +6615,7 @@ function renderDailySettlement(){
     </h3>
    <div style="padding:12px">
     ${g.rows.map(m=>`
-     <div class="member-settlement-block" style="margin-bottom:14px">
+     <div class="member-settlement-block" data-settlement-player="${epcDisplayEscape_(m.member)}" style="margin-bottom:14px">
       <div class="member-summary-title" style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:6px;padding:7px 10px;background:#17222d;border-radius:6px">
        <span style="font-size:17px;font-weight:900">${epcDisplayEscape_(m.member)}</span>
        <span style="font-size:14px;font-weight:800">
@@ -6642,6 +6642,25 @@ function renderDailySettlement(){
      </div>`).join('')}
    </div>
   </div>`).join('');
+  filterSettlementPlayers_();
+}
+function filterSettlementPlayers_(){
+ const input=document.getElementById('settlementPlayerSearch');
+ const root=document.getElementById('dailyGroupDetail');
+ if(!input||!root)return;
+ const q=String(input.value||'').trim().toLocaleLowerCase();
+ let count=0;
+ root.querySelectorAll('.settlement-group-card').forEach(group=>{
+  let visible=0;
+  group.querySelectorAll('.member-settlement-block').forEach(block=>{
+   const name=(block.getAttribute('data-settlement-player')||'').toLocaleLowerCase();
+   const match=!q||name.includes(q);
+   block.style.display=match?'':'none';if(match){visible++;count++}
+  });
+  group.style.display=visible?'':'none';
+ });
+ const label=document.getElementById('settlementPlayerSearchStatus');
+ if(label)label.textContent=q?'符合搜尋的玩家：'+count+' 位（僅篩選畫面；合計與列印維持完整報表）':'僅篩選畫面，群組與當日合計仍為完整報表數字；列印不受影響。';
 }
 function selectAllSettlementGroups(checked){
  document.querySelectorAll('#settlementGroupFilter input[type="checkbox"]').forEach(x=>x.checked=checked);
