@@ -274,4 +274,21 @@ const name=document.getElementById('eventName');setInterval(()=>{top.textContent
 const panel=document.querySelector('.layout>.panel:nth-child(3)');if(panel){panel.style.visibility='visible';panel.style.gridRow='1';panel.style.zIndex='0'}
 const clockPanel=document.querySelector('.layout>.panel:nth-child(2)');if(clockPanel)clockPanel.style.zIndex='1';
 const full=document.getElementById('full');if(full){full.textContent='⛶ 全螢幕'}
+})();</script><style id="epcTimedEventLayout">
+/* Timed tournaments distribute by chips, not ranked prize places */
+@media(min-width:951px){
+ main{grid-template-columns:minmax(240px,1fr) minmax(480px,2.1fr) minmax(240px,1fr)}
+ .epcPrizeRows{display:none!important}
+ .epcPrizeHead>div:nth-child(2){display:none!important}
+ .epcPrize{display:flex;flex-direction:column;justify-content:center;text-align:center}
+ .epcPrize .epcExtraTitle{font-size:clamp(14px,1.2vw,20px)!important}
+ .epcPrizeHead{display:block!important;border:0!important}
+ .epcPrizeHead>div:first-child{align-items:center!important}
+ .epcPrizeHead strong{font-size:clamp(38px,4.3vw,76px)!important}
+ .epcPrizeNote{margin-top:15px!important}
+}
+</style><script id="epcTimedEventScript">(function(){
+const hideRank=()=>{const el=document.getElementById('epcPrizeRows');if(el){el.replaceChildren();el.style.display='none'}const ratio=document.getElementById('epcPrizeRatio');if(ratio)ratio.closest('div')?.style.setProperty('display','none','important');const title=document.querySelector('.epcPrize .epcExtraTitle');if(title)title.textContent='◆ 限時錦標賽 · 累計獎池';const note=document.getElementById('epcPrizeNote');if(note)note.textContent='限時賽依最終籌碼比例分配，非固定名次獎勵；獎池僅為預估，依正式結算為準。'};
+hideRank();setInterval(hideRank,2000);
+const input=document.getElementById('epcPayoutInput');if(input){input.closest('label')?.style.setProperty('display','none','important')}
 })();</script></html>
