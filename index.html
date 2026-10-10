@@ -1982,7 +1982,7 @@ button.epc-clicked-now,.btn.epc-clicked-now{transform:scale(.985);filter:brightn
 <button data-page="accounting">EPC帳務</button>
 <button data-page="activities">活動管理</button>
 <button data-page="displays">顯示設備</button>
-<button data-page="timers" onclick="setTimeout(()=>window.epcTimerRender?.(),0)">賽事計時器</button>
+<button type="button" onclick="window.open(&quot;timer.html&quot;,&quot;_blank&quot;,&quot;noopener&quot;)">賽事計時器 ↗</button>
 
 <button id="epcThemeToggle" data-theme-control="1" type="button" onclick="event.preventDefault();event.stopPropagation();toggleEpcTheme_();return false;" title="切換深淺色模式"><span class="themeDot"></span><span id="epcThemeText">☀ 切換淺色</span></button></nav>
 <main>
@@ -2600,7 +2600,7 @@ window.addEventListener('error',function(e){
  </div>
 </section>
 
-<section id="timers" class="page"><h2>賽事計時器管理</h2><div class="card"><p class="small">可同時建立多個計時器，綁定不同賽事；由顯示設備指定電視播放的計時器。</p><div style="display:flex;gap:10px;flex-wrap:wrap"><button class="primary" onclick="epcTimerAdd()">＋新增計時器</button><button onclick="epcTimerRender()">重新整理</button></div><div id="epcTimerList" style="margin-top:16px"></div></div></section><section id="displays" class="page">
+<section id="displays" class="page">
  <h2>顯示設備</h2>
  <div class="card">
   <h3>顯示連線設定</h3><p>電視開啟：<a href="./tv/" target="_blank" rel="noopener">EPCMAIN/tv/</a></p><button onclick="enableBuiltinDisplay_()">使用內建顯示連線</button>
@@ -6986,7 +6986,7 @@ async function saveDisplayApi_(){
  catch(e){$('displayApiStatus').textContent='連線失敗：'+e.message;actionMsg('Display API 連線失敗：'+e.message,true)}
 }
 function displayContentOptions_(v){
- const a=[['weekly','每週任務卡'],['pioneer','開桌先鋒'],['rank','週排行榜'],['hunter','獵人排行榜'],['umbrella','保護傘'],['boss','雙十狩王'],['parallel','活動並排'],['rotate','活動輪播'],['timer','賽事計時器']];
+ const a=[['weekly','每週任務卡'],['pioneer','開桌先鋒'],['rank','週排行榜'],['hunter','獵人排行榜'],['umbrella','保護傘'],['boss','雙十狩王'],['parallel','活動並排'],['rotate','活動輪播']];
  return a.map(x=>`<option value="${x[0]}" ${v===x[0]?'selected':''}>${x[1]}</option>`).join('');
 }
 async function pairDisplay_(){
@@ -7001,7 +7001,7 @@ function displaySpecificControls_(id,type,sec,ui){
  const limit=String(ui.limit||10),font=String(ui.rankFontScale||100);
  const common='<div><label>輪播秒數</label><input id="displaySec_'+id+'" type="number" min="5" value="'+(sec||15)+'"></div>';
  const identity='<div><label>玩家資料顯示</label><div style="display:flex;gap:12px;flex-wrap:wrap;padding-top:7px"><label style="display:flex;gap:5px;align-items:center"><input id="displayShowName_'+id+'" type="checkbox"'+checked(ui.showName,true)+'>玩家（綽號優先）</label><label style="display:flex;gap:5px;align-items:center"><input id="displayShowMemberId_'+id+'" type="checkbox"'+checked(ui.showMemberId,false)+'>會員編號</label></div></div>';
- if(type==='timer'){const all=epcTimers_();return '<div><label>選擇計時器</label><select id="displayTimer_'+id+'">'+all.map(t=>'<option value="'+epcDisplayEscape_(t.id)+'" '+(String(ui.timerId||'')===String(t.id)?'selected':'')+'>'+epcDisplayEscape_(t.name||'計時器')+'</option>').join('')+'</select></div>';} if(type==='rank')return '<div><label>排行榜顯示</label><select id="displayLimit_'+id+'"><option value="5" '+(limit==='5'?'selected':'')+'>TOP 5</option><option value="10" '+(limit==='10'?'selected':'')+'>TOP 10</option><option value="20" '+(limit==='20'?'selected':'')+'>TOP 20</option></select></div><div><label>顯示欄位</label><div style="display:flex;gap:12px;flex-wrap:wrap;padding-top:7px"><label style="display:flex;gap:5px;align-items:center"><input id="displayShowRank_'+id+'" type="checkbox"'+checked(ui.showRank,true)+'>名次</label><label style="display:flex;gap:5px;align-items:center"><input id="displayShowName_'+id+'" type="checkbox"'+checked(ui.showName,true)+'>玩家（綽號優先）</label><label style="display:flex;gap:5px;align-items:center"><input id="displayShowMemberId_'+id+'" type="checkbox"'+checked(ui.showMemberId,false)+'>會員編號</label><label style="display:flex;gap:5px;align-items:center"><input id="displayShowScore_'+id+'" type="checkbox"'+checked(ui.showScore,true)+'>分數</label></div></div><div><label>排行榜字體大小</label><select id="displayRankFontScale_'+id+'">'+[80,90,100,110,120,130,140,150,160].map(v=>'<option value="'+v+'" '+(font===String(v)?'selected':'')+'>'+v+'%</option>').join('')+'</select></div>'+common;
+ if(type==='rank')return '<div><label>排行榜顯示</label><select id="displayLimit_'+id+'"><option value="5" '+(limit==='5'?'selected':'')+'>TOP 5</option><option value="10" '+(limit==='10'?'selected':'')+'>TOP 10</option><option value="20" '+(limit==='20'?'selected':'')+'>TOP 20</option></select></div><div><label>顯示欄位</label><div style="display:flex;gap:12px;flex-wrap:wrap;padding-top:7px"><label style="display:flex;gap:5px;align-items:center"><input id="displayShowRank_'+id+'" type="checkbox"'+checked(ui.showRank,true)+'>名次</label><label style="display:flex;gap:5px;align-items:center"><input id="displayShowName_'+id+'" type="checkbox"'+checked(ui.showName,true)+'>玩家（綽號優先）</label><label style="display:flex;gap:5px;align-items:center"><input id="displayShowMemberId_'+id+'" type="checkbox"'+checked(ui.showMemberId,false)+'>會員編號</label><label style="display:flex;gap:5px;align-items:center"><input id="displayShowScore_'+id+'" type="checkbox"'+checked(ui.showScore,true)+'>分數</label></div></div><div><label>排行榜字體大小</label><select id="displayRankFontScale_'+id+'">'+[80,90,100,110,120,130,140,150,160].map(v=>'<option value="'+v+'" '+(font===String(v)?'selected':'')+'>'+v+'%</option>').join('')+'</select></div>'+common;
  if(type==='pioneer')return identity+'<div><label>顯示人數</label><select id="displayLimit_'+id+'"><option value="5" '+(limit==='5'?'selected':'')+'>前 5 名</option><option value="10" '+(limit==='10'?'selected':'')+'>前 10 名</option></select></div><div><label>顯示內容</label><select id="displayPioneerMode_'+id+'"><option value="score">先鋒積分</option></select></div>'+common;
  if(type==='hunter')return identity+'<div><label>顯示獵人</label><select id="displayLimit_'+id+'"><option value="5" '+(limit==='5'?'selected':'')+'>前 5 名</option><option value="10" '+(limit==='10'?'selected':'')+'>前 10 名</option></select></div><div><label>顯示內容</label><select id="displayHunterMode_'+id+'"><option value="points">獵人積分</option></select></div>'+common;
  if(type==='weekly')return identity+'<div><label>顯示玩家</label><select id="displayLimit_'+id+'"><option value="5" '+(limit==='5'?'selected':'')+'>5 位</option><option value="10" '+(limit==='10'?'selected':'')+'>10 位</option><option value="20" '+(limit==='20'?'selected':'')+'>20 位</option></select></div><div><label>任務資訊</label><select id="displayWeeklyMode_'+id+'"><option value="progress">出席天數＋參賽場次</option></select></div>'+common;
@@ -7064,7 +7064,6 @@ function displayLeaderboard_(kind){
 }
 function displayPayload_(type){
  ensureActDb_();const A=db.activityManagement||{},range=actActivityRange_(type);
- if(type==='timer')return {type:'timer',title:'EPC 賽事計時器',timer:null};
  if(type==='boss'){
   const B=A.boss||{},S=bossStats_(),b=activeBoss_(),hp=b?bossCurrentHp_():0,attacks=(b?.attacks||[]);
   return {type,title:'雙十狩王',activityFrom:range.from,activityTo:range.to,
@@ -7094,7 +7093,7 @@ async function publishDisplay_(deviceId,silent=false){
   if(!ui.parallelItems.length)return actionMsg('請至少勾選一個活動',true);
  }
  if(type==='rotate'){const acts=['weekly','pioneer','rank','hunter','umbrella','boss'];ui.rotateItems=acts.filter(t=>$('displayRotate_'+deviceId+'_'+t)?.checked);ui.rotateSeconds={};acts.forEach(t=>ui.rotateSeconds[t]=Math.max(5,+($('displayRotateSec_'+deviceId+'_'+t)?.value||15)));}
- const payload=displayPayload_(type);payload.ui=ui;if(type==='timer'){ui.timerId=$('displayTimer_'+deviceId)?.value||epcTimers_()[0]?.id||'';payload.timer=epcTimers_().find(t=>String(t.id)===String(ui.timerId))||null;payload.title=payload.timer?.name||'賽事計時器';const ev=db.events.find(e=>String(e.id)===String(payload.timer?.eventId));if(ev){const players=Array.isArray(ev.players)?ev.players:[],n=v=>Math.max(0,Number(v)||0),buy=players.reduce((a,p)=>a+n(p.buyin),0),rebuy=players.reduce((a,p)=>a+n(p.rebuy),0),addon=players.reduce((a,p)=>a+n(p.addon),0),people=players.filter(p=>n(p.buyin)+n(p.rebuy)+n(p.addon)>0).length;payload.stats={people,buy,rebuy,total:buy+rebuy+addon};payload.pool=payload.timer?.pool!==''&&payload.timer?.pool!=null?n(payload.timer.pool):(buy+rebuy+addon)*Math.max(0,(n(ev.buyinTotal)||n(ev.level))-(n(ev.buyinAdmin)||n(ev.admin)));payload.eventName=ev.name||ev.title||'';}}}
+ const payload=displayPayload_(type);payload.ui=ui;
  if(type==='rotate'){payload.slides=(ui.rotateItems||[]).map(t=>{const s=displayPayload_(t);s.ui=Object.assign({},ui,{kind:t});s.duration=Math.max(5,+(ui.rotateSeconds||{})[t]||15);return s})}
  if(type==='parallel'){payload.panels=(ui.parallelItems||[]).map(t=>{const panel=displayPayload_(t);panel.ui=Object.assign({},ui,{kind:t,compact:true});if(Array.isArray(panel.rows))panel.rows=panel.rows.slice(0,ui.limit);return panel})}
  if(Array.isArray(payload.rows))payload.rows=payload.rows.slice(0,ui.limit);
@@ -7267,5 +7266,4 @@ async function epcShowRecoveryAudit_(){
 <script src="phone/stack-core.js?v=20261009-settlement-confirmed"></script>
 <script src="firebase-events.js?v=20261009-settlement-confirmed"></script>
 <script src="sync-v3.js?v=20261007-0780"></script>
-<script src="app.js?v=20261009-identity-roles"></script>
-<script src="epc-timers.js?v=2"></script></body></html>
+<script src="app.js?v=20261009-identity-roles"></script></body></html>
