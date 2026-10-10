@@ -5823,7 +5823,7 @@ function actEvents_(kind=actTab_){
   const d=actBusinessDate_(e),settled=e.status==='已結算'||e.status==='settled';
   if(kind==='pioneer'&&!isPioneerEvent_(e))return false;
   return !!d&&(!from||d>=from)&&(!to||d<=to)&&(!needsSettled||settled);
- });
+ }).sort((a,b)=>String(actBusinessDate_(b)||'').localeCompare(String(actBusinessDate_(a)||''))||(Number(b.seq||0)-Number(a.seq||0))||String(b.startTime||'').localeCompare(String(a.startTime||'')));
 }
 function actMember_(id){return (db.members||[]).find(m=>String(m.id)===String(id))||{}}
 
