@@ -186,14 +186,6 @@ setTimeout(()=>{if(Array.isArray(window.EPC_FIRESTORE_LAST_EVENTS))window.dispat
 function mirrorEventToFirebase_(ev){try{if(window.EPCFirestore?.ready&&ev?.eventId)window.EPCFirestore.upsertEvent(ev).catch(console.warn)}catch(_){}}
 function deleteEventFromFirebase_(id){try{if(window.EPCFirestore?.ready&&id)window.EPCFirestore.deleteEvent(id).catch(console.warn)}catch(_){}}
 // Automatic Firestore seeding disabled: legacy event sources are partial and must not overwrite/migrate implicitly.
-function showFirestoreDiag_(){
- if(!document.querySelector('#events')?.classList.contains('active'))return;
- let box=document.querySelector('#firestoreDiag');
- if(!box){box=document.createElement('div');box.id='firestoreDiag';box.style.cssText='margin:8px 0;padding:10px 12px;border:1px solid #d6b35a;border-radius:8px;font:12px monospace;white-space:pre-wrap;color:#f3d27a;background:#111827';const host=document.querySelector('#events .card:last-of-type')||document.querySelector('#events');host?.prepend(box)}
- const d=window.EPC_FIRESTORE_DIAG||{};
- box.textContent='FIREBASE DIAG | build 20261007-0840 | project='+(d.projectId||window.EPC_FIREBASE_CONFIG?.projectId||'?')+' | state='+(d.state||'not-loaded')+' | docs='+(d.count??'?')+(d.error?' | ERROR='+d.error:'');
-}
-setInterval(showFirestoreDiag_,1000);setTimeout(showFirestoreDiag_,300);
 function eventSummaryFromDoc_(x){
  const ps=Array.isArray(x?.players)?x.players:[],buyinTotal=+(x.buyinTotal||0)||((+x.buyin||0)+(+x.fee||0)),admin=+(x.buyinAdmin||0)||(+x.fee||0);
  let totalEntries=0,totalGross=0,prizePool=0,totalDiscount=0,rebuyPeople=0;
