@@ -133,7 +133,7 @@ function render(){
  $('eventSelect').innerHTML=open.map(e=>`<option value="${esc(e.eventId)}">${esc(e.businessDate||e.date||'')}｜${esc(e.name||'賽事')}</option>`).join('');$('eventSelect').value=selected;
  const e=open.find(e=>e.eventId===selected);if(!e){updateDashboard();$('summary').textContent='';$('players').innerHTML='<div class="empty">目前沒有進行中的賽事</div>';return}
  const allPlayers=(e.players||[]).slice().sort((a,b)=>String(a.seat||'').localeCompare(String(b.seat||''),'zh-TW',{numeric:true}));
- const tables=[...new Set(allPlayers.map(p=>String(p.seat||'').trim().match(/^(\\d+)-/)?.[1]).filter(Boolean))].sort((a,b)=>Number(a)-Number(b));
+ const tables=[...new Set(allPlayers.map(p=>String(p.seat||'').trim().match(/^(\d+)-/)?.[1]).filter(Boolean))].sort((a,b)=>Number(a)-Number(b));
  const tableSel=$('chipTableSelect'),available=['all',...tables,'unseated'];if(!available.includes(selectedChipTable))selectedChipTable=tables[0]||'unseated';
  tableSel.innerHTML=tables.map(t=>'<option value="'+esc(t)+'">第 '+esc(t)+' 桌</option>').join('')+'<option value="unseated">未安排座位</option><option value="all">全部玩家</option>';tableSel.value=selectedChipTable;
  const players=allPlayers.filter(p=>selectedChipTable==='all'||(selectedChipTable==='unseated'?!String(p.seat||'').trim():String(p.seat||'').startsWith(selectedChipTable+'-')));
