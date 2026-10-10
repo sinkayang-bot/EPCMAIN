@@ -6615,7 +6615,7 @@ function renderDailySettlement(){
     </h3>
    <div style="padding:12px">
     ${g.rows.map(m=>`
-     <div class="member-settlement-block" data-settlement-player="${epcDisplayEscape_(m.member)}" style="margin-bottom:14px">
+     <div class="member-settlement-block" data-settlement-player="${epcDisplayEscape_(m.member)}" data-settlement-member-id="${epcDisplayEscape_(m.memberId)}" style="margin-bottom:14px">
       <div class="member-summary-title" style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:6px;padding:7px 10px;background:#17222d;border-radius:6px">
        <span style="font-size:17px;font-weight:900">${epcDisplayEscape_(m.member)}</span>
        <span style="font-size:14px;font-weight:800">
@@ -6654,7 +6654,8 @@ function filterSettlementPlayers_(){
   let visible=0;
   group.querySelectorAll('.member-settlement-block').forEach(block=>{
    const name=(block.getAttribute('data-settlement-player')||'').toLocaleLowerCase();
-   const match=!q||name.includes(q);
+   const memberId=(block.getAttribute('data-settlement-member-id')||'').toLocaleLowerCase();
+   const match=!q||name.includes(q)||memberId.includes(q);
    block.style.display=match?'':'none';if(match){visible++;count++}
   });
   group.style.display=visible?'':'none';
