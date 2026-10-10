@@ -79,15 +79,15 @@ $('seatRoster').addEventListener('dragstart',e=>{const b=e.target.closest('[data
 $('seatTables').addEventListener('dragover',e=>{if(e.target.closest('[data-seat-code]'))e.preventDefault()});
 $('seatTables').addEventListener('drop',e=>{const b=e.target.closest('[data-seat-code]');if(!b)return;e.preventDefault();const id=e.dataTransfer?.getData('text/plain')||seatPicked;if(id)moveSeat(id,b.dataset.seatCode)});
 
-let activePanel='';
+let activePanel='';let selectedChipTable='all';
 function showPanel(id=''){
  activePanel=id;
- $('dashboard').hidden=!!id;$('backDashboard').hidden=!id;
+ $('dashboard').hidden=!!id;$('backDashboard').hidden=!id;$('floatingBack').hidden=!id;
  document.querySelectorAll('.mobile-panel').forEach(el=>el.hidden=el.id!==id);
  window.scrollTo({top:0,behavior:'instant'});
 }
 document.querySelectorAll('[data-panel]').forEach(btn=>btn.addEventListener('click',()=>showPanel(btn.dataset.panel)));
-$('backDashboard').addEventListener('click',()=>showPanel());
+$('backDashboard').addEventListener('click',()=>showPanel());$('floatingBack').addEventListener('click',()=>showPanel());$('overviewShortcut').addEventListener('click',()=>showPanel('overviewPanel'));
 function updateDashboard(){
  const e=events.find(x=>x.eventId===selected),ps=e?.players||[];
  renderSeating();
@@ -96,6 +96,7 @@ function updateDashboard(){
  $('dashRebuys').textContent=ps.reduce((n,p)=>n+(+p.rebuy||0),0)+' 組';
  $('dashGroups').textContent=ps.reduce((n,p)=>n+(+p.buyin||0)+(+p.rebuy||0)+(+p.addon||0),0)+' 組';
  $('overviewStats').textContent=e?'賽事：'+(e.name||'')+'｜報名 '+ps.length+' 人｜總買入 '+ps.reduce((n,p)=>n+(+p.buyin||0)+(+p.rebuy||0)+(+p.addon||0),0)+' 組':'無進行中賽事';
+ $('overviewPlayers').innerHTML=e?'<h3 class="overview-player-title">參賽玩家（點擊可操作）</h3>'+ps.map(p=>'<button type="button" class="overview-person" data-overview-player="'+esc(p.memberId)+'"><b>'+esc(seatLabel(p))+'</b><small>會員編號 '+esc(p.memberId)+'｜首次 '+num(p.buyin)+' 組｜重買 '+num(p.rebuy)+' 組｜總計 '+num((+p.buyin||0)+(+p.rebuy||0)+(+p.addon||0))+' 組｜'+(p.earlyBird?'早鳥':p.lateBird?'晚鳥':'一般')+'</small></button>').join(''):'<div class="empty">目前沒有進行中的賽事</div>';
 }
 
 function renderRebuy(){
@@ -106,6 +107,7 @@ function renderRebuy(){
  const unit=Number(e?.rebuyTotal||e?.buyinTotal||e?.level||0),discount=Number($('rebuyManualDiscount').value||0);
  $('rebuyPriceNote').textContent=p?'本次新增 '+n+' 組｜每組 '+num(unit)+' 元｜參考應收 '+num(Math.max(0,n*unit-discount))+' 元（優惠計價仍須核對電腦帳務規則）':'請先選擇已報名玩家';
 }
+$('overviewPlayers').addEventListener('click',ev=>{const b=ev.target.closest('[data-overview-player]');if(!b)return;showPanel('rebuyPanel');$('rebuyPlayer').value=b.dataset.overviewPlayer;renderRebuy();});
 $('rebuyPlayer').addEventListener('change',renderRebuy);
 $('rebuyGroups').addEventListener('input',renderRebuy);
 $('rebuyManualDiscount').addEventListener('input',renderRebuy);
@@ -130,7 +132,11 @@ function render(){
  if(!open.some(e=>e.eventId===selected))selected=open[0]?.eventId||'';
  $('eventSelect').innerHTML=open.map(e=>`<option value="${esc(e.eventId)}">${esc(e.businessDate||e.date||'')}｜${esc(e.name||'賽事')}</option>`).join('');$('eventSelect').value=selected;
  const e=open.find(e=>e.eventId===selected);if(!e){updateDashboard();$('summary').textContent='';$('players').innerHTML='<div class="empty">目前沒有進行中的賽事</div>';return}
- const players=(e.players||[]).slice().sort((a,b)=>String(a.seat||'').localeCompare(String(b.seat||''),'zh-TW',{numeric:true}));
+ const allPlayers=(e.players||[]).slice().sort((a,b)=>String(a.seat||'').localeCompare(String(b.seat||''),'zh-TW',{numeric:true}));
+ const tables=[...new Set(allPlayers.map(p=>String(p.seat||'').trim().match(/^(\\d+)-/)?.[1]).filter(Boolean))].sort((a,b)=>Number(a)-Number(b));
+ const tableSel=$('chipTableSelect'),available=['all',...tables,'unseated'];if(!available.includes(selectedChipTable))selectedChipTable=tables[0]||'unseated';
+ tableSel.innerHTML=tables.map(t=>'<option value="'+esc(t)+'">第 '+esc(t)+' 桌</option>').join('')+'<option value="unseated">未安排座位</option><option value="all">全部玩家</option>';tableSel.value=selectedChipTable;
+ const players=allPlayers.filter(p=>selectedChipTable==='all'||(selectedChipTable==='unseated'?!String(p.seat||'').trim():String(p.seat||'').startsWith(selectedChipTable+'-')));
  renderChipSummary(e);updateDashboard();renderRebuy();
  const total=(e.players||[]).reduce((a,p)=>a+(+p.buyin||0)+(+p.rebuy||0)+(+p.addon||0),0);
  const reb=(e.players||[]).reduce((a,p)=>a+(+p.rebuy||0),0);
@@ -172,7 +178,8 @@ $('players').addEventListener('click',async e=>{
  tx.update(ref,changes)});drafts.set(k,{message:'已儲存，電腦與活動會自動更新',saved:true});}
  catch(err){drafts.set(k,{...draft,message:err.message,error:true});status('儲存失敗，輸入已保留',true)}finally{busy.delete(k);render()}
 });
-$('eventSelect').addEventListener('change',()=>{selected=$('eventSelect').value;render();calculateRegistrationPrice()});$('reload').addEventListener('click',subscribe);subscribe();
+$('chipTableSelect').addEventListener('change',()=>{selectedChipTable=$('chipTableSelect').value;render()});
+$('eventSelect').addEventListener('change',()=>{selected=$('eventSelect').value;selectedChipTable='all';render();calculateRegistrationPrice()});$('reload').addEventListener('click',subscribe);subscribe();
 // Read-only member labels; roster and writes always use EPCMAIN Firestore.
 const API='https://script.google.com/macros/s/AKfycbwZi5bXuFJdtXiE6oxPmn4NZti-wZyOwEfTKZ8VPo5nXP5GK1mPOYrfkxz714AN4UQx9w/exec';
 let memberRows=[];
