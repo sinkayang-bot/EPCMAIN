@@ -29,7 +29,7 @@ table{width:100%;border-collapse:collapse;margin:20px 0}td,th{padding:10px;borde
 @media(max-width:950px){.layout{grid-template-columns:1fr}.panel{min-height:220px}.panel:nth-child(2){grid-row:1;min-height:380px}.clock{max-width:350px}.big{margin:12px 0 22px}header:after{display:none}details{overflow-x:auto}.time{font-size:70px}}
 @media(max-width:480px){main{padding:14px}.clock{max-width:290px}.time{font-size:58px}.panel:nth-child(2){min-height:340px}header{padding:17px}.big{font-size:35px}}
 :fullscreen main{max-width:100%;padding:3vh 3vw}:fullscreen .layout{min-height:75vh}:fullscreen .panel{min-height:70vh}:fullscreen details,:fullscreen .hint{display:none}
-</style><header>EPC POKER MANAGEMENT｜賽事計時器</header><main><div class="layout"><section class="panel"><div class="label">目前盲注</div><div id="current" class="big"></div><div class="label">前注</div><div id="ante" class="big"></div></section><section class="panel"><div class="clock"><div id="level" class="label"></div><div id="time" class="time">20:00</div><div id="status" class="label">準備開始</div></div></section><section class="panel"><div class="label">下一級盲注</div><div id="next" class="big"></div><div class="label">下一級前注</div><div id="nextante" class="big"></div></section></div><p><button id="play" class="gold">開始</button><button id="prev">上一級</button><button id="advance">下一級</button><button id="reset">重設本級</button><button id="full">全螢幕</button></p><p class="hint">獨立計時器，不會修改會員、賽事或帳務資料；設定僅儲存在目前瀏覽器。</p><details><summary>編輯盲注級別、每級分鐘數與休息時間</summary><table><thead><tr><th>級別</th><th>小盲</th><th>大盲</th><th>前注</th><th>分鐘</th><th>休息</th></tr></thead><tbody id="rows"></tbody></table><button id="add">新增級別</button><button id="remove">刪除末級</button><button id="save" class="gold">儲存設定</button></details></main><script>
+</style><header>EPC POKER MANAGEMENT｜賽事計時器</header><main><div class="layout"><section class="panel"><div class="label">目前盲注</div><div id="current" class="big"></div><div class="label">前注</div><div id="ante" class="big"></div></section><section class="panel"><div class="clock"><div id="level" class="label"></div><div id="time" class="time">20:00</div><div id="status" class="label">準備開始</div></div></section><section class="panel"><div class="label">下一級盲注</div><div id="next" class="big"></div><div class="label">下一級前注</div><div id="nextante" class="big"></div></section></div><p><button id="play" class="gold">開始</button><button id="prev">上一級</button><button id="advance">下一級</button><button id="reset">重設本級</button><button id="full">全螢幕</button></p><section id="epcLiveEvent" style="border:1px solid #b58e4659;border-radius:16px;background:linear-gradient(120deg,#1e2229,#101216);padding:20px;margin:20px 0;text-align:left"><div style="display:flex;gap:14px;flex-wrap:wrap;align-items:center;justify-content:space-between"><div><div style="font-size:13px;color:#e8c879;letter-spacing:2px">EPC LIVE EVENT</div><h2 id="eventName" style="margin:6px 0">尚未選擇賽事</h2></div><label style="color:#bfc7d1">連動賽事 <select id="eventSelect" style="display:block;background:#171a20;color:white;padding:10px;border:1px solid #77643f;border-radius:8px;min-width:230px;margin-top:5px"></select></label></div><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:12px;margin-top:14px"><div class="panel" style="min-height:90px;padding:12px"><div class="label">參賽人數</div><div class="big" id="eventPeople" style="margin:6px 0;font-size:36px">—</div></div><div class="panel" style="min-height:90px;padding:12px"><div class="label">買入組數</div><div class="big" id="eventBuyins" style="margin:6px 0;font-size:36px">—</div></div><div class="panel" style="min-height:90px;padding:12px"><div class="label">重買組數</div><div class="big" id="eventRebuys" style="margin:6px 0;font-size:36px">—</div></div><div class="panel" style="min-height:90px;padding:12px"><div class="label">總組數</div><div class="big" id="eventGroups" style="margin:6px 0;font-size:36px">—</div></div></div><p id="eventSyncStatus" class="hint" style="margin-bottom:0">讀取本瀏覽器的 EPC 賽事資料；每 2 秒更新</p></section><p class="hint">獨立計時器，不會修改會員、賽事或帳務資料；設定僅儲存在目前瀏覽器。</p><details><summary>編輯盲注級別、每級分鐘數與休息時間</summary><table><thead><tr><th>級別</th><th>小盲</th><th>大盲</th><th>前注</th><th>分鐘</th><th>休息</th></tr></thead><tbody id="rows"></tbody></table><button id="add">新增級別</button><button id="remove">刪除末級</button><button id="save" class="gold">儲存設定</button></details></main><script>
 const $=x=>document.getElementById(x),key='epc_timer_settings_v1';let levels=[[100,200,200,20,false],[200,400,400,20,false],[300,600,600,20,false],[0,0,0,5,true],[400,800,800,20,false],[500,1000,1000,20,false],[600,1200,1200,20,false],[0,0,0,5,true],[800,1600,1600,20,false]],idx=0,left=1200,playing=false,deadline=0;
 try{const v=JSON.parse(localStorage.getItem(key));if(v&&v.levels?.length){levels=v.levels;idx=Math.min(v.idx||0,levels.length-1);left=v.left??levels[idx][3]*60}}catch(e){}
 function store(){localStorage.setItem(key,JSON.stringify({levels,idx,left}))}
@@ -43,4 +43,35 @@ setInterval(()=>{if(!playing)return;let n=Math.max(0,Math.ceil((deadline-Date.no
 function edit(){ $('rows').innerHTML=levels.map((r,i)=>'<tr><td>'+(i+1)+'</td>'+r.map((v,j)=>'<td><input data-j="'+j+'" type="'+(j===4?'checkbox':'number')+'" '+(j===4?(v?'checked':''):'min="0" value="'+v+'")+'></td>').join('')+'</tr>').join('')}
 function read(){levels=[...$('rows').querySelectorAll('tr')].map(tr=>[...tr.querySelectorAll('input')].map(x=>x.type==='checkbox'?x.checked:Math.max(0,Number(x.value)||0)));levels.forEach(x=>x[3]=Math.max(1,x[3]))}
 $('add').onclick=()=>{read();levels.push([0,0,0,20,false]);edit()};$('remove').onclick=()=>{if(levels.length<2)return;read();levels.pop();edit()};$('save').onclick=()=>{pause();read();idx=Math.min(idx,levels.length-1);left=levels[idx][3]*60;store();edit();show();alert('設定已儲存')};window.addEventListener('beforeunload',()=>{if(playing)left=Math.max(0,Math.ceil((deadline-Date.now())/1000));store()});edit();show();
+</script><script>
+(function(){'use strict';
+const $=id=>document.getElementById(id);
+let selected=sessionStorage.getItem('epcTimerEventId')||'',lastSignature='';
+function refresh(){
+ let db;try{db=JSON.parse(localStorage.getItem('epcV1')||'null')}catch(e){}
+ const events=Array.isArray(db?.events)?db.events:[];
+ const select=$('eventSelect');
+ const signature=events.map(e=>String(e.id)+':'+String(e.name||'')+':'+String(e.seq||'')).join('|');
+ if(signature!==lastSignature){lastSignature=signature;select.innerHTML='';for(const e of events){const o=document.createElement('option');o.value=String(e.id);o.textContent=(e.name||e.title||('第'+(e.seq||'?')+'場'))+'｜'+(e.level||'')+'級';select.appendChild(o)}}
+ if(!events.length){$('eventName').textContent='目前沒有可讀取的賽事';for(const id of ['eventPeople','eventBuyins','eventRebuys','eventGroups'])$(id).textContent='—';$('eventSyncStatus').textContent='請先在同一瀏覽器登入 EPC 後台並載入賽事';return}
+ let event=events.find(e=>String(e.id)===selected);
+ if(!event){const preferred=localStorage.getItem('epcDeviceEventId')||db.currentEventId;event=events.find(e=>String(e.id)===String(preferred))||events[0];selected=String(event.id)}
+ select.value=selected;
+ $('eventName').textContent=event.name||event.title||('第'+(event.seq||'?')+'場｜'+(event.level||'')+' 賽事');
+ const players=Array.isArray(event.players)?event.players:[];
+ const n=v=>Math.max(0,Number(v)||0);
+ const people=players.filter(p=>n(p.buyin)+n(p.rebuy)+n(p.addon)>0).length;
+ const buys=players.reduce((a,p)=>a+n(p.buyin),0);
+ const rebuys=players.reduce((a,p)=>a+n(p.rebuy),0);
+ const addons=players.reduce((a,p)=>a+n(p.addon),0);
+ $('eventPeople').textContent=people.toLocaleString();
+ $('eventBuyins').textContent=buys.toLocaleString();
+ $('eventRebuys').textContent=rebuys.toLocaleString();
+ $('eventGroups').textContent=(buys+rebuys+addons).toLocaleString();
+ $('eventSyncStatus').textContent='資料來源：EPC 後台在本瀏覽器儲存的賽事快照｜每 2 秒更新'+(addons?'｜含加購 '+addons+' 組':'');
+}
+$('eventSelect').addEventListener('change',e=>{selected=e.target.value;sessionStorage.setItem('epcTimerEventId',selected);refresh()});
+window.addEventListener('storage',e=>{if(e.key==='epcV1')refresh()});
+setInterval(refresh,2000);refresh();
+})();
 </script></html>
