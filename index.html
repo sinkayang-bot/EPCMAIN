@@ -2184,12 +2184,14 @@ window.addEventListener('error',function(e){
   <div class="small" style="margin-top:8px">座位、玩家、實收可自行勾選顯示；買入、重買、總組數固定顯示；結帳群組僅供後台分帳使用。綽號輸入完成離開欄位後，會同步到會員資料。<button type="button" onclick="syncEventNicknames_()">本場綽號同步會員</button></div>
  </div>
  <div class="card" id="epcDesktopSeating">
- <details id="epcSeatDetails">
- <summary style="cursor:pointer;font-size:18px;font-weight:800;color:#e6bc59;padding:5px 0" onclick="event.preventDefault();var d=document.getElementById('epcSeatDetails');d.open=!d.open;this.setAttribute('aria-expanded',String(d.open));">桌位管理｜1～8 號桌（每桌 10 座）　<span style="font-size:13px;color:#91a0b2">點擊展開／收合</span></summary>
+ <div id="epcSeatDetails">
+ <button type="button" id="epcSeatToggle" aria-expanded="false" onclick="var p=document.getElementById('epcSeatContent');var open=p.style.display==='none';p.style.display=open?'block':'none';this.setAttribute('aria-expanded',String(open));document.getElementById('epcSeatToggleArrow').textContent=open?'▼':'▶';if(open&&typeof epcDesktopSeatRender_==='function')epcDesktopSeatRender_();" style="display:block;width:100%;text-align:left;background:transparent;border:0;box-shadow:none;cursor:pointer;font-size:18px;font-weight:800;color:#b57c12;padding:8px 0"><span id="epcSeatToggleArrow">▶</span> 桌位管理｜1～8 號桌（每桌 10 座）　<span style="font-size:13px;color:#91a0b2">點擊展開／收合</span></button>
+ <div id="epcSeatContent" style="display:none">
  <div id="epcSeatRoster" style="display:flex;flex-wrap:wrap;gap:7px;margin:14px 0 12px"></div>
  <div id="epcSeatGrid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px"></div>
  <div class="small" id="epcSeatHint" style="margin-top:8px">先點選未入座玩家，再點座位；點擊已入座玩家可移動或換位。</div>
- </details>
+ </div>
+ </div>
  </div>
  <div class="card">
   <table id="eventPlayerTable" style="width:100%;table-layout:auto">
