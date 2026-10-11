@@ -82,28 +82,13 @@ $('seatTables').addEventListener('drop',e=>{const b=e.target.closest('[data-seat
 let activePanel='';let selectedChipTable='all';
 function showPanel(id=''){
  activePanel=id;
- if(id==='activityPanel')renderMobileActivities();
  $('dashboard').hidden=!!id;$('backDashboard').hidden=!id;$('floatingBack').hidden=!id;
  document.querySelectorAll('.mobile-panel').forEach(el=>el.hidden=el.id!==id);
  window.scrollTo({top:0,behavior:'instant'});
 }
 document.querySelectorAll('[data-panel]').forEach(btn=>btn.addEventListener('click',()=>showPanel(btn.dataset.panel)));
 $('backDashboard').addEventListener('click',()=>showPanel());$('floatingBack').addEventListener('click',()=>showPanel());$('overviewShortcut').addEventListener('click',()=>showPanel('overviewPanel'));
-function renderMobileActivities(){
- const target=$('mobileActivitySummary');if(!target)return;
- const e=events.find(x=>x.eventId===selected);
- if(!e){target.innerHTML='<p class="meta">請先選擇賽事。</p>';return}
- const ps=e.players||[],history=Array.isArray(e.hunterHeadHistory)?e.hunterHeadHistory:[];
- const heads=ps.reduce((n,p)=>n+Number(p.hunterHeads||0),0);
- const name=p=>esc(p.nickname||members.get(String(p.memberId))?.nickname||members.get(String(p.memberId))?.name||p.name||p.memberId);
- target.innerHTML='<div class="card"><h3>本場獵人頭</h3><div class="meta">累計 '+num(heads)+' 分｜手機歷史 '+history.length+' 筆</div>'+
- '<table><thead><tr><th>玩家</th><th>人頭積分</th></tr></thead><tbody>'+
- ps.filter(p=>Number(p.hunterHeads||0)>0).sort((a,b)=>Number(b.hunterHeads||0)-Number(a.hunterHeads||0)).map(p=>'<tr><td>'+name(p)+'</td><td>'+num(p.hunterHeads)+'</td></tr>').join('')+
- '</tbody></table></div><div class="card"><h3>活動操作說明</h3><p class="meta">週任務卡、開桌先鋒、週排行、保護傘與魔王活動目前仍在電腦版操作，避免手機端寫入不同步而覆蓋活動資料。</p></div>';
-}
-$('activityHunterBtn').addEventListener('click',()=>showPanel('playerPanel'));
 function updateDashboard(){
- renderMobileActivities();
  const e=events.find(x=>x.eventId===selected),ps=e?.players||[];
  renderSeating();
  $('dashEventName').textContent=e?.name||'目前沒有進行中的賽事';
