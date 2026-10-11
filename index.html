@@ -5268,7 +5268,19 @@ function renderEventUnpaidStatus_(){
  const ps=e.players||[],pending=ps.filter(p=>p.registrationUnpaid===true);
  root.innerHTML='<div style="margin-bottom:9px;font-weight:700">未結帳 '+pending.length+' / '+ps.length+' 人｜買入待收 '+money(pending.reduce((n,p)=>n+Math.max(0,Number(p.registrationUnpaidAmount)||0),0))+'</div>'+
  '<div style="overflow-x:auto"><table><thead><tr><th>玩家</th><th>買入待收</th><th>狀態</th><th>操作</th></tr></thead><tbody>'+
- ps.map((p,i)=>{const m=(db.members||[]).find(x=>String(x.id)===String(p.memberId));const name=String(p.nickname||m?.nickname||m?.name||p.name||p.memberId||'玩家').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));const unpaid=p.registrationUnpaid===true;return '<tr><td>'+name+'</td><td>'+(unpaid?money(Math.max(0,Number(p.registrationUnpaidAmount)||0)):'—')+'</td><td>'+(unpaid?'<b style="color:#e6ad45">未結帳</b>':'已結帳')+'</td><td><button type="button" onclick="setEventRegistrationUnpaid_('+i+','+(!unpaid)+')">'+(unpaid?'確認已收款':'標記未結帳')+'</button></td></tr>'}).join('')+'</tbody></table></div>';
+ ps.map((p,i)=>{const m=(db.members||[]).find(x=>String(x.id)===String(p.memberId));const name=String(p.nickname||m?.nickname||m?.name||p.name||p.memberId||'玩家').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));const unpaid=p.registrationUnpaid===true;return '<tr><td>'+name+'</td><td>'+(unpaid?money(Math.max(0,Number(p.registrationUnpaidAmount)||0)):'—')+'</td><td>'+(unpaid?'<b style="color:#e6ad45">未結帳</b>':'已結帳')+'</td><td><button type="button" onclick="setEventRegistrationUnpaid_('+i+','+(!unpaid)+')">'+(unpaid?'確認已收款':'標記未結帳')+'</button> <button type="button" onclick="editEventRegistrationUnpaid_('+i+')">修改</button></td></tr>'}).join('')+'</tbody></table></div>';
+}
+function editEventRegistrationUnpaid_(i){
+ const e=currentEvent(),p=e?.players?.[i];if(!p)return;
+ const existing=Number(p.registrationUnpaidAmount)||0;
+ const amount=prompt('修改此玩家尚未結帳的買入金額（輸入 0 可清除未結帳狀態）',String(existing));
+ if(amount===null)return;
+ const n=Number(amount);
+ if(!Number.isSafeInteger(n)||n<0){actionMsg('請輸入 0 或正整數金額',true);return}
+ const before={registrationUnpaid:p.registrationUnpaid,registrationUnpaidAmount:p.registrationUnpaidAmount};
+ p.registrationUnpaid=n>0;p.registrationUnpaidAmount=n;p.registrationSettlementUpdatedAt=Date.now();touchEvent_(e);persist();
+ syncEventToFirestore_(e,true).then(ok=>{if(ok===false)actionMsg('雲端尚未連線，請確認同步狀態',true)}).catch(err=>{p.registrationUnpaid=before.registrationUnpaid;p.registrationUnpaidAmount=before.registrationUnpaidAmount;renderEventUnpaidStatus_();actionMsg('結帳修改同步失敗：'+String(err?.message||err),true)});
+ renderEventUnpaidStatus_();actionMsg('已修改未結帳金額：'+money(n));
 }
 function setEventRegistrationUnpaid_(i,unpaid){
  const e=currentEvent(),p=e?.players?.[i];if(!p)return;
