@@ -1999,6 +1999,7 @@ button.epc-clicked-now,.btn.epc-clicked-now{transform:scale(.985);filter:brightn
 <button data-page="dailysettle">分帳報表</button>
 <button data-page="accounting">EPC帳務</button>
 <button data-page="activities">活動管理</button>
+<button data-page="timers" onclick="epcTimerRender()">計時器管理</button>
 <button data-page="displays">顯示設備</button>
 
 
@@ -2619,6 +2620,7 @@ window.addEventListener('error',function(e){
  </div>
 </section>
 
+<section id="timers" class="page"><h2>計時器管理</h2><p>建立範本後，選擇範本與賽事建立計時器，再至顯示設備選擇計時器播放。</p><div class="card"><h3>計時器範本</h3><div id="epcTemplateList"></div><button onclick="epcTemplateNew()">新增範本</button></div><div class="card"><label>使用範本</label><select id="epcTemplateSelect"></select><button class="primary" onclick="epcTimerAdd()">建立計時器</button><span id="epcTimerStatus">正在連線…</span></div><div id="epcTimerList"></div></section>
 <section id="displays" class="page">
  <h2>顯示設備</h2>
  <div class="card">
@@ -7101,7 +7103,7 @@ async function saveDisplayApi_(){
  catch(e){$('displayApiStatus').textContent='連線失敗：'+e.message;actionMsg('Display API 連線失敗：'+e.message,true)}
 }
 function displayContentOptions_(v){
- const a=[['weekly','每週任務卡'],['pioneer','開桌先鋒'],['rank','週排行榜'],['hunter','獵人排行榜'],['umbrella','保護傘'],['boss','雙十狩王'],['parallel','活動並排'],['rotate','活動輪播'],['rotateParallel','並排輪播']];
+ const a=[['timer','賽事計時器'],['weekly','每週任務卡'],['pioneer','開桌先鋒'],['rank','週排行榜'],['hunter','獵人排行榜'],['umbrella','保護傘'],['boss','雙十狩王'],['parallel','活動並排'],['rotate','活動輪播'],['rotateParallel','並排輪播']];
  return a.map(x=>`<option value="${x[0]}" ${v===x[0]?'selected':''}>${x[1]}</option>`).join('');
 }
 async function pairDisplay_(){
@@ -7112,6 +7114,7 @@ async function pairDisplay_(){
 }
 function displaySpecificControls_(id,type,sec,ui){
  ui=ui||{};
+ if(type==='timer')return '<div><label>播放計時器</label><select id="displayTimer_'+id+'">'+(window.epcTimers_?.()||[]).map(t=>'<option value="'+epcDisplayEscape_(t.id)+'" '+(ui.timerId===t.id?'selected':'')+'>'+epcDisplayEscape_(t.name)+'</option>').join('')+'</select></div>';
  const checked=(v,def)=>((v===undefined?def:!!v)?' checked':'');
  const limit=String(ui.limit||10),font=String(ui.rankFontScale||100);
  const common='<div><label>輪播秒數</label><input id="displaySec_'+id+'" type="number" min="5" value="'+(sec||15)+'"></div>';
@@ -7214,7 +7217,8 @@ async function publishDisplay_(deviceId,silent=false){
  }
  if(type==='rotateParallel'){const acts=['weekly','pioneer','rank','hunter','umbrella','boss'];ui.parallelItems=acts.filter(t=>$('displayParallel_'+deviceId+'_'+t)?.checked);ui.rotateItems=acts.filter(t=>$('displayRotate_'+deviceId+'_'+t)?.checked).slice(0,1);ui.parallelSeconds=Math.max(5,Number($('displayParallelSec_'+deviceId)?.value||15));ui.rotateSeconds={};acts.forEach(t=>ui.rotateSeconds[t]=Math.max(5,Number($('displayRotateSec_'+deviceId+'_'+t)?.value||15)));if(!ui.parallelItems.length)return actionMsg('並排頁請至少勾選一個活動',true);if(ui.rotateItems.length!==1)return actionMsg('第 2 頁請選擇一個活動',true);}
  if(type==='rotate'){const acts=['weekly','pioneer','rank','hunter','umbrella','boss'];ui.rotateItems=acts.filter(t=>$('displayRotate_'+deviceId+'_'+t)?.checked);ui.rotateSeconds={};acts.forEach(t=>ui.rotateSeconds[t]=Math.max(5,+($('displayRotateSec_'+deviceId+'_'+t)?.value||15)));}
- const payload=displayPayload_(type);payload.ui=ui;
+ if(type==='timer'){ui.timerId=$('displayTimer_'+deviceId)?.value;if(!ui.timerId)return actionMsg('請先建立計時器',true);}
+ const payload=type==='timer'?{type:'timer',timerId:ui.timerId,title:'EPC 計時器'}:displayPayload_(type);payload.ui=ui;
  if(type==='rotateParallel'){const parallel=displayPayload_('parallel');parallel.ui=Object.assign({},ui,{kind:'parallel'});parallel.panels=(ui.parallelItems||[]).map(t=>{const panel=displayPayload_(t);panel.ui=Object.assign({},ui,{kind:t,compact:true});if(Array.isArray(panel.rows))panel.rows=panel.rows.slice(0,ui.limit);return panel});parallel.duration=ui.parallelSeconds||15;payload.slides=[parallel,...(ui.rotateItems||[]).map(t=>{const slide=displayPayload_(t);slide.ui=Object.assign({},ui,{kind:t});slide.duration=Math.max(5,Number(ui.rotateSeconds?.[t]||15));return slide})]}
  if(type==='rotate'){payload.slides=(ui.rotateItems||[]).map(t=>{const s=displayPayload_(t);s.ui=Object.assign({},ui,{kind:t});s.duration=Math.max(5,+(ui.rotateSeconds||{})[t]||15);return s})}
  if(type==='parallel'){payload.panels=(ui.parallelItems||[]).map(t=>{const panel=displayPayload_(t);panel.ui=Object.assign({},ui,{kind:t,compact:true});if(Array.isArray(panel.rows))panel.rows=panel.rows.slice(0,ui.limit);return panel})}
@@ -7235,7 +7239,7 @@ async function publishAllDisplays_(){
    const type=pref.type,sec=Math.max(5,+(pref.sec||d.rotateSeconds||15));
    const ui=Object.assign({kind:type,limit:10,layout:'classic',showRank:true,showName:true,showMemberId:false,showScore:true,rankFontScale:100},pref.ui||{});
    ui.kind=type;
-   const payload=displayPayload_(type);payload.ui=ui;
+   const payload=type==='timer'?{type:'timer',timerId:ui.timerId,title:'EPC 計時器'}:displayPayload_(type);payload.ui=ui;
  if(type==='rotateParallel'){const parallel=displayPayload_('parallel');parallel.ui=Object.assign({},ui,{kind:'parallel'});parallel.panels=(ui.parallelItems||[]).map(t=>{const panel=displayPayload_(t);panel.ui=Object.assign({},ui,{kind:t,compact:true});if(Array.isArray(panel.rows))panel.rows=panel.rows.slice(0,ui.limit);return panel});parallel.duration=ui.parallelSeconds||15;payload.slides=[parallel,...(ui.rotateItems||[]).map(t=>{const slide=displayPayload_(t);slide.ui=Object.assign({},ui,{kind:t});slide.duration=Math.max(5,Number(ui.rotateSeconds?.[t]||15));return slide})]}
    if(type==='rotate'){payload.slides=(ui.rotateItems||[]).map(t=>{const s=displayPayload_(t);s.ui=Object.assign({},ui,{kind:t});s.duration=Math.max(5,+(ui.rotateSeconds||{})[t]||15);return s})}
    if(type==='parallel'){payload.panels=(ui.parallelItems||[]).map(t=>{const panel=displayPayload_(t);panel.ui=Object.assign({},ui,{kind:t,compact:true});if(Array.isArray(panel.rows))panel.rows=panel.rows.slice(0,ui.limit);return panel})}
@@ -7389,4 +7393,4 @@ async function epcShowRecoveryAudit_(){
 <script src="phone/stack-core.js?v=20261009-settlement-confirmed"></script>
 <script src="firebase-events.js?v=20261009-settlement-confirmed"></script>
 <script src="sync-v3.js?v=20261007-0780"></script>
-<script src="app.js?v=20261009-identity-roles"></script></body></html>
+<script src="app.js?v=20261009-identity-roles"></script><script src="epc-timers.js?v=20261012-templates"></script></body></html>

@@ -4,7 +4,16 @@ export async function displayCloud(){
  const app=am.getApps().find(a=>a.name==='epc-display')||am.initializeApp(window.EPC_FIREBASE_CONFIG,'epc-display');
  const db=fs.getFirestore(app),devices=fs.collection(db,'epc_events','_epc_display','devices'),codes=fs.collection(db,'epc_events','_epc_display','codes');
  const device=id=>fs.doc(devices,String(id));
+ const timers=fs.collection(db,'epc_events','_epc_display','timers'), templates=fs.collection(db,'epc_events','_epc_display','timerTemplates');
  return {fs,device,
+  timerSubscribe:(fn,error)=>fs.onSnapshot(timers,s=>fn(s.docs.map(d=>({...d.data(),id:d.id}))),error),
+  templateSubscribe:(fn,error)=>fs.onSnapshot(templates,s=>fn(s.docs.map(d=>({...d.data(),id:d.id}))),error),
+  timerSave:async(t)=>fs.runTransaction(db,async tx=>{const ref=fs.doc(timers,t.id),old=await tx.get(ref);if(old.exists()&&Number(old.data().revision||0)!==Number(t.revision||0))throw Error('計時器已被另一台設備修改，請使用最新資料再操作');tx.set(ref,{...t,revision:Number(t.revision||0)+1})}),
+  timerDelete:async id=>fs.deleteDoc(fs.doc(timers,id)),
+  templateSave:async t=>fs.setDoc(fs.doc(templates,t.id),t),
+  templateDelete:async id=>fs.deleteDoc(fs.doc(templates,id)),
+  watchTimer:(id,fn,error)=>fs.onSnapshot(fs.doc(timers,id),s=>fn(s.exists()?s.data():null),error),
+  watchEvent:(id,fn,error)=>fs.onSnapshot(fs.doc(db,'epc_events',String(id)),s=>fn(s.exists()?s.data():null),error),
   async request(p){
    if(p.action==='ping'){await fs.getDocs(fs.query(devices,fs.limit(1)));return {ok:true,version:'Firebase 顯示連線'}}
    if(p.action==='devices'){const snap=await fs.getDocs(devices);return {ok:true,devices:snap.docs.map(d=>({...d.data(),deviceId:d.id})).filter(d=>d.paired)}}
