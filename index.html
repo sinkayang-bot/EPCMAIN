@@ -6268,7 +6268,7 @@ function bossEventOrder_(e){
 }
 function bossOrderedEvents_(){
  const B=db.activityManagement.boss;
- return (db.events||[]).filter(e=>{const d=actBusinessDate_(e);return (!B.activityFrom||d>=B.activityFrom)&&(!B.activityTo||d<=B.activityTo)}).slice().sort((a,b)=>{
+ return (db.events||[]).filter(e=>{const d=actBusinessDate_(e);return !isIndependentAccountingEvent(e)&&(!B.activityFrom||d>=B.activityFrom)&&(!B.activityTo||d<=B.activityTo)}).slice().sort((a,b)=>{
   const day=String(actBusinessDate_(a)).localeCompare(String(actBusinessDate_(b)));if(day)return day;
   const seq=bossEventOrder_(a)-bossEventOrder_(b);if(seq)return seq;
   return String(a.startTime||'00:00').localeCompare(String(b.startTime||'00:00'))||String(a.id).localeCompare(String(b.id));
