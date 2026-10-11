@@ -1996,7 +1996,7 @@ button.epc-clicked-now,.btn.epc-clicked-now{transform:scale(.985);filter:brightn
 <button data-page="members">會員</button>
 <button data-page="events">賽事管理</button>
 
-<button data-page="dailysettle">分帳報表</button><button data-page="playercheckout">玩家結帳</button>
+<button data-page="dailysettle">分帳報表</button>
 <button data-page="accounting">EPC帳務</button>
 <button data-page="activities">活動管理</button>
 <button data-page="displays">顯示設備</button>
@@ -2147,7 +2147,7 @@ window.addEventListener('error',function(e){
  </div>
 </section>
 
-<section id="playercheckout" class="page"><h2>玩家結帳｜跨場未收款</h2><p class="small">已結算及進行中的賽事均列入；收款只更新待收餘額，不更改賽事獎池、JP、玩家盈虧。</p><div class="card"><label>搜尋姓名／會員編號</label><input id="checkoutSearch" placeholder="輸入玩家姓名或會員編號" oninput="renderPlayerCheckout_()"><div id="checkoutSummary" style="margin:12px 0"></div><div id="checkoutRows" style="overflow-x:auto"></div></div></section><section id="event" class="page">
+<section id="event" class="page">
  <h2>賽事帳務 <span class="pill" id="currentEventLabel"></span></h2>
  <div class="toolbar no-print"><button onclick="goEvents()">← 返回賽事管理</button><button class="primary" onclick="goICM()">ICM / 結算 →</button><button type="button" id="btnUnlockEvent" onclick="unlockSettledEvent(currentEvent()?.id)" style="display:none">解鎖編輯</button></div>
  <div class="card">
@@ -5279,7 +5279,7 @@ function renderPlayerCheckout_(){
  $('checkoutSummary').textContent='未結清 '+rows.length+' 筆｜待收 '+money(rows.reduce((n,r)=>n+r.due,0));
  root.innerHTML='<table><thead><tr><th>營業日／場次</th><th>玩家</th><th>首次買入待收</th><th>重買待收</th><th>合計</th><th>操作</th></tr></thead><tbody>'+rows.map(r=>'<tr><td>'+String(businessDateForEvent(r.e))+'｜'+Number(r.e.seq||1)+'</td><td>'+r.name+'</td><td>'+money(r.p.registrationUnpaidAmount||0)+'</td><td>'+money(r.p.rebuyUnpaidAmount||0)+'</td><td>'+money(r.due)+'</td><td><button onclick="checkoutEdit_(\''+String(r.e.id).replace(/['\\]/g,'')+'\',\''+r.id.replace(/['\\]/g,'')+'\')">修改</button> <button onclick="checkoutOffset_(\''+String(r.e.id).replace(/['\\]/g,'')+'\',\''+r.id.replace(/['\\]/g,'')+'\')">回補</button> <button onclick="checkoutReceive_(\''+String(r.e.id).replace(/['\\]/g,'')+'\',\''+r.id.replace(/['\\]/g,'')+'\')">收款</button></td></tr>').join('')+'</tbody></table>';
 }
-function openPlayerCheckout_(id){showPage('playercheckout');if($('checkoutSearch'))$('checkoutSearch').value=String(id||'');renderPlayerCheckout_()}
+function openPlayerCheckout_(id){actionMsg('玩家結帳功能暫停使用，待流程確認後再開放。',true)}
 function checkoutEdit_(eventId,memberId){
  const e=(db.events||[]).find(x=>String(x.id)===String(eventId)),p=e?.players?.find(x=>String(x.memberId)===String(memberId));if(!p)return;
  const buy=prompt('修正首次買入待收金額',String(Math.max(0,Number(p.registrationUnpaidAmount)||0)));if(buy===null)return;
@@ -6117,7 +6117,17 @@ function eventTopScores_(e){
 }
 function actRank_(){
  const A=db.activityManagement,tot={},dayNames=['日','一','二','三','四','五','六'];
- const detail=actEvents_('rank').map(e=>{const top=eventTopScores_(e);top.forEach(x=>tot[x.id]=(tot[x.id]||0)+x.score);return `<div class="card" style="margin-top:10px"><b>${actEventLabel_(e)}</b> <span class="small">營業日第 ${rankEventSeqOfDay_(e)} 場｜開桌 ${epcDisplayEscape_(e.startTime||'未設定')}｜倍率 ×${rankMultiplier_(e)}｜${epcDisplayEscape_((A.rankRecurringRules||[]).filter(r=>rankRuleMatch_(e,r)).map(r=>r.name||'加倍規則').join('、')||'未命中加倍規則')}</span><table><thead><tr><th>名次</th><th>玩家</th><th>籌碼淨勝值</th><th>下桌籌碼</th><th>得分</th></tr></thead><tbody>${top.map(x=>`<tr><td>${x.rank}</td><td>${epcDisplayEscape_(x.name)}</td><td class="${epcPnlClass_(x.net)}">${x.net.toFixed(1)}</td><td>${(+x.stack).toLocaleString()}</td><td>${x.score}</td></tr>`).join('')||'<tr><td colspan="5">無資料</td></tr>'}</tbody></table></div>`}).join('');
+ const rankEvents=actEvents_('rank');
+ const allInRange=(db.events||[]).filter(e=>{const d=actBusinessDate_(e),r=actActivityRange_('rank');return !!d&&(!r.from||d>=r.from)&&(!r.to||d<=r.to)});
+ const excluded=allInRange.filter(e=>e.status!=='已結算'&&e.status!=='settled');
+ const missing=rankEvents.filter(e=>(e.players||[]).some(p=>p.stack===null||p.stack===undefined||p.stack===''));
+ const duplicateKeys={};rankEvents.forEach(e=>{const k=actBusinessDate_(e)+'|'+Number(e.seq||0);(duplicateKeys[k]||(duplicateKeys[k]=[])).push(e)});
+ const duplicate=Object.values(duplicateKeys).filter(a=>a.length>1);
+ const audit='<div class="card" style="margin-top:10px;border-color:#9b7a35"><b>週排行計分檢查（唯讀）</b><div class="small">符合日期的賽事 '+allInRange.length+' 場｜已納入 '+rankEvents.length+' 場｜未結算排除 '+excluded.length+' 場｜籌碼未填 '+missing.length+' 場｜營業日場次編號重複 '+duplicate.length+' 組</div>'+
+ (excluded.length?'<details><summary>未結算排除明細</summary>'+excluded.map(e=>'<div>'+epcDisplayEscape_(actEventLabel_(e))+'｜'+epcDisplayEscape_(e.status||'未設定')+'</div>').join('')+'</details>':'')+
+ (missing.length?'<details><summary>未填籌碼明細</summary>'+missing.map(e=>'<div>'+epcDisplayEscape_(actEventLabel_(e))+'</div>').join('')+'</details>':'')+
+ (duplicate.length?'<details><summary>相同營業日與場次編號（請核對是否不同賽事）</summary>'+duplicate.map(g=>'<div>'+g.map(e=>epcDisplayEscape_(actEventLabel_(e))+' ['+epcDisplayEscape_(String(e.startTime||''))+']')).join(' ／ ')+'</div>').join('')+'</details>':'')+'</div>';
+ const detail=rankEvents.map(e=>{const top=eventTopScores_(e);top.forEach(x=>tot[x.id]=(tot[x.id]||0)+x.score);return `<div class="card" style="margin-top:10px"><b>${actEventLabel_(e)}</b> <span class="small">營業日第 ${rankEventSeqOfDay_(e)} 場｜開桌 ${epcDisplayEscape_(e.startTime||'未設定')}｜倍率 ×${rankMultiplier_(e)}｜${epcDisplayEscape_((A.rankRecurringRules||[]).filter(r=>rankRuleMatch_(e,r)).map(r=>r.name||'加倍規則').join('、')||'未命中加倍規則')}</span><table><thead><tr><th>名次</th><th>玩家</th><th>籌碼淨勝值</th><th>下桌籌碼</th><th>得分</th></tr></thead><tbody>${top.map(x=>`<tr><td>${x.rank}</td><td>${epcDisplayEscape_(x.name)}</td><td class="${epcPnlClass_(x.net)}">${x.net.toFixed(1)}</td><td>${(+x.stack).toLocaleString()}</td><td>${x.score}</td></tr>`).join('')||'<tr><td colspan="5">無資料</td></tr>'}</tbody></table></div>`}).join('');
  const ranking=Object.entries(tot).map(([id,auto])=>({id,name:epcPlayerDisplayName_(id),auto,adj:+A.rankAdjust[id]||0})).map(x=>({...x,total:x.auto+x.adj})).sort((a,b)=>b.total-a.total);
  const rules=(A.rankRecurringRules||[]).map(r=>`<div class="card" style="margin-top:8px;padding:12px">
    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
