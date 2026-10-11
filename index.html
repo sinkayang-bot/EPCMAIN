@@ -5277,9 +5277,24 @@ function renderPlayerCheckout_(){
  for(const e of db.events||[])for(const p of e.players||[]){const due=epcCheckoutDue_(p);if(!due)continue;const name=epcCheckoutName_(p),id=String(p.memberId||'');if(query&&!name.toLowerCase().includes(query)&&!id.toLowerCase().includes(query))continue;rows.push({e,p,due,name,id})}
  rows.sort((a,b)=>String(b.e.businessDate||b.e.date||'').localeCompare(String(a.e.businessDate||a.e.date||''))||Number(b.e.seq||0)-Number(a.e.seq||0));
  $('checkoutSummary').textContent='未結清 '+rows.length+' 筆｜待收 '+money(rows.reduce((n,r)=>n+r.due,0));
- root.innerHTML='<table><thead><tr><th>營業日／場次</th><th>玩家</th><th>首次買入待收</th><th>重買待收</th><th>合計</th><th>操作</th></tr></thead><tbody>'+rows.map(r=>'<tr><td>'+String(businessDateForEvent(r.e))+'｜'+Number(r.e.seq||1)+'</td><td>'+r.name+'</td><td>'+money(r.p.registrationUnpaidAmount||0)+'</td><td>'+money(r.p.rebuyUnpaidAmount||0)+'</td><td>'+money(r.due)+'</td><td><button onclick="checkoutReceive_(\''+String(r.e.id).replace(/['\\]/g,'')+'\',\''+r.id.replace(/['\\]/g,'')+'\')">收款</button></td></tr>').join('')+'</tbody></table>';
+ root.innerHTML='<table><thead><tr><th>營業日／場次</th><th>玩家</th><th>首次買入待收</th><th>重買待收</th><th>合計</th><th>操作</th></tr></thead><tbody>'+rows.map(r=>'<tr><td>'+String(businessDateForEvent(r.e))+'｜'+Number(r.e.seq||1)+'</td><td>'+r.name+'</td><td>'+money(r.p.registrationUnpaidAmount||0)+'</td><td>'+money(r.p.rebuyUnpaidAmount||0)+'</td><td>'+money(r.due)+'</td><td><button onclick="checkoutEdit_(\''+String(r.e.id).replace(/['\\]/g,'')+'\',\''+r.id.replace(/['\\]/g,'')+'\')">修改</button> <button onclick="checkoutOffset_(\''+String(r.e.id).replace(/['\\]/g,'')+'\',\''+r.id.replace(/['\\]/g,'')+'\')">回補</button> <button onclick="checkoutReceive_(\''+String(r.e.id).replace(/['\\]/g,'')+'\',\''+r.id.replace(/['\\]/g,'')+'\')">收款</button></td></tr>').join('')+'</tbody></table>';
 }
 function openPlayerCheckout_(id){showPage('playercheckout');if($('checkoutSearch'))$('checkoutSearch').value=String(id||'');renderPlayerCheckout_()}
+function checkoutEdit_(eventId,memberId){
+ const e=(db.events||[]).find(x=>String(x.id)===String(eventId)),p=e?.players?.find(x=>String(x.memberId)===String(memberId));if(!p)return;
+ const buy=prompt('修正首次買入待收金額',String(Math.max(0,Number(p.registrationUnpaidAmount)||0)));if(buy===null)return;
+ const rebuy=prompt('修正重買待收金額',String(Math.max(0,Number(p.rebuyUnpaidAmount)||0)));if(rebuy===null)return;
+ const a=Number(buy),b=Number(rebuy);if(!Number.isSafeInteger(a)||a<0||!Number.isSafeInteger(b)||b<0){actionMsg('金額必須為非負整數',true);return}
+ if(!confirm('確認更正買入待收 '+money(a)+'、重買待收 '+money(b)+'？'))return;
+ const before={buyin:p.registrationUnpaidAmount,rebuy:p.rebuyUnpaidAmount};
+ p.registrationUnpaidAmount=a;p.registrationUnpaid=a>0;p.rebuyUnpaidAmount=b;
+ p.checkoutAdjustments=[...(Array.isArray(p.checkoutAdjustments)?p.checkoutAdjustments:[]),{kind:'correction',before,after:{buyin:a,rebuy:b},createdAt:Date.now()}];
+ touchEvent_(e);persist();renderPlayerCheckout_();renderEventUnpaidStatus_();
+ syncEventToFirestore_(e,true).catch(err=>actionMsg('更正同步失敗，請核對：'+String(err?.message||err),true));
+}
+function checkoutOffset_(eventId,memberId){
+ alert('回補功能尚未開放：必須先核對玩家已結算且尚未領取的獎金餘額，才能安全抵扣，避免重複支付或重複抵扣。');
+}
 async function checkoutReceive_(eventId,memberId){
  const e=(db.events||[]).find(x=>String(x.id)===String(eventId)),p=e?.players?.find(x=>String(x.memberId)===String(memberId));if(!p)return;
  const due=epcCheckoutDue_(p);if(!due)return;
