@@ -27,7 +27,22 @@
       // A settled event is immutable until explicitly unlocked.
       return;
      }
-     if(old._eventUpdatedAt&&e._eventUpdatedAt&&Number(old._eventUpdatedAt)>Number(e._eventUpdatedAt))throw Error('賽事已有較新修改，請重新整理後再編輯');
+     // Mobile writes update the event timestamp as well. A desktop snapshot may
+     // therefore be older even when its only stale fields are mobile-owned
+     // stack/seat/hunterHeads values. Rebase those fields inside this transaction,
+     // while refusing to overwrite newer non-mobile event changes.
+     const oldPlayers=Array.isArray(old.players)?old.players:[];
+     const newPlayers=Array.isArray(e.players)?e.players:[];
+     const byId=new Map(oldPlayers.map(p=>[String(p.memberId),p]));
+     const mobileFields=['stack','seat','hunterHeads'];
+     const mobileRevs={stack:'_stackRevision',seat:'_seatRevision',hunterHeads:'_hunterHeadsRevision'};
+     const newerMobileOnly=oldPlayers.length===newPlayers.length&&oldPlayers.every(p=>newPlayers.some(q=>String(q.memberId)===String(p.memberId)))&&
+      oldPlayers.some(p=>{const q=newPlayers.find(x=>String(x.memberId)===String(p.memberId));return mobileFields.some(f=>Number(p[mobileRevs[f]]||0)>Number(q[mobileRevs[f]]||0))});
+     if(old._eventUpdatedAt&&e._eventUpdatedAt&&Number(old._eventUpdatedAt)>Number(e._eventUpdatedAt)){
+      // Do not blindly discard the desktop's unsaved changes or overwrite
+      // a concurrent change. Let the operator refresh and retry.
+      throw Error(newerMobileOnly?'手機已有較新的籌碼／座位／人頭資料，已阻止舊電腦資料覆蓋；請重新整理後再儲存':'賽事已有較新修改，已阻止覆蓋；請重新整理後再編輯');
+     }
      const protectedEvent=window.EPCStackCore.protectStacks(e,old,options);
      const row={...clean(protectedEvent),status:settled(e.status)?'settled':'open',updatedAt:fs.serverTimestamp()};
      // Keep mobile hunter audit entries even if a desktop snapshot is older.
