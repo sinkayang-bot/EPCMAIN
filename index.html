@@ -6146,7 +6146,7 @@ function actRank_(){
     <span>倍率</span><input type="number" style="width:75px" step=".5" min="1" value="${r.mult||2}" onchange="editRankRecurringRule_('${r.id}','mult',this.value)">
     <button class="danger" onclick="delRankRecurringRule_('${r.id}')">刪除</button>
    </div></div>`).join('');
- return `<div class="card"><h3>週排行榜｜自動計分</h3>
+ return `<div class="card"><h3>週排行榜｜自動計分</h3>\n ${audit}
  <div class="small">每場依「籌碼淨勝值」排序；相同時以下桌籌碼較高者優先；兩者都相同則同名次、都得分。前三名 3／2／1 分。加倍規則依星期、營業日場次順序或開桌時間自動判斷；同一場同時命中多條規則時採最高倍率，不重複相乘。</div>
  <h3 style="margin-top:14px">固定加倍規則</h3>
  ${rules}
