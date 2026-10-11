@@ -21,6 +21,11 @@
      const snap=await tx.get(ref),old=snap.exists()?snap.data():{};
      const settled=x=>x==='settled'||x==='已結算';
      if(options.rename&&snap.exists()){tx.update(ref,{name:String(e.name||''),updatedAt:fs.serverTimestamp()});return;}
+     if(settled(old.status)&&options.accountingOnly){
+      if(!settled(e.status))throw Error('已結算賽事不能變更結算狀態');
+      tx.update(ref,{accountingGroup:String(e.accountingGroup||''),accountingItems:Array.isArray(e.accountingItems)?e.accountingItems:[],updatedAt:fs.serverTimestamp()});
+      return;
+     }
      if(settled(old.status)&&!options.unlock){
       if(options.settle)throw Error('這場賽事已在雲端結算，請重新整理查看正式結果');
       if(!settled(e.status))throw Error('這場賽事已結算，已阻止舊資料覆蓋；請重新整理');
