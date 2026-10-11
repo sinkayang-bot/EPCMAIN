@@ -227,6 +227,7 @@ $('registerBtn').addEventListener('click',async()=>{
  const discount=bird==='early'?Number(e.earlyBirdDiscount||0):bird==='late'?Number(e.lateBirdDiscount||0):0;
  const standard=groups*unit-discount,manual=Number($('manualDiscount').value);
  if(!Number.isSafeInteger(groups)||groups<1||groups>100||!Number.isSafeInteger(manual)||manual<0||manual>standard||!Number.isSafeInteger(amount)||amount<0||amount!==standard-manual||!Number.isFinite(unit)||unit<=0){msg.textContent='組數或金額無效，應收金額不可超過標準金額';msg.className='message error';return}
+ const unpaid=$('registrationUnpaid').checked;
  const btn=$('registerBtn');btn.disabled=true;msg.textContent='正在寫入賽事…';msg.className='message';
  try{
   await runTransaction(store,async tx=>{
@@ -236,11 +237,11 @@ $('registerBtn').addEventListener('click',async()=>{
    if(['settled','已結算','deleted'].includes(current.status))throw Error('賽事已結算，禁止報名');
    const players=Array.isArray(current.players)?current.players.slice():[];
    if(players.some(p=>String(p.memberKey||'')===memberKey||String(p.memberId||'')===String(m.memberId)))throw Error('此會員已報名本場');
-   players.push({memberId:String(m.memberId),memberKey:memberKeyOf(m),name:m.name||'',nickname:m.nickname||'',group:m.group||'',buyin:groups,rebuy:0,addon:0,earlyBird:bird==='early',lateBird:bird==='late',manualDiscount:manual,stack:null,hunterHeads:0,seat:'',prize:0});
+   players.push({memberId:String(m.memberId),memberKey:memberKeyOf(m),name:m.name||'',nickname:m.nickname||'',group:m.group||'',buyin:groups,rebuy:0,addon:0,earlyBird:bird==='early',lateBird:bird==='late',manualDiscount:manual,registrationUnpaid:unpaid,registrationUnpaidAmount:unpaid?amount:0,stack:null,hunterHeads:0,seat:'',prize:0});
    tx.update(ref,{players,_eventUpdatedAt:Date.now(),updatedAt:serverTimestamp()});
   });
-  msg.textContent='報名成功｜'+groups+' 組｜應收 '+num(amount)+' 元';msg.className='message good';
-  $('memberSearch').value='';$('memberSelect').innerHTML='<option value="">尚未選擇</option>';$('memberChosen').textContent='尚未選擇會員';renderMemberOptions();
+  msg.textContent='報名成功｜'+groups+' 組｜'+(unpaid?'尚未結帳 ':'已結帳 ') +num(amount)+' 元';msg.className='message good';
+  $('memberSearch').value='';$('memberSelect').innerHTML='<option value="">尚未選擇</option>';$('memberChosen').textContent='尚未選擇會員';renderMemberOptions();$('registrationUnpaid').checked=false;
  }catch(err){msg.textContent='報名失敗：'+err.message;msg.className='message error'}
  finally{btn.disabled=false}
 });
