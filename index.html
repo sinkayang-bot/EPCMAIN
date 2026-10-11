@@ -5633,7 +5633,7 @@ function renderDashboardSummary(){
  // IMPORTANT: dashboard accounting KPIs use the SAME source as EPC 帳務.
  // Only established normal daily-accounting records are included.
  // Independent-accounting groups remain excluded by dailyAccountingInfo().
- const allLedgerDates=[...new Set((db.dailyAccounting||[]).map(r=>r&&r.date).filter(Boolean))];
+ const allLedgerDates=[...new Set([...(db.dailyAccounting||[]).map(r=>r&&r.date),...(db.events||[]).filter(e=>isSettledAccountingEvent_(e)&&!isIndependentAccountingEvent(e)).map(businessDateForEvent)].filter(Boolean))];
  const rangeLedgerDates=allLedgerDates.filter(d=>(!from||d>=from)&&(!to||d<=to));
 
  const ledgerTotals=dates=>dates.reduce((a,date)=>{
