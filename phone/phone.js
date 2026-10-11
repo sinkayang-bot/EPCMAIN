@@ -114,16 +114,18 @@ $('rebuyManualDiscount').addEventListener('input',renderRebuy);
 $('rebuySaveBtn').addEventListener('click',async()=>{
  const e=events.find(x=>x.eventId===selected),id=$('rebuyPlayer').value,groups=Number($('rebuyGroups').value),discount=Number($('rebuyManualDiscount').value),msg=$('rebuyMessage'),btn=$('rebuySaveBtn');
  if(!e||!id||!Number.isSafeInteger(groups)||groups<1||groups>100||!Number.isSafeInteger(discount)||discount<0||discount>0){msg.textContent='請選擇玩家並輸入 1～100 組；手動優惠尚未支援安全帳務累加，請設為 0';msg.className='message error';return}
- if(!confirm('確定為此玩家新增 '+groups+' 組重買？'))return;
+ const unpaid=$('rebuyUnpaid').checked;
+ if(!confirm('確定為此玩家新增 '+groups+' 組重買？'+(unpaid?'（本次未結帳）':'')))return;
  btn.disabled=true;msg.textContent='正在儲存重買…';msg.className='message';
  try{await runTransaction(store,async tx=>{
   const ref=doc(col,e.eventId),snap=await tx.get(ref);if(!snap.exists())throw Error('賽事不存在');
   const cur=snap.data();if(['settled','已結算','deleted'].includes(cur.status))throw Error('賽事已結算');
   const players=(cur.players||[]).map(p=>({...p})),p=players.find(p=>String(p.memberId)===id);
   if(!p)throw Error('玩家不在本場');
+  if(unpaid){const amount=groups*Number(cur.rebuyTotal||cur.buyinTotal||cur.level||0);if(!Number.isSafeInteger(amount)||amount<=0)throw Error('重買金額不正確，請確認電腦賽事計價');p.rebuyUnpaidAmount=(Number(p.rebuyUnpaidAmount)||0)+amount;p.rebuyUnpaidEntries=[...(Array.isArray(p.rebuyUnpaidEntries)?p.rebuyUnpaidEntries:[]),{id:'RB'+Date.now()+'-'+groups,amount,groups,createdAt:Date.now()}]}
   p.rebuy=(Number(p.rebuy)||0)+groups;p._rebuyRevision=(Number(p._rebuyRevision)||0)+1;
   tx.update(ref,{players,_eventUpdatedAt:Date.now(),updatedAt:serverTimestamp()});
- });msg.textContent='重買成功，新增 '+groups+' 組';msg.className='message good';$('rebuyGroups').value='1'}
+ });msg.textContent='重買成功，新增 '+groups+' 組'+(unpaid?'｜本次未結帳':'｜本次已結帳');msg.className='message good';$('rebuyGroups').value='1';$('rebuyUnpaid').checked=false}
  catch(err){msg.textContent='重買失敗：'+err.message;msg.className='message error'}
  finally{btn.disabled=false;renderRebuy()}
 });
