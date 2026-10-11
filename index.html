@@ -4547,7 +4547,7 @@ function setEventAccountingGroup(eventId,value){
  if(!e)return;
  e.accountingGroup=String(value||'').trim();
  localStorage.setItem('epcV1',JSON.stringify(db));
- syncEventToFirestore_(e,true).catch(err=>actionMsg('帳務群組同步失敗：'+String(err?.message||err),true));
+ syncEventToFirestore_(e,true,{accountingOnly:true}).catch(err=>actionMsg('帳務群組同步失敗：'+String(err?.message||err),true));
  renderDailyAccountingDetail();
 }
 function accountingTotalsForEvents(events){
@@ -4642,7 +4642,7 @@ function addEventAccountingItem(){
  const category=preset?name:(type==='membership'?'入會費收入':type==='expense'?'其他支出':'其他收入');
  ensureEventAccountingItems(e).push({id:uid(),type,name,category,amount});
  $('eaItemName').value=''; $('eaItemAmount').value=''; if($('eaItemPreset'))$('eaItemPreset').value=''; if($('eaItemType'))$('eaItemType').value='income';
- localStorage.setItem('epcV1',JSON.stringify(db));syncEventToFirestore_(e,true).catch(err=>actionMsg('單場帳務同步失敗：'+String(err?.message||err),true)); renderDailyAccountingDetail(); renderEventAccountingEditor();
+ localStorage.setItem('epcV1',JSON.stringify(db));syncEventToFirestore_(e,true,{accountingOnly:true}).catch(err=>actionMsg('單場帳務同步失敗：'+String(err?.message||err),true)); renderDailyAccountingDetail(); renderEventAccountingEditor();
 }
 function deleteEventAccountingItem(i){
  const e=(db.events||[]).find(x=>x.id===editingAccountingEventId); if(!e)return;
@@ -4870,6 +4870,21 @@ function deleteDailyAccounting(date){
    }catch(err){alert('刪除帳務失敗：'+String(err?.message||err));}
  });
 }
+function openIndependentAccountingGroup(encoded){
+ const group=decodeURIComponent(encoded);
+ const events=(db.events||[]).filter(e=>accountingGroupForEvent(e)===group&&isSettledAccountingEvent_(e));
+ if(!events.length)return alert('此群組目前沒有已結算賽事');
+ const date=businessDateForEvent(events[0]);
+ openDailyAccounting(date);
+ const row=$('accountingGroupRows');if(row)row.scrollIntoView({behavior:'smooth',block:'center'});
+}
+async function moveIndependentEventToMain_(id){
+ const e=(db.events||[]).find(x=>String(x.id)===String(id));if(!e)return;
+ if(!confirm('將第'+(e.seq||1)+'場移回 EPC 一般帳？不修改賽事結算。'))return;
+ const previous=e.accountingGroup;e.accountingGroup='';
+ try{await syncEventToFirestore_(e,true,{accountingOnly:true});localStorage.setItem('epcV1',JSON.stringify(db));renderDailyAccountingDetail();renderDashboardSummary();}
+ catch(err){e.accountingGroup=previous;alert('群組儲存失敗：'+String(err?.message||err));}
+}
 function renderIndependentAccountingSummary(){
  const tbody=$('independentAccountingSummaryRows'),foot=$('independentAccountingSummaryTotal');
  if(!tbody)return;
@@ -4897,7 +4912,7 @@ function renderIndependentAccountingSummary(){
    return {...g,...base,membershipIncome,otherIncome,otherExpense,revenue,expense,net:revenue-expense};
  }).sort((a,b)=>a.name.localeCompare(b.name,'zh-Hant'));
  tbody.innerHTML=groups.map(g=>`<tr>
-   <td><b>${g.name}</b><div class="small">${[...g.dates].sort().join('、')}</div></td>
+   <td><button type="button" onclick="openIndependentAccountingGroup('${encodeURIComponent(g.name)}')">${epcDisplayEscape_(g.name)}｜進入編輯</button><div class="small">${[...g.dates].sort().join('、')}</div></td>
    <td>${g.events.length}</td><td>${g.groups}</td><td>${money(g.gross)}</td><td>${money(g.discountExpense)}</td>
    <td>${money(g.netAdmin)}</td><td>${money(g.membershipIncome)}</td><td>${money(g.otherIncome)}</td>
    <td>${money(g.otherExpense)}</td><td class="${epcPnlClass_(g.net)}">${money(g.net)}</td><td>${money(g.jp)}</td>
@@ -4984,7 +4999,7 @@ function renderDailyAccountingDetail(){
  }).join('');
  const independent=accountingIndependentGroups(date);
  if($('accountingGroupRows'))$('accountingGroupRows').innerHTML=independent.map(g=>`<tr>
-   <td><b>${g.name}</b></td>
+   <td><b>${epcDisplayEscape_(g.name)}</b></td>
    <td>${g.events.map(e=>`第${e.seq||1}場`).join('、')}</td>
    <td>${g.groups}</td>
    <td>${money(g.gross)}</td>
@@ -4993,8 +5008,8 @@ function renderDailyAccountingDetail(){
    <td>${money(g.otherIncome+g.membershipIncome)}</td>
    <td>${money(g.otherExpense)}</td>
    <td class="${epcPnlClass_(g.net)}">${money(g.net)}</td>
-   <td>${money(g.jp)}</td>
- </tr>`).join('')||'<tr><td colspan="10" class="small">目前沒有獨立帳務群組</td></tr>';
+   <td>${money(g.jp)}</td><td>${g.events.map(e=>`<button type="button" onclick="openEventAccounting('${e.id}')">第${e.seq||1}場新增收支</button><button type="button" onclick="moveIndependentEventToMain_('${e.id}')">移回一般帳</button>`).join(' ')}</td>
+ </tr>`).join('')||'<tr><td colspan="11" class="small">目前沒有獨立帳務群組</td></tr>';
 }
 function printDailyAccounting(){
  const date=db.currentAccountingDate;
