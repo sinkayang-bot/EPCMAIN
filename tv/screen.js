@@ -1,22 +1,10 @@
-import {displayCloud} from '../display-cloud.js?v=20261012-templates';
+import {displayCloud} from '../display-cloud.js';
 const host=document.getElementById('screen'),esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])),money=n=>'$'+Number(n||0).toLocaleString();
 let id=localStorage.getItem('epcTvDeviceId');if(!id){id=Array.from(crypto.getRandomValues(new Uint8Array(16)),x=>x.toString(16).padStart(2,'0')).join('');localStorage.setItem('epcTvDeviceId',id)}
-let timer,cloud,lastSignature='',renewing=false,timerUnsub,eventUnsub;
+let timer,cloud,lastSignature='',renewing=false;
 function identity(r,ui){return [ui.showName!==false?esc(r.name||r.member||''):null,ui.showMemberId?esc(r.memberId||r.id||''):null].filter(Boolean).join(' · ')}
 function render(p,target=host){
  const ui=p.ui||{},header=`<header><h1>${esc(p.title||'EPC')}</h1><span>${esc(p.activityFrom||'')} ～ ${esc(p.activityTo||'')}</span></header>`;
- if(p.type==='timer'){
- const t=p.timer||{},levels=t.levels||[],lv=levels[t.index||0]||[0,0,0,20],next=levels[(t.index||0)+1]||null,st=p.stats||{};
- const fmt=n=>Number(n||0).toLocaleString('zh-TW');
- const resting=lv[1]===0,nextBreak=next&&next[1]===0;
- const index=Number(t.index||0),breakIndex=levels.findIndex((x,i)=>i>index&&x[1]===0);
- const breakTail=breakIndex<0?0:levels.slice(index+1,breakIndex).reduce((n,x)=>n+x[3]*60,0);
- const block=(label,value,extra='')=>`<div class="epc-tv-stat"><div class="epc-tv-label">${label}</div><div class="epc-tv-value">${value}</div>${extra?`<div class="epc-tv-sub">${extra}</div>`:''}</div>`;
- target.innerHTML=`<div class="epc-timer-tv"><header class="epc-tv-heading">${esc(p.eventName||t.name||'EPC 賽事計時器')}</header><div class="epc-tv-layout"><aside class="epc-tv-side epc-tv-announcements"><div class="epc-tv-label">場內公告</div><div class="epc-tv-notice">${esc(t.announcement||'歡迎參加 EPC 賽事')}</div></aside><section class="epc-tv-middle"><div class="epc-tv-level">${resting?'休息時間':'LEVEL '+(index+1)}</div><div class="epc-tv-label">剩餘時間</div><div id="epcLiveClock" class="epc-tv-clock">--:--</div><div class="epc-tv-current"><small>${resting?'目前休息':'目前盲注'}</small><strong>${esc(resting?lv[3]+' 分鐘':fmt(lv[0])+' / '+fmt(lv[1]))}</strong>${resting?'':`<span>ANTE ${esc(fmt(lv[2]))}</span>`}</div><div class="epc-tv-blinds"><div><small>${nextBreak?'下一級休息':'下一級盲注'}</small><strong>${esc(next?(nextBreak?next[3]+' 分鐘':fmt(next[0])+' / '+fmt(next[1])):'最後一級')}</strong><span>${esc(next?(nextBreak?'BREAK':'ANTE '+fmt(next[2])+' · '+next[3]+' 分鐘'):'')}</span></div><div><small>${resting?'休息結束倒數':'距離下次休息'}</small><strong id="epcBreakClock">—</strong><span>${breakIndex>=0?'休息 '+levels[breakIndex][3]+' 分鐘':resting?'休息中':'未安排後續休息'}</span></div></div></section><aside class="epc-tv-side epc-tv-stats">${block('總獎池','$'+esc(fmt(p.pool)))}${block('參賽人數 / 總組數',esc(fmt(st.people))+' / '+esc(fmt(st.total)))}${block('目前平均籌碼',esc(fmt(st.average)),!resting&&lv[1]>0?esc((Number(st.average||0)/lv[1]).toFixed(1))+' BB':'')}${block('場內總籌碼',esc(fmt(st.chips)))}</aside></div>${t.ticker?`<div class="epc-tv-ticker"><div>${esc(t.ticker)}</div></div>`:''}</div>`;
- const clock=target.querySelector('#epcLiveClock'),breakClock=target.querySelector('#epcBreakClock');
- const time=v=>String(Math.floor(v/60)).padStart(2,'0')+':'+String(v%60).padStart(2,'0');
- const tick=()=>{if(!clock.isConnected)return;const v=t.running?Math.max(0,Math.ceil((Number(t.deadline)-Date.now())/1000)):Number(t.remaining||0);clock.textContent=time(v);breakClock.textContent=resting?time(v):breakIndex>=0?time(v+breakTail):'—';if(t.running&&v>0)setTimeout(tick,250)};tick();return;
- }
  if(p.type==='boss'){
   const b=p.boss||{},pct=Math.max(0,Math.min(100,100*Number(b.hp||0)/Math.max(1,Number(b.initialHp||250))));
   const initial=p.startPrize??Math.max(0,Number(p.pool||0)-Number(p.participantAmount||0)-Number(p.groupAmount||0));
@@ -52,21 +40,9 @@ function fitBossPanel(section){
 }
 const panelObserver=typeof ResizeObserver==='function'?new ResizeObserver(entries=>entries.forEach(e=>fitBossPanel(e.target))):null;
 function show(data){
- if(typeof timerUnsub!=='undefined'){timerUnsub?.();eventUnsub?.();timerUnsub=eventUnsub=null;}
  clearTimeout(timer);panelObserver?.disconnect();host.className='';
  if(!data?.paired){host.innerHTML=`<div class="center"><h1>EPC 顯示設備配對</h1><p>在 EPCMAIN「顯示設備」輸入此配對碼</p><div class="code">${esc(data?.code||'…')}</div><p class="muted">配對碼有效 10 分鐘；到期請重新整理</p></div>`;return}
- const p=data.payload;if(!p){host.innerHTML='<div class="center"><h1>配對完成</h1><p>請在後台選擇活動，再按「套用到螢幕」。</p></div>';return}
- if(p.type==='timer'&&p.timerId){
-  let current=null,event=null,eventId='';
-  const paint=()=>{if(!current){host.innerHTML='<div class="center"><h1>計時器已刪除或尚未載入</h1></div>';return}
-   const ps=event?.players||[],groups=ps.reduce((n,x)=>n+Number(x.buyin??1)+Number(x.rebuy||0)+Number(x.addon||0),0);
-   // Zero stack is not elimination in timed tournaments; keep all registered players.
-   const chips=groups*Number(current.startingStack||event?.chips||0);
-   const pool=current.pool!==undefined&&current.pool!==''?Number(current.pool):Number(event?.summary?.prizePool??groups*Number(event?.poolUnit??(Number(event?.buyinTotal||0)-Number(event?.buyinAdmin||0))));
-   render({type:'timer',timer:current,pool,eventName:event?.name,stats:{people:ps.length,total:groups,chips,average:ps.length?Math.round(chips/ps.length):0}});
-  };
-  timerUnsub=cloud.watchTimer(p.timerId,t=>{current=t;const next=t?.eventId||'';if(next!==eventId){eventUnsub?.();event=null;eventId=next;if(next)eventUnsub=cloud.watchEvent(next,e=>{event=e;paint()},e=>{host.innerHTML='<div class="center">賽事連線失敗：'+esc(e.message)+'</div>'})}paint()},e=>{host.innerHTML='<div class="center">計時器連線失敗：'+esc(e.message)+'</div>'});return;
- }
+ const p=data.payload;if(p?.type==='timer'){host.innerHTML='<div class="center"><h1>計時器已停用</h1><p>請從後台顯示設備選擇其他活動。</p></div>';return}if(!p){host.innerHTML='<div class="center"><h1>配對完成</h1><p>請在後台選擇活動，再按「套用到螢幕」。</p></div>';return}
  const renderParallel=(p)=>{
   const panels=(p.panels||[]).slice(0,6);
   if(!panels.length){host.innerHTML='<div class="center"><h1>請在後台勾選並排活動</h1></div>';return}
