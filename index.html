@@ -2080,7 +2080,7 @@ window.addEventListener('error',function(e){
  </div>
 </section>
 
-<section id="members" class="page">
+<section id="members" class="page"><div id="memberProfilePanel" class="card" hidden></div>
  <h2>會員管理</h2>
  <div class="card">
   <div class="formgrid" style="grid-template-columns:repeat(5,minmax(0,1fr));gap:10px">
@@ -5437,6 +5437,27 @@ function memberLastVisit_(m){
  if(window.EPCFirestore?.ready)return dates.at(-1)||'—';
  return dates.at(-1)||m.lastVisit||'—';
 }
+function openMemberProfile_(id){
+ const m=(db.members||[]).find(x=>String(x.id)===String(id));if(!m)return;
+ const from=$('memberDateFrom')?.value||'',to=$('memberDateTo')?.value||'';
+ const ev=memberParticipationInRange_(m,from,to).slice().sort((a,b)=>String(businessDateForEvent(b)).localeCompare(String(businessDateForEvent(a)))||Number(b.seq||0)-Number(a.seq||0));
+ const h=memberHistoryInRange(m,from,to),paid=h.reduce((n,x)=>n+(+x.paid||0),0),prize=h.reduce((n,x)=>n+(+x.prize||0),0),net=prize-paid;
+ const esc=epcDisplayEscape_;
+ const box=(label,value,cls='')=>'<div class="card"><div class="small">'+label+'</div><div class="'+cls+'" style="font-size:22px;font-weight:800">'+value+'</div></div>';
+ const rows=ev.map(e=>{
+  const p=(e.players||[]).find(x=>String(x.memberId)===String(id)),settled=e.status==='settled'||e.status==='已結算',c=settled&&p?calcPlayerForEvent(p,e):null;
+  const cost=c?Number(c.paid||0):null,win=settled?Number(p?.prize||0):null,netRow=cost===null?null:win-cost;
+  return '<tr><td>'+esc(businessDateForEvent(e))+'</td><td>'+esc(e.name||eventDisplayName_(e)||'賽事')+'</td><td>'+esc(settled?'已結算':'進行中')+'</td><td>'+esc(p?String((+p.buyin||0)+(+p.rebuy||0)+(+p.addon||0)):'—')+'</td><td>'+(cost===null?'—':money(cost))+'</td><td>'+(win===null?'—':money(win))+'</td><td class="'+(netRow===null?'':epcPnlClass_(netRow))+'">'+(netRow===null?'—':money(netRow))+'</td></tr>';
+ }).join('');
+ const panel=$('memberProfilePanel');if(!panel)return;
+ panel.innerHTML='<div class="toolbar" style="justify-content:space-between"><h2>'+esc(epcMemberDisplayName_(m))+'｜會員資料</h2><button onclick="closeMemberProfile_()">關閉</button></div>'+
+ '<p class="small">會員編號：'+esc(String(m.id||''))+'　綽號：'+esc(epcNickname_(m)||'—')+'　分帳群組：'+esc(m.group||'—')+'　最後來店：'+esc(memberLastVisit_(m))+'</p>'+
+ '<p class="small">營業日：'+esc(from||'全部')+' ～ '+esc(to||'全部')+'；未結算不計入盈虧</p>'+
+ '<div class="grid">'+box('參賽場次',String(ev.length))+box('已結算場次',String(new Set(h.map(x=>x.eventId||x.date)).size))+box('實付金額',money(paid))+box('領回金額',money(prize))+box('淨盈虧',money(net),epcPnlClass_(net))+'</div>'+
+ '<h3>逐場參賽紀錄</h3><div class="tablewrap"><table><thead><tr><th>營業日</th><th>賽事</th><th>狀態</th><th>組數</th><th>實付</th><th>領回</th><th>盈虧</th></tr></thead><tbody>'+(rows||'<tr><td colspan="7">查無紀錄</td></tr>')+'</tbody></table></div>';
+ panel.hidden=false;panel.scrollIntoView({behavior:'smooth',block:'start'});
+}
+function closeMemberProfile_(){const p=$('memberProfilePanel');if(p)p.hidden=true;}
 function renderMemberRows(){
  const tbody=$('memberRows');if(!tbody)return;
  const q=String($('memberSearch')?.value||'').trim().toLowerCase(),from=$('memberDateFrom')?.value||'',to=$('memberDateTo')?.value||'';
@@ -5467,7 +5488,7 @@ function renderMemberRows(){
    return b.events-a.events||share(b)-share(a)||epcPlayerDisplayName_(a.m).localeCompare(epcPlayerDisplayName_(b.m),'zh-Hant');
  };
  const list=filtered.sort(cmp);
- tbody.innerHTML=list.map(({m,events,settledEvents,paid,prize,net})=>{const pct=totalPaid>0?paid/totalPaid*100:0;return `<tr><td>${epcDisplayEscape_(epcMemberDisplayName_(m))}</td><td>${epcPlayerDisplayHtml_(m)}</td><td>${epcDisplayEscape_(epcNickname_(m)||'—')}</td><td>${epcDisplayEscape_(m.id||'')}</td><td>${m.group||'-'}</td><td>${events}</td><td>${settledEvents}</td><td>${pct.toFixed(1)}%</td><td>${money(paid)}</td><td>${money(prize)}</td><td class="${epcPnlClass_(net)}">${money(net)}</td><td>${epcDisplayEscape_(memberLastVisit_(m))}</td><td><button onclick="editMember('${m.id}')">編輯</button> <button class="danger" onclick="delMember('${m.id}')">刪除</button></td></tr>`;}).join('')||'<tr><td colspan="13" class="small">找不到符合條件的會員</td></tr>';
+ tbody.innerHTML=list.map(({m,events,settledEvents,paid,prize,net})=>{const pct=totalPaid>0?paid/totalPaid*100:0;return `<tr><td>${`<button type="button" data-member-profile="${epcDisplayEscape_(m.id||"")}" onclick="openMemberProfile_(this.dataset.memberProfile)" style="border:0;background:none;color:#d6b35a;text-decoration:underline;font-weight:800;padding:0">${epcDisplayEscape_(epcMemberDisplayName_(m))}</button>`}</td><td>${epcPlayerDisplayHtml_(m)}</td><td>${epcDisplayEscape_(epcNickname_(m)||'—')}</td><td>${epcDisplayEscape_(m.id||'')}</td><td>${m.group||'-'}</td><td>${events}</td><td>${settledEvents}</td><td>${pct.toFixed(1)}%</td><td>${money(paid)}</td><td>${money(prize)}</td><td class="${epcPnlClass_(net)}">${money(net)}</td><td>${epcDisplayEscape_(memberLastVisit_(m))}</td><td><button onclick="editMember('${m.id}')">編輯</button> <button class="danger" onclick="delMember('${m.id}')">刪除</button></td></tr>`;}).join('')||'<tr><td colspan="13" class="small">找不到符合條件的會員</td></tr>';
  const foot=$('memberTotals');if(foot)foot.innerHTML=`<tr style="font-weight:800;border-top:2px solid #52677b"><td>區間總計</td><td colspan="4">${from||'全部'} ～ ${to||'全部'}</td><td>${totalEntries}</td><td>${stats.reduce((sum,x)=>sum+x.settledEvents,0)}</td><td>${totalPaid>0?'100.0%':'0.0%'}</td><td>${money(totalPaid)}</td><td>${money(totalPrize)}</td><td class="${epcPnlClass_(totalNet)}">${money(totalNet)}</td><td></td><td></td></tr>`;
 }
 function setMemberRangeThisMonth(){const now=new Date(),y=now.getFullYear(),m=String(now.getMonth()+1).padStart(2,'0'),last=new Date(y,now.getMonth()+1,0).getDate();$('memberDateFrom').value=`${y}-${m}-01`;$('memberDateTo').value=`${y}-${m}-${String(last).padStart(2,'0')}`;renderMemberRows();}
