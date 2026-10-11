@@ -6068,6 +6068,10 @@ function rankEventSeqOfDay_(e){
   if(id)seen.add(id);
   return true;
  }).slice().sort((a,b)=>{
+  // The saved business-day sequence is authoritative. Some imported events
+  // carry a default 16:00 start time, which must not move them ahead of #1.
+  const sa=Number(a.seq),sb=Number(b.seq);
+  if(Number.isFinite(sa)&&sa>0&&Number.isFinite(sb)&&sb>0&&sa!==sb)return sa-sb;
   const ta=offset(a),tb=offset(b);
   if(ta!==null&&tb!==null&&ta!==tb)return ta-tb;
   return bossEventOrder_(a)-bossEventOrder_(b)||rankEventId_(a).localeCompare(rankEventId_(b));
