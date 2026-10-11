@@ -49,7 +49,7 @@ function show(data){
  clearTimeout(timer);panelObserver?.disconnect();host.className='';
  if(!data?.paired){host.innerHTML=`<div class="center"><h1>EPC 顯示設備配對</h1><p>在 EPCMAIN「顯示設備」輸入此配對碼</p><div class="code">${esc(data?.code||'…')}</div><p class="muted">配對碼有效 10 分鐘；到期請重新整理</p></div>`;return}
  const p=data.payload;if(!p){host.innerHTML='<div class="center"><h1>配對完成</h1><p>請在後台選擇活動，再按「套用到螢幕」。</p></div>';return}
- if(p.type==='parallel'){
+ const renderParallel=(p)=>{
   const panels=(p.panels||[]).slice(0,6);
   if(!panels.length){host.innerHTML='<div class="center"><h1>請在後台勾選並排活動</h1></div>';return}
   const layout=parallelLayout(panels);
@@ -62,10 +62,10 @@ function show(data){
     const content=document.createElement('div');content.className='boss-panel-content';section.appendChild(content);render(panel,content);fitBossPanel(section);panelObserver?.observe(section);
    }else render(panel,section);
   });
-  return;
- }
- const slides=p.type==='rotate'?(p.slides||[]):[p];if(!slides.length){host.innerHTML='<div class="center"><h1>請在後台勾選輪播活動</h1></div>';return}
- let i=0;const next=()=>{const slide=slides[i++%slides.length];render(slide);if(slides.length>1)timer=setTimeout(next,Math.max(5,slide.duration||data.rotateSeconds||15)*1000)};next();
+ };
+ if(p.type==='parallel'){renderParallel(p);return}
+ const slides=(p.type==='rotate'||p.type==='rotateParallel')?(p.slides||[]):[p];if(!slides.length){host.innerHTML='<div class="center"><h1>請在後台勾選輪播活動</h1></div>';return}
+ let i=0;const next=()=>{const slide=slides[i++%slides.length];if(slide.type==='parallel')renderParallel(slide);else {host.className='';host.style.removeProperty('--panel-columns');host.style.removeProperty('--panel-rows');render(slide)};if(slides.length>1)timer=setTimeout(next,Math.max(5,slide.duration||data.rotateSeconds||15)*1000)};next();
 }
 try{
  cloud=await displayCloud();await cloud.register(id);cloud.subscribe(id,async data=>{
