@@ -2219,6 +2219,7 @@ window.addEventListener('error',function(e){
    <tfoot><tr id="eventPlayerTotals" style="font-weight:900;background:#17222d"></tr></tfoot>
   </table>
  </div>
+ <div class="card" style="margin-top:12px"><h3>本場買入結帳狀態</h3><p class="small">手機勾選「尚未結帳」的買入會在此顯示。可在賽事結算後繼續確認收款；此狀態不改變獎池、JP 或賽事結算。</p><div id="epcUnpaidPlayers"></div></div>
  <div class="notice" id="pricingNotice">標準模式：第 1 組行政費原價；第 2～10 組行政費半價；第 11 組起免行政費。自訂模式：第 2 組至超買門檻依重買價計價；超過門檻後免重買行政費。早鳥／晚鳥依本場設定折抵一次，同一玩家擇一勾選；重買、超買及手動優惠另外計算。</div>
 </section>
 
@@ -5262,6 +5263,19 @@ function applyFirestoreEventsToLegacy_(rows){
  else if(typeof publishAllDisplays_==='function')publishAllDisplays_();
 }
 window.addEventListener('epcFirestoreEvents',ev=>{try{applyFirestoreEventsToLegacy_(ev.detail?.events||[])}catch(err){console.warn(err)}});
+function renderEventUnpaidStatus_(){
+ const root=$('epcUnpaidPlayers'),e=currentEvent();if(!root||!e)return;
+ const ps=e.players||[],pending=ps.filter(p=>p.registrationUnpaid===true);
+ root.innerHTML='<div style="margin-bottom:9px;font-weight:700">未結帳 '+pending.length+' / '+ps.length+' 人｜買入待收 '+money(pending.reduce((n,p)=>n+Math.max(0,Number(p.registrationUnpaidAmount)||0),0))+'</div>'+
+ '<div style="overflow-x:auto"><table><thead><tr><th>玩家</th><th>買入待收</th><th>狀態</th><th>操作</th></tr></thead><tbody>'+
+ ps.map((p,i)=>{const m=(db.members||[]).find(x=>String(x.id)===String(p.memberId));const name=String(p.nickname||m?.nickname||m?.name||p.name||p.memberId||'玩家').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));const unpaid=p.registrationUnpaid===true;return '<tr><td>'+name+'</td><td>'+(unpaid?money(Math.max(0,Number(p.registrationUnpaidAmount)||0)):'—')+'</td><td>'+(unpaid?'<b style="color:#e6ad45">未結帳</b>':'已結帳')+'</td><td><button type="button" onclick="setEventRegistrationUnpaid_('+i+','+(!unpaid)+')">'+(unpaid?'確認已收款':'標記未結帳')+'</button></td></tr>'}).join('')+'</tbody></table></div>';
+}
+function setEventRegistrationUnpaid_(i,unpaid){
+ const e=currentEvent(),p=e?.players?.[i];if(!p)return;
+ if(unpaid){const amount=prompt('請輸入這筆買入尚未收取的金額（元）',String(Math.max(0,Number(p.registrationUnpaidAmount)||Number(calcPlayerForEvent(p,e).paid)||0)));if(amount===null)return;const n=Number(amount);if(!Number.isSafeInteger(n)||n<0){actionMsg('金額必須為非負整數',true);return}p.registrationUnpaidAmount=n;p.registrationUnpaid=true}
+ else{if(!confirm('確認已收到這筆買入款項？'))return;p.registrationUnpaid=false;p.registrationUnpaidAmount=0}
+ p.registrationSettlementUpdatedAt=Date.now();touchEvent_(e);persist();syncEventToFirestore_(e,true).catch(err=>actionMsg('結帳狀態同步失敗：'+String(err?.message||err),true));renderEventUnpaidStatus_();actionMsg(unpaid?'已標記未結帳':'已確認收款');
+}
 function renderEventList(){
  let body=$('eventRows'); if(!body)return;
  if($('businessStartTime'))$('businessStartTime').value=db.settings.businessStart||'16:00';
@@ -6384,6 +6398,7 @@ function render(){
     action:`<button type="button" class="danger" onclick="removePlayerByIndex(${i})">移除</button>`
    }};
  });
+ renderEventUnpaidStatus_();
  $('playerRows').innerHTML=rowData.map(r=>`<tr>${cols.map(c=>`<td class="col-${c[0]}">${r.vals[c[0]]}</td>`).join('')}</tr>`).join('');
 
  const totals=rowData.reduce((a,r)=>{
