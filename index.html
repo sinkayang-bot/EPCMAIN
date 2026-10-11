@@ -5265,10 +5265,19 @@ function applyFirestoreEventsToLegacy_(rows){
 window.addEventListener('epcFirestoreEvents',ev=>{try{applyFirestoreEventsToLegacy_(ev.detail?.events||[])}catch(err){console.warn(err)}});
 function renderEventUnpaidStatus_(){
  const root=$('epcUnpaidPlayers'),e=currentEvent();if(!root||!e)return;
- const ps=e.players||[],pending=ps.filter(p=>p.registrationUnpaid===true);
- root.innerHTML='<div style="margin-bottom:9px;font-weight:700">未結帳 '+pending.length+' / '+ps.length+' 人｜買入待收 '+money(pending.reduce((n,p)=>n+Math.max(0,Number(p.registrationUnpaidAmount)||0),0))+'</div>'+
- '<div style="overflow-x:auto"><table><thead><tr><th>玩家</th><th>買入待收</th><th>狀態</th><th>操作</th></tr></thead><tbody>'+
- ps.map((p,i)=>{const m=(db.members||[]).find(x=>String(x.id)===String(p.memberId));const name=String(p.nickname||m?.nickname||m?.name||p.name||p.memberId||'玩家').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));const unpaid=p.registrationUnpaid===true;return '<tr><td>'+name+'</td><td>'+(unpaid?money(Math.max(0,Number(p.registrationUnpaidAmount)||0)):'—')+'</td><td>'+(unpaid?'<b style="color:#e6ad45">未結帳</b>':'已結帳')+'</td><td><button type="button" onclick="setEventRegistrationUnpaid_('+i+','+(!unpaid)+')">'+(unpaid?'確認已收款':'標記未結帳')+'</button> <button type="button" onclick="editEventRegistrationUnpaid_('+i+')">修改</button></td></tr>'}).join('')+'</tbody></table></div>';
+ const ps=e.players||[],pending=ps.filter(p=>p.registrationUnpaid===true||Number(p.rebuyUnpaidAmount||0)>0);
+ root.innerHTML='<div style="margin-bottom:9px;font-weight:700">未結帳 '+pending.length+' / '+ps.length+' 人｜買入待收 '+money(pending.reduce((n,p)=>n+(Math.max(0,Number(p.registrationUnpaidAmount)||0)+Math.max(0,Number(p.rebuyUnpaidAmount)||0)),0))+'</div>'+
+ '<div style="overflow-x:auto"><table><thead><tr><th>玩家</th><th>首次買入待收</th><th>重買待收</th><th>狀態</th><th>操作</th></tr></thead><tbody>'+
+ ps.map((p,i)=>{const m=(db.members||[]).find(x=>String(x.id)===String(p.memberId));const name=String(p.nickname||m?.nickname||m?.name||p.name||p.memberId||'玩家').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));const unpaid=p.registrationUnpaid===true,rebuyDue=Math.max(0,Number(p.rebuyUnpaidAmount)||0);return '<tr><td>'+name+'</td><td>'+(unpaid?money(Math.max(0,Number(p.registrationUnpaidAmount)||0)):'—')+'</td><td>'+(rebuyDue?money(rebuyDue):'—')+'</td><td>'+((unpaid||rebuyDue)?'<b style="color:#e6ad45">未結帳</b>':'已結帳')+'</td><td><button type="button" onclick="setEventRegistrationUnpaid_('+i+','+(!unpaid)+')">'+(unpaid?'確認已收款':'標記未結帳')+'</button> <button type="button" onclick="editEventRegistrationUnpaid_('+i+')">修改買入</button> <button type="button" onclick="editEventRebuyUnpaid_('+i+')">修改重買</button></td></tr>'}).join('')+'</tbody></table></div>';
+}
+function editEventRebuyUnpaid_(i){
+ const e=currentEvent(),p=e?.players?.[i];if(!p)return;
+ const old=Math.max(0,Number(p.rebuyUnpaidAmount)||0);
+ const answer=prompt('修改此玩家重買待收總額（輸入 0 表示已收清重買款）',String(old));if(answer===null)return;
+ const n=Number(answer);if(!Number.isSafeInteger(n)||n<0){actionMsg('請輸入 0 或正整數金額',true);return}
+ p.rebuyUnpaidAmount=n;p.rebuySettlementUpdatedAt=Date.now();touchEvent_(e);persist();
+ syncEventToFirestore_(e,true).catch(err=>actionMsg('重買結帳狀態同步失敗：'+String(err?.message||err),true));
+ renderEventUnpaidStatus_();actionMsg('重買待收已修改：'+money(n));
 }
 function editEventRegistrationUnpaid_(i){
  const e=currentEvent(),p=e?.players?.[i];if(!p)return;
