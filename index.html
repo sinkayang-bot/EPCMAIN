@@ -6125,7 +6125,7 @@ function actRank_(){
  const duplicate=Object.values(duplicateKeys).filter(a=>a.length>1);
  const audit='<div class="card"><b>週排行計分檢查（唯讀）</b><div class="small">符合日期賽事 '+allInRange.length+' 場｜已納入 '+rankEvents.length+' 場｜未結算排除 '+excluded.length+' 場｜籌碼未填 '+missing.length+' 場｜場次編號重複 '+duplicate.length+' 組</div></div>';
  const detail=rankEvents.map(e=>{const top=eventTopScores_(e);top.forEach(x=>tot[x.id]=(tot[x.id]||0)+x.score);return `<div class="card" style="margin-top:10px"><b>${actEventLabel_(e)}</b> <span class="small">營業日第 ${rankEventSeqOfDay_(e)} 場｜開桌 ${epcDisplayEscape_(e.startTime||'未設定')}｜倍率 ×${rankMultiplier_(e)}｜${epcDisplayEscape_((A.rankRecurringRules||[]).filter(r=>rankRuleMatch_(e,r)).map(r=>r.name||'加倍規則').join('、')||'未命中加倍規則')}</span><table><thead><tr><th>名次</th><th>玩家</th><th>籌碼淨勝值</th><th>下桌籌碼</th><th>得分</th></tr></thead><tbody>${top.map(x=>`<tr><td>${x.rank}</td><td>${epcDisplayEscape_(x.name)}</td><td class="${epcPnlClass_(x.net)}">${x.net.toFixed(1)}</td><td>${(+x.stack).toLocaleString()}</td><td>${x.score}</td></tr>`).join('')||'<tr><td colspan="5">無資料</td></tr>'}</tbody></table></div>`}).join('');
- const ranking=Object.entries(tot).map(([id,auto])=>({id,name:epcPlayerDisplayName_(id),auto,adj:+A.rankAdjust[id]||0})).map(x=>({...x,total:x.auto+x.adj})).sort((a,b)=>b.total-a.total);
+ const ranking=[...new Set([...Object.keys(tot),...Object.keys(A.rankAdjust||{})])].map(id=>({id,name:epcPlayerDisplayName_(id),auto:+tot[id]||0,adj:+A.rankAdjust[id]||0})).map(x=>({...x,total:x.auto+x.adj})).filter(x=>x.auto!==0||x.adj!==0).sort((a,b)=>b.total-a.total||b.auto-a.auto||String(a.name).localeCompare(String(b.name),'zh-Hant'));
  const rules=(A.rankRecurringRules||[]).map(r=>`<div class="card" style="margin-top:8px;padding:12px">
    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
     <label><input type="checkbox" ${r.enabled?'checked':''} onchange="editRankRecurringRule_('${r.id}','enabled',this.checked)"> 啟用</label>
@@ -7147,7 +7147,7 @@ function displayLeaderboard_(kind){
   (A.umbrella||[]).forEach(x=>tot[x.memberId]=(tot[x.memberId]||0)+(+x.coupons||0));
  }else if(kind==='rank'){
   // Use the exact same calculation as 活動管理 → 週排行榜.
-  actEvents_().forEach(e=>{
+  actEvents_('rank').forEach(e=>{
    eventTopScores_(e).forEach(x=>tot[x.id]=(tot[x.id]||0)+(+x.score||0));
   });
   const ids=new Set([...Object.keys(tot),...Object.keys(A.rankAdjust||{})]);
