@@ -3569,7 +3569,7 @@ function birdDiscountDefaults_(){
 }
 function blankEvent(){
  const time=eventCurrentTime_();
- return {id:'EV'+Date.now()+Math.floor(Math.random()*90+10),date:new Date().toISOString().slice(0,10),startTime:time,endTime:time,...birdDiscountDefaults_(),seq:1,level:3400,poolUnit:3000,admin:400,pricingMode:'standard',buyinTotal:3400,buyinAdmin:400,rebuyTotal:3400,rebuyAdmin:400,overbuyThreshold:10,chips:300000,jp:3,jpRound:100,payout:'50,30,20',players:[],status:'進行中',accounting:{otherIncome:0,venueIncome:0,laborExpense:0,otherExpense:0},createdAt:Date.now()};
+ return {id:'EV'+Date.now()+Math.floor(Math.random()*90+10),date:new Date().toISOString().slice(0,10),startTime:time,endTime:'',...birdDiscountDefaults_(),seq:1,level:3400,poolUnit:3000,admin:400,pricingMode:'standard',buyinTotal:3400,buyinAdmin:400,rebuyTotal:3400,rebuyAdmin:400,overbuyThreshold:10,chips:300000,jp:3,jpRound:100,payout:'50,30,20',players:[],status:'進行中',accounting:{otherIncome:0,venueIncome:0,laborExpense:0,otherExpense:0},createdAt:Date.now()};
 }
 // Migration from V1.1 single-event data to V1.2 multi-event data.
 if(!Array.isArray(db.events)){
@@ -4194,7 +4194,13 @@ function setReportColumn(k,v){ensureReportColumns();db.reportColumns[k]=!!v;pers
 function visibleReportCols(){ensureReportColumns();return REPORT_COLUMNS.filter(([k])=>db.reportColumns[k]);}
 function saveEndTime(v){let e=currentEvent();if(!e)return;e.endTime=String(v||'').trim();touchEvent_(e);persist();syncEventToFirestore_(e,true).catch(err=>actionMsg('結束時間同步失敗：'+String(err?.message||err),true));}
 function goICM(){
- if(!requireEvent())return;
+ const ev=requireEvent();if(!ev)return;
+ // Default the end time when the ICM page is first opened; never overwrite an entered or settled time.
+ if(!ev.endTime && !isSettledAccountingEvent_(ev)){
+   ev.endTime=eventCurrentTime_();
+   touchEvent_(ev);persist();
+   syncEventToFirestore_(ev,true).catch(err=>actionMsg('結束時間同步失敗：'+String(err?.message||err),true));
+ }
  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
  $('settle').classList.add('active');
  document.querySelectorAll('#nav button').forEach(b=>b.classList.remove('active'));
