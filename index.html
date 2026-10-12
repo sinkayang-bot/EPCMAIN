@@ -4878,11 +4878,29 @@ function deleteDailyAccounting(date){
 }
 function openIndependentAccountingGroup(encoded){
  const group=decodeURIComponent(encoded);
- const events=(db.events||[]).filter(e=>accountingGroupForEvent(e)===group&&isSettledAccountingEvent_(e));
- if(!events.length)return alert('此群組目前沒有已結算賽事');
- const date=businessDateForEvent(events[0]);
- openDailyAccounting(date);
- const row=$('accountingGroupRows');if(row)row.scrollIntoView({behavior:'smooth',block:'center'});
+ const from=$('accountingDateFrom')?.value||'',to=$('accountingDateTo')?.value||'';
+ const events=(db.events||[]).filter(e=>{
+   const date=businessDateForEvent(e);
+   return accountingGroupForEvent(e)===group&&isSettledAccountingEvent_(e)&&(!from||date>=from)&&(!to||date<=to);
+ }).sort((a,b)=>String(businessDateForEvent(b)).localeCompare(String(businessDateForEvent(a)))||Number(a.seq||1)-Number(b.seq||1));
+ if(!events.length)return alert('此群組目前查詢區間沒有已結算賽事');
+ let box=$('independentAccountingGroupDetail');
+ if(!box){
+   box=document.createElement('div');box.id='independentAccountingGroupDetail';box.className='card';
+   $('independentAccountingSummaryRows').closest('.card').after(box);
+ }
+ box.style.display='block';
+ box.innerHTML='<h3>'+epcDisplayEscape_(group)+'｜全部場次（'+events.length+' 場）</h3><div class="small">依目前查詢區間列出跨營業日場次；各場收支分別編輯。</div><div class="tablewrap"><table><thead><tr><th>營業日</th><th>賽事</th><th>行政費收入</th><th>折扣支出</th><th>其他收入</th><th>其他支出</th><th>淨收入</th><th>JP</th><th>操作</th></tr></thead><tbody>'+events.map(e=>{
+   const ai=eventAccountingInfo(e);
+   return '<tr><td>'+epcDisplayEscape_(businessDateForEvent(e))+'</td><td>'+epcDisplayEscape_(eventDisplayName_(e))+'</td><td>'+money(ai.gross)+'</td><td>'+money(ai.discountExpense)+'</td><td>'+money(ai.otherIncome)+'</td><td>'+money(ai.otherExpense)+'</td><td class="'+epcPnlClass_(ai.net)+'">'+money(ai.net)+'</td><td>'+money(ai.jp)+'</td><td><button type="button" onclick="openIndependentEventAccounting_(\''+encodeURIComponent(String(e.id))+'\')">編輯本場收支</button></td></tr>';
+ }).join('')+'</tbody></table></div>';
+ box.scrollIntoView({behavior:'smooth',block:'start'});
+}
+function openIndependentEventAccounting_(encoded){
+ const id=decodeURIComponent(encoded),e=(db.events||[]).find(x=>String(x.id)===id);
+ if(!e)return alert('找不到此場賽事');
+ openDailyAccounting(businessDateForEvent(e));
+ openEventAccounting(e.id);
 }
 async function moveIndependentEventToMain_(id){
  const e=(db.events||[]).find(x=>String(x.id)===String(id));if(!e)return;
