@@ -2552,6 +2552,7 @@ window.addEventListener('error',function(e){
   <button class="secondary" onclick="setActTab_('hunter')">4. 獵人排行榜</button>
   <button class="secondary" onclick="setActTab_('umbrella')">5. 保護傘</button>
   <button class="secondary" onclick="setActTab_('boss')">6. 雙十狩主</button>
+  <button class="secondary" onclick="setActTab_('extremeTen')">7. 極限 10 秒</button>
  </div>
  <div id="actWeekly" class="act-pane"></div>
  <div id="actPioneer" class="act-pane" style="display:none"></div>
@@ -2559,6 +2560,7 @@ window.addEventListener('error',function(e){
  <div id="actHunter" class="act-pane" style="display:none"></div>
  <div id="actUmbrella" class="act-pane" style="display:none"></div>
  <div id="actBoss" class="act-pane" style="display:none"></div>
+ <div id="actExtremeTen" class="act-pane" style="display:none"></div>
 </section>
 
 <section id="dailysettle" class="page">
@@ -2935,7 +2937,7 @@ function touchEvent_(e){
 function preserveActivityEdits_(local,merged){
  const la=local&&local.activityManagement,ma=merged&&merged.activityManagement;
  if(!la||!ma)return merged;
- for(const k of ['hunter','umbrella','rankMultipliers','rankRecurringRules']){
+ for(const k of ['hunter','umbrella','extremeTen','rankMultipliers','rankRecurringRules']){
    if(Array.isArray(la[k]))ma[k]=mergeActivityRecords_(la[k],ma[k]);
  }
  ma.hunterDeleted={...(ma.hunterDeleted||{}),...(la.hunterDeleted||{})};
@@ -5879,6 +5881,8 @@ function ensureActDb_(){
   {id:'RR_WEEKEND',name:'六日前兩場 / 日前兩場',enabled:true,days:[6,0],mode:'firstN',firstN:2,mult:2},
   {id:'RR_MIDNIGHT',name:'每日 00:00 場',enabled:true,days:[1,2,3,4,5,6,0],mode:'time',from:'00:00',to:'00:00',mult:2}
  ];
+ A.extremeTen=Array.isArray(A.extremeTen)?A.extremeTen:[];
+ A.activityRanges.extremeTen=A.activityRanges.extremeTen||{from:'2026-10-15',to:'2026-10-31'};
  A.hunter=Array.isArray(A.hunter)?A.hunter:[];
  A.umbrella=Array.isArray(A.umbrella)?A.umbrella:[];
  A.umbrellaRules=A.umbrellaRules||{'88以上對子':1,'兩對 / 三條':3,'順子 / 同花':5,'葫蘆以上':10};
@@ -5918,7 +5922,7 @@ function actSetActivityRange_(kind,field,value){
  persist();if(window.saveActivityCloudV3)window.saveActivityCloudV3();renderActivities();
 }
 function actRangeEditor_(kind){
- const names={weekly:'每週任務卡',pioneer:'開桌先鋒',rank:'週排行榜',hunter:'獵人排行榜',umbrella:'保護傘',boss:'雙十狩主'},r=actActivityRange_(kind);
+ const names={weekly:'每週任務卡',pioneer:'開桌先鋒',rank:'週排行榜',hunter:'獵人排行榜',umbrella:'保護傘',boss:'雙十狩主',extremeTen:'極限 10 秒'},r=actActivityRange_(kind);
  return `<div class="card" style="margin-bottom:12px;border-color:#9b7a35"><h3>${names[kind]||'活動'}｜活動區間</h3><div class="small" style="margin-bottom:8px">此區間決定本活動實際計算資料；上方「查詢開始日／查詢結束日」只用於歷史查詢，不會改變活動計算。</div><div class="formgrid" style="grid-template-columns:1fr 1fr"><div><label>活動開始日</label><input type="date" value="${r.from}" onchange="actSetActivityRange_('${kind}','from',this.value)"></div><div><label>活動結束日</label><input type="date" value="${r.to}" onchange="actSetActivityRange_('${kind}','to',this.value)"></div></div></div>`;
 }
 function actBusinessDate_(e){return String(e?.businessDate||e?.date||businessDateForEvent(e)||'').slice(0,10)}
@@ -6433,6 +6437,87 @@ function addBossAttack_(){const B=db.activityManagement.boss,b=activeBoss_(),id=
 function bossAttackDel_(id){const b=activeBoss_();if(!b)return;b.attacks=(b.attacks||[]).filter(x=>x.id!==id);b.killed=b.attacks.some(x=>x.success);if(!b.killed){delete b.frozenStats;delete b.closedAt;}persist();if(window.saveActivityCloudV3)window.saveActivityCloudV3();renderActivities()}
 function actBoss_(){const B=db.activityManagement.boss,S=bossStats_(),b=activeBoss_(),hp=bossCurrentHp_(),range=(db.events||[]).filter(e=>(!B.activityFrom||e.date>=B.activityFrom)&&(!B.activityTo||e.date<=B.activityTo));const stage=(name,p,people,groups)=>`<div class="card"><h3>${name}</h3><div class="formgrid" style="grid-template-columns:repeat(3,1fr)"><div><label>人數加碼｜多少人</label><input type="number" value="${B[p+'PersonStep']}" onchange="bossSet_('${p}PersonStep',this.value)"></div><div><label>+多少錢</label><input type="number" value="${B[p+'PersonAmount']}" onchange="bossSet_('${p}PersonAmount',this.value)"></div><div><label>忽略不計人數</label><input type="number" value="${B[p+'PersonIgnore']}" onchange="bossSet_('${p}PersonIgnore',this.value)"></div><div><label>組數加碼｜多少組</label><input type="number" value="${B[p+'GroupStep']}" onchange="bossSet_('${p}GroupStep',this.value)"></div><div><label>+多少錢</label><input type="number" value="${B[p+'GroupAmount']}" onchange="bossSet_('${p}GroupAmount',this.value)"></div><div><label>忽略不計組數</label><input type="number" value="${B[p+'GroupIgnore']}" onchange="bossSet_('${p}GroupIgnore',this.value)"></div></div><div class="small">此階段目前 ${people} 人／${groups} 組</div></div>`;return `<div class="card"><h3>雙十狩主｜活動區間與規則</h3><div class="formgrid" style="grid-template-columns:repeat(4,1fr)"><div><label>活動開始日</label><input type="date" value="${B.activityFrom}" onchange="bossSet_('activityFrom',this.value)"></div><div><label>活動結束日</label><input type="date" value="${B.activityTo}" onchange="bossSet_('activityTo',this.value)"></div><div><label>起始獎金</label><input type="number" value="${B.startPrize}" onchange="bossSet_('startPrize',this.value)"></div><div><label>封頂</label><input type="number" value="${B.cap}" onchange="bossSet_('cap',this.value)"></div><div><label>自動啟動標準線</label><input type="number" value="${B.attackThreshold}" onchange="bossSet_('attackThreshold',this.value)"></div><div><label>魔王預設HP</label><input type="number" value="${B.initialHp}" onchange="bossSet_('initialHp',this.value)"></div><div><label>手動開啟攻擊階段</label><input type="checkbox" ${(b?.cycleVersion?b.attackEnabled:B.attackEnabled)?'checked':''} onchange="bossToggleAttack_(this.checked)"><div class="small">未達自動門檻時可強制開啟；取消後若仍未達門檻，會回到未啟用。</div></div></div><h3>不計算場次</h3><div class="formgrid" style="grid-template-columns:1fr auto;align-items:end"><div><label>選擇場次</label><select id="bossExcludeSelect"><option value="">選擇要排除的場次</option>${range.slice().sort((a,b)=>String(actBusinessDate_(b)).localeCompare(String(actBusinessDate_(a)))||bossEventOrder_(b)-bossEventOrder_(a)).filter(e=>!(B.excludedEventIds||[]).includes(String(e.id))).map(e=>`<option value="${e.id}">${actEventLabel_(e)}</option>`).join('')}</select></div><div><button onclick="bossAddExclude_()">＋新增</button></div></div><div style="margin-top:8px">${(B.excludedEventIds||[]).map(id=>{const e=(db.events||[]).find(x=>String(x.id)===String(id));return e?`<span style="display:inline-flex;align-items:center;gap:6px;margin:3px;padding:6px 8px;border:1px solid #33495b;border-radius:8px">${actEventLabel_(e)} <button class="danger" style="padding:2px 6px" onclick="bossRemoveExclude_('${id}')">×</button></span>`:''}).join('')||'<span class="small">目前沒有不計算場次</span>'}</div></div><div class="card" style="margin-top:12px"><h3>魔王管理｜目前狀態</h3><div style="display:flex;gap:8px;flex-wrap:wrap">${(B.bosses||[]).map(x=>`<button onclick="selectBoss_('${x.id}')">${x.name}${x.killed?'（已擊殺）':''}</button>`).join('')}<button onclick="addNewBoss_()">＋新增魔王</button>${b?`<button class="danger" onclick="deleteBoss_('${b.id}')">刪除目前魔王</button>`:''}</div>${b?`<div class="formgrid" style="grid-template-columns:2fr 1fr;align-items:end;margin-top:12px"><div><label>目前魔王名稱</label><input type="text" value="${String(b.name||'').replace(/\"/g,'&quot;')}" onchange="bossRename_('${b.id}',this.value)" placeholder="例如：赤焰白虎王"></div><div><label>HP 狀態</label><div style="padding:10px 0">初始 ${b.initialHp}｜剩餘 <b>${hp}</b></div></div></div>${bossBoundsUi_(b)}<div class="small">修改名稱後會立即儲存；重新套用 DISPLAY 後，電視畫面會同步顯示新名稱。</div>`:''}</div><div class="grid" style="grid-template-columns:1fr 1fr;gap:12px;margin-top:12px">${stage('一般模式','normal',S.np,S.ng)}${stage('狩王模式','hunt',S.hp,S.hg)}</div><div class="card" style="margin-top:12px"><h3>區間統計</h3><table><thead><tr><th>模式</th><th>人數</th><th>人數加碼</th><th>累積總組數</th><th>符合組數加碼場次</th><th>組數加碼</th></tr></thead><tbody><tr><td>一般模式</td><td>${S.np}</td><td>${money(S.npb)}</td><td>${S.ng}</td><td>${S.normalQualifyingEvents}</td><td>${money(S.ngb)}</td></tr><tr><td>攻擊模式</td><td>${S.hp}</td><td>${money(S.hpb)}</td><td>${S.hg}</td><td>${S.huntQualifyingEvents}</td><td>${money(S.hgb)}</td></tr></tbody></table><div class="small" style="margin-top:9px">組數加碼採「每場獨立計算」，不同場次的組數不合併湊級距；累積總組數僅顯示活動期間實際總組數。</div><h3>目前累積 ${money(S.pool)}｜攻擊模式：${S.active?'已啟用':'未啟用'}</h3></div>${b&&S.active&&!b.killed?`<div class="card" style="margin-top:12px"><h3>攻擊登記</h3><div class="formgrid" style="grid-template-columns:repeat(8,1fr)"><div><label>日期</label><input type="date" id="bossDate" value="${new Date().toISOString().slice(0,10)}"></div><div><label>攻擊玩家</label><input id="bossMember" list="bossMemberList" placeholder="姓名 / ID"><datalist id="bossMemberList">${actMemberSearchOptions_()}</datalist></div><div><label>形式</label><select id="bossMethod"><option>10Xo</option><option>TT</option><option>斬殺</option><option>其他</option></select></div><div><label>傷害</label><input type="number" id="bossDamage" value="10"></div><div><label>第幾次斬殺</label><input type="number" id="bossExecute" value="0"></div><div><label>擊殺結束場次（勾選擊殺才需填）</label><select id="bossKillEnd"><option value="">請選結束場次</option>${bossEventOptions_(b.endEventId)}</select></div><div><label>擊殺魔王</label><input type="checkbox" id="bossSuccess"></div><div><label>桌上總人數（含擊殺者）</label><input type="number" id="bossTableCount" value="2" min="1"></div><div><label>備註</label><input id="bossNote"></div></div><button onclick="addBossAttack_()">登記攻擊</button></div>`:''}${b?`<div class="card" style="margin-top:12px"><h3>攻擊／分配紀錄</h3><table><thead><tr><th>日期</th><th>玩家</th><th>形式</th><th>傷害</th><th>擊殺</th><th>當下獎池</th><th>擊殺者</th><th>其他每人</th><th>桌上人數</th><th></th></tr></thead><tbody>${(b.attacks||[]).map(x=>`<tr><td>${x.date}</td><td>${epcPlayerDisplayHtml_(x.memberId)}</td><td>${x.method}</td><td>${x.damage}</td><td>${x.success?'是':'否'}</td><td>${x.success?money(x.poolAtKill):'-'}</td><td>${x.success?money(x.killerPrize):'-'}</td><td>${x.success?money(x.otherPrize):'-'}</td><td>${x.success?x.tableCount:'-'}</td><td><button class="danger" onclick="bossAttackDel_('${x.id}')">刪除</button></td></tr>`).join('')}</tbody></table></div>`:''}`}
 function enhanceSearchCombos_(){document.querySelectorAll('input[list]').forEach(inp=>{if(inp.dataset.comboDone)return;inp.dataset.comboDone='1';const dl=document.getElementById(inp.getAttribute('list'));if(!dl)return;/* Prevent browser-native datalist from appearing beneath our searchable dropdown. */inp.removeAttribute('list');const wrap=document.createElement('div');wrap.className='searchCombo';inp.parentNode.insertBefore(wrap,inp);wrap.appendChild(inp);const menu=document.createElement('div');menu.className='searchComboMenu';wrap.appendChild(menu);const draw=()=>{const q=(inp.value||'').toLowerCase();const a=[...dl.querySelectorAll('option')].filter(o=>!q||[o.value,o.dataset.label||'',o.textContent||''].join(' ').toLowerCase().includes(q)).slice(0,150);menu.innerHTML=a.map(o=>'<div class="searchComboItem" data-v="'+epcDisplayEscape_(o.value)+'">'+epcDisplayEscape_(o.dataset.label||o.textContent||o.value)+'</div>').join('');menu.classList.toggle('open',a.length>0&&document.activeElement===inp)};inp.addEventListener('input',draw);inp.addEventListener('focus',draw);menu.addEventListener('mousedown',e=>{const x=e.target.closest('.searchComboItem');if(!x)return;e.preventDefault();inp.value=x.dataset.v;menu.classList.remove('open');inp.dispatchEvent(new Event('change',{bubbles:true}))});inp.addEventListener('blur',()=>setTimeout(()=>menu.classList.remove('open'),100))})}
+function extremeTenCents_(value){
+ const raw=String(value??'').trim();
+ if(!/^\d{1,3}(?:\.\d{1,2})?$/.test(raw))return null;
+ const [whole,part='']=raw.split('.');
+ const cents=Number(whole)*100+Number(part.padEnd(2,'0'));
+ return cents>0&&cents<=99999?cents:null;
+}
+function extremeTenRows_(){
+ const A=db.activityManagement,{from,to}=actActivityRange_('extremeTen');
+ return (A.extremeTen||[]).filter(x=>!x.deleted&&actRecordEligible_(x)&&(!from||x.date>=from)&&(!to||x.date<=to))
+ .map(x=>({...x,difference:Math.abs(Number(x.cents)-1000),success:Number(x.cents)===1000}))
+ .sort((a,b)=>a.difference-b.difference||String(a.createdAt||a.id).localeCompare(String(b.createdAt||b.id)));
+}
+function extremeTenStats_(){
+ const rows=extremeTenRows_(),awarded=rows.filter(x=>x.awardType),remaining=Math.max(0,8-awarded.length);
+ const successful=rows.filter(x=>x.success&&!x.awardType);
+ // Candidates are suggestions only: staff explicitly records each award.
+ const candidates=rows.filter(x=>!x.awardType).slice(0,remaining);
+ return {rows,awarded,remaining,successful,candidates};
+}
+function extremeTenSave_(){persist();if(window.saveActivityCloudV3)window.saveActivityCloudV3();renderActivities();}
+function addExtremeTen_(){
+ ensureActDb_();const memberId=actResolveMember_('tenMember'),cents=extremeTenCents_($('tenSeconds')?.value),date=$('tenDate')?.value;
+ if(!memberId||!(db.members||[]).some(m=>String(m.id)===String(memberId)))return actionMsg('請選擇有效會員',true);
+ if(cents===null)return actionMsg('請輸入秒數，例如 9.98、10.00；最多兩位小數',true);
+ const {from,to}=actActivityRange_('extremeTen');
+ if(!date||(from&&date<from)||(to&&date>to))return actionMsg('登記日期須在本活動區間內',true);
+ const eventId=$('tenEvent')?.value||'';
+ if(eventId&&!actRecordEligible_({eventId}))return actionMsg('獨立帳場次不計入活動',true);
+ const now=Date.now(),id='TEN_'+now+'_'+Math.random().toString(36).slice(2,8);
+ db.activityManagement.extremeTen.unshift(stampActivityRecord_({id,date,memberId,cents,eventId,method:$('tenMethod')?.value||'8Xo',note:$('tenNote')?.value||'',createdAt:now,awardType:'',claimed:false}));
+ extremeTenSave_();actionMsg('挑戰紀錄已儲存');
+}
+function extremeTenEdit_(id){
+ const row=(db.activityManagement.extremeTen||[]).find(x=>x.id===id&&!x.deleted);if(!row)return;
+ const value=prompt('修正挑戰秒數（最多兩位小數）',(row.cents/100).toFixed(2));if(value===null)return;
+ const cents=extremeTenCents_(value);if(cents===null)return actionMsg('秒數格式不正確',true);
+ if(row.awardType&&cents!==row.cents)return actionMsg('請先取消得獎標記，再修正秒數',true);
+ row.cents=cents;stampActivityRecord_(row);extremeTenSave_();
+}
+function extremeTenDelete_(id){
+ const row=(db.activityManagement.extremeTen||[]).find(x=>x.id===id&&!x.deleted);if(!row)return;
+ if(row.awardType)return actionMsg('請先取消得獎標記，再刪除紀錄',true);
+ if(!confirm('刪除此筆挑戰紀錄？'))return;
+ row.deleted=true;stampActivityRecord_(row);extremeTenSave_();
+}
+function extremeTenAward_(id,kind){
+ const row=(db.activityManagement.extremeTen||[]).find(x=>x.id===id&&!x.deleted);if(!row)return;
+ if(kind&&!['成功','補發'].includes(kind))return;
+ const S=extremeTenStats_();
+ if(kind&&!S.rows.some(x=>x.id===id))return actionMsg('此紀錄不在目前有效活動區間',true);
+ if(kind&&!row.awardType&&S.remaining<=0)return actionMsg('本期 8 份獎勵已全數登記',true);
+ if(kind==='成功'&&row.cents!==1000)return actionMsg('只有 10.00 秒可登記成功獎勵',true);
+ if(kind==='補發'&&businessDateForEvent({createdAt:new Date().toISOString()})<actActivityRange_('extremeTen').to)return actionMsg('活動結束後才可登記補發',true);
+ if(!confirm(kind?'登記'+kind+'獎勵：現金 1,000＋折價卡 1,000？':'取消此筆得獎標記？'))return;
+ row.awardType=kind;row.claimed=false;stampActivityRecord_(row);extremeTenSave_();
+}
+function extremeTenClaim_(id,checked){
+ const row=(db.activityManagement.extremeTen||[]).find(x=>x.id===id&&!x.deleted);if(!row?.awardType)return;
+ row.claimed=!!checked;stampActivityRecord_(row);extremeTenSave_();
+}
+function actExtremeTen_(){
+ const S=extremeTenStats_(),r=actRange_(),q=r.q,rows=S.rows.filter(x=>(!r.from||x.date>=r.from)&&(!r.to||x.date<=r.to)&&(!q||[x.memberId,epcPlayerDisplayName_(x.memberId),x.note].join(' ').toLowerCase().includes(q)));
+ const candidateIds=new Set(S.candidates.map(x=>x.id));let lastDifference=null,place=0;
+ const rankById=new Map();S.rows.forEach((x,i)=>{if(x.difference!==lastDifference)place=i+1;lastDifference=x.difference;rankById.set(x.id,place)});
+ const date=businessDateForEvent({createdAt:new Date().toISOString()});
+ return `<div class="card"><h3>極限 10 秒｜挑戰排行榜</h3>
+ <div class="notice">停在 10.00 秒即成功。每份獎勵：現金 1,000＋折價卡 1,000；本期共 8 份。月底未送完，依最接近 10.00 秒的排名補發。相同差距顯示同名次；同名次遇剩餘名額不足時，請先確認處理方式再補發。</div>
+ <div class="grid"><div class="card kpi"><div class="l">挑戰紀錄</div><div class="v">${S.rows.length}</div></div><div class="card kpi"><div class="l">已登記得獎</div><div class="v">${S.awarded.length} / 8</div></div><div class="card kpi"><div class="l">剩餘名額</div><div class="v">${S.remaining}</div></div><div class="card kpi"><div class="l">10.00 秒待確認</div><div class="v">${S.successful.length}</div></div></div>
+ <h3>登記挑戰</h3><div class="formgrid">
+ <div><label>營業日</label><input type="date" id="tenDate" value="${date}"></div>
+ <div><label>玩家（姓名／會員編號）</label><input id="tenMember" list="tenMemberList" placeholder="搜尋會員"><datalist id="tenMemberList">${actMemberSearchOptions_()}</datalist></div>
+ <div><label>挑戰秒數</label><input id="tenSeconds" type="text" inputmode="decimal" placeholder="例如 9.98 或 10.00"></div>
+ <div><label>挑戰資格</label><select id="tenMethod"><option>8Xo</option><option>8Xs（假日）</option><option>28o</option></select></div>
+ <div><label>場次（可不選；獨立帳不列入）</label><select id="tenEvent"><option value="">不指定場次</option>${actEvents_('extremeTen').map(e=>`<option value="${epcDisplayEscape_(e.id)}">${epcDisplayEscape_(actEventLabel_(e))}</option>`).join('')}</select></div>
+ <div><label>備註</label><input id="tenNote" placeholder="手牌確認／挑戰備註"></div>
+ </div><div class="toolbar"><button class="primary" onclick="addExtremeTen_()">儲存挑戰紀錄</button></div>
+ <div class="small">8Xo（假日 8Xs 亦適用）翻牌後收池至少 20BB，累積兩次可挑戰一次；28o 轉牌圈收池至少 20BB 一次可挑戰一次。此處由工作人員確認資格後登記真實秒數。</div>
+ <h3 style="margin-top:18px">依最接近 10.00 秒排序</h3><div class="tablewrap"><table><thead><tr><th>排名</th><th>日期</th><th>玩家</th><th>秒數</th><th>差距</th><th>資格</th><th>獎勵狀態</th><th>已領取</th><th>備註</th><th>操作</th></tr></thead><tbody>${rows.map(x=>`<tr><td>${rankById.get(x.id)}</td><td>${epcDisplayEscape_(x.date)}</td><td>${epcPlayerDisplayHtml_(x.memberId)}</td><td><b class="${x.success?'pos':''}">${(x.cents/100).toFixed(2)}</b></td><td>${(x.difference/100).toFixed(2)} 秒</td><td>${epcDisplayEscape_(x.method||'')}</td><td>${x.awardType?epcDisplayEscape_(x.awardType)+'｜2,000 元':x.success?'挑戰成功，待確認':candidateIds.has(x.id)?'月底補發候選':'未得獎'}</td><td>${x.awardType?`<input type="checkbox" ${x.claimed?'checked':''} onchange="extremeTenClaim_('${x.id}',this.checked)">`:'—'}</td><td>${epcDisplayEscape_(x.note||'')}</td><td>${x.awardType?`<button onclick="extremeTenAward_('${x.id}','')">取消得獎</button>`:`${x.success?`<button onclick="extremeTenAward_('${x.id}','成功')">確認成功獎勵</button>`:''}<button onclick="extremeTenAward_('${x.id}','補發')">登記月底補發</button><button onclick="extremeTenEdit_('${x.id}')">修改秒數</button><button class="danger" onclick="extremeTenDelete_('${x.id}')">刪除</button>`}</td></tr>`).join('')||'<tr><td colspan="10">尚無挑戰紀錄</td></tr>'}</tbody></table></div></div>`;
+}
+
 function renderActivities(){
  if(!$('activities'))return;ensureActDb_();
  if($('actSearchList'))$('actSearchList').innerHTML=(db.members||[]).map(m=>`<option value="${epcDisplayEscape_(m.id)}" data-label="${epcDisplayEscape_(memberSearchLabel_(m))}"></option>`).join('');
@@ -6442,7 +6527,7 @@ function renderActivities(){
  window.epcActivityIdentityMode_=mode;
  try{ 
  if($('actActivityRangeTop'))$('actActivityRangeTop').innerHTML=actRangeEditor_(actTab_);
- const panes={weekly:'actWeekly',pioneer:'actPioneer',rank:'actRank',hunter:'actHunter',umbrella:'actUmbrella',boss:'actBoss'};
+ const panes={weekly:'actWeekly',pioneer:'actPioneer',rank:'actRank',hunter:'actHunter',umbrella:'actUmbrella',boss:'actBoss',extremeTen:'actExtremeTen'};
  document.querySelectorAll('.act-pane').forEach(x=>x.style.display='none');
  const id=panes[actTab_]||'actWeekly';if($(id))$(id).style.display='block';
  if($('actWeekly'))$('actWeekly').innerHTML=actWeekly_();
@@ -6451,6 +6536,7 @@ function renderActivities(){
  if($('actHunter'))$('actHunter').innerHTML=actHunter_();
  if($('actUmbrella'))$('actUmbrella').innerHTML=actUmbrella_();
  if($('actBoss'))$('actBoss').innerHTML=actBoss_();
+ if($('actExtremeTen'))$('actExtremeTen').innerHTML=actExtremeTen_();
  }finally{window.epcActivityIdentityMode_=previous;}
 }
 function render(){
