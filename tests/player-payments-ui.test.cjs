@@ -30,11 +30,11 @@ const api={doc:(col,id)=>col+'/'+id,serverTimestamp:()=>0,runTransaction(db,call
 setupPlayerPayments({fs:api,db:{},col:'events',accountingCol:'accounting',bridge});w.EPCFirestore=bridge;
 w.eval(fs.readFileSync(require.resolve('../player-payments-core.js'),'utf8'));w.eval(fs.readFileSync(require.resolve('../player-payments.js'),'utf8'));
 const $=id=>w.document.getElementById(id);
-assert($('playerpayments'));assert($('ppRegistrationPaid'));assert(w.document.querySelector('#nav [data-page="playerpayments"]'));
+assert($('playerpayments'));assert($('ppRegistrationDialog'));assert(w.document.querySelector('#nav [data-page="playerpayments"]'));
 w.PP.open('A','42');assert($('ppDialog').open);assert($('ppDialogBody').textContent.includes('尚欠 $0'));
 $('ppMethod').value='deposit';$('ppAmount').value='5000';await w.PP.submit();assert.equal(data.get('accounting/PLAYER_PAYMENTS_42').wallet,5000);
-selected='B';$('addPlayerMember').innerHTML='<option value="42" selected>甲</option>';$('ppRegistrationPaid').checked=false;
-await w.addPlayer();let p=w.currentEvent().players[0];assert(p);assert.equal(w.PP.info(w.currentEvent(),p).due,0);assert.equal(data.get('accounting/PLAYER_PAYMENTS_42').wallet,1600);
+selected='B';$('addPlayerMember').innerHTML='<option value="42" selected>甲</option>';
+await w.addPlayer();assert($('ppRegistrationDialog').open);assert.equal(w.currentEvent().players.length,0);$('ppRegistrationPaid').checked=false;await w.PP.confirmRegistration();let p=w.currentEvent().players[0];assert(p);assert.equal(w.PP.info(w.currentEvent(),p).due,0);assert.equal(data.get('accounting/PLAYER_PAYMENTS_42').wallet,1600);
 assert(w.PP.rebuyCell(w.currentEvent(),p,0).includes('＋'));
 await w.PP.increment('B','42');p=w.currentEvent().players[0];assert.equal(p.rebuy,1);assert.equal(w.PP.info(w.currentEvent(),p).due,1600);assert(w.PP.nameCell(w.currentEvent(),p,'甲').includes('pp-unpaid'));
 w.PP.open('B','42');$('ppAmount').value='600';$('ppMethod').value='cash';await w.PP.submit();assert.equal(w.PP.info(w.currentEvent(),w.currentEvent().players[0]).due,1000);
@@ -50,5 +50,18 @@ w.PP.open('B','42');$('ppMethod').value='profitCash';w.PP.methodChanged();$('ppS
 const beforeDelete=data.get('accounting/PLAYER_PAYMENTS_42').items.length;
 await w.PP.removeAccount('','42');assert.equal(data.get('accounting/PLAYER_PAYMENTS_42').archived,true);assert.equal(data.get('accounting/PLAYER_PAYMENTS_42').items.length,beforeDelete+1);assert(!$('ppPageBody').textContent.includes('小甲'));
 w.PP.open('','42');$('ppMethod').value='deposit';$('ppAmount').value='100';await w.PP.submit();w.PP.renderPage();assert($('ppPageBody').textContent.includes('小甲'));assert.equal(data.get('accounting/PLAYER_PAYMENTS_42').archived,false);
+// Registration prices discounts before collecting cash, avoiding false overpayment.
+w.db.members.push({id:'43',name:'乙'});
+Object.assign(w.currentEvent(),{earlyBirdDiscount:100,lateBirdDiscount:200,ladiesDiscount:200});
+Object.assign(data.get('events/B'),{earlyBirdDiscount:100,lateBirdDiscount:200,ladiesDiscount:200});
+$('addPlayerMember').innerHTML='<option value="43" selected>乙</option>';
+w.addPlayer();assert($('ppRegistrationDialog').open);assert.equal(w.currentEvent().players.length,1);
+$('ppRegEarly').checked=true;w.PP.registrationPreview('early');assert.equal($('ppRegTotal').textContent,'$3,300');
+$('ppRegLate').checked=true;w.PP.registrationPreview('late');assert.equal($('ppRegEarly').checked,false);
+$('ppRegLadies').checked=true;$('ppRegManual').value='50';w.PP.registrationPreview();assert.equal($('ppRegTotal').textContent,'$2,950');
+$('ppRegManual').value='9999';w.PP.registrationPreview();assert($('ppRegConfirm').disabled);$('ppRegManual').value='50';
+$('ppRegistrationPaid').checked=true;w.PP.registrationPreview();assert.equal($('ppRegConfirm').disabled,false);
+await w.PP.confirmRegistration();const lady=w.currentEvent().players.find(x=>x.memberId==='43'),ladyInfo=w.PP.info(w.currentEvent(),lady);assert(lady.ladies);assert(lady.lateBird);assert(!lady.earlyBird);assert.equal(ladyInfo.charge,2950);assert.equal(ladyInfo.paid,2950);assert.equal(ladyInfo.excess,0);assert.equal(ladyInfo.due,0);
+console.log('PASS: registration confirmation dialog, live discounts, early/late exclusion, ladies and manual discounts, paid-at-final-price with no false overpayment.');
 dom.window.close();console.log('PASS: real page DOM, register checkbox, deposit, +1 rebuy, partial cash, prior net-profit offset, red/clear labels, pending summary, cross-event clear, preserved prizes.');
 })().catch(e=>{console.error(e);process.exitCode=1});

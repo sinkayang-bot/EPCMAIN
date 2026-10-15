@@ -1,7 +1,7 @@
 (function(){
  'use strict';
  const Core=window.EPCPlayerPaymentsCore,el=id=>document.getElementById(id),esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
- const cash=n=>'$'+Number(n||0).toLocaleString(),state=new Map(),attempts=new Map();let loaded=false,busy=false,selection=null,autoTimer=null,uncertain=null;
+ const cash=n=>'$'+Number(n||0).toLocaleString(),state=new Map(),attempts=new Map();let loaded=false,busy=false,selection=null,autoTimer=null,uncertain=null,registration=null,registrationSaving=false;
  const events=()=>window.epcDb?.events||db.events||[],members=()=>window.epcDb?.members||db.members||[];
  const findEvent=id=>events().find(e=>String(e.id)===String(id));
  const player=(e,id)=>(e?.players||[]).find(p=>String(p.memberId)===String(id));
@@ -117,21 +117,70 @@
   }catch(err){setStatus(err.message||String(err),true);}
  }
  async function undo(id){if(!selection||busy||!confirm('撤銷此筆付款／寄存紀錄？相關餘額會一起回復。'))return;try{await run({kind:'void',memberId:selection.memberId,targetId:id});}catch(err){setStatus(err.message,true);}}
- async function add(){
-  if(busy)return;try{
-   ensure();const e=currentEvent(),id=el('addPlayerMember').value,m=members().find(x=>String(x.id)===String(id));if(!e||!m)throw Error('請先選擇有效會員');
-   const wasPaid=el('ppRegistrationPaid')?.checked!==false;
-   if(typeof EPC_FIRESTORE_EVENT_SAVE_TIMERS!=='undefined'){const t=EPC_FIRESTORE_EVENT_SAVE_TIMERS.get(String(e.id));if(t){clearTimeout(t);EPC_FIRESTORE_EVENT_SAVE_TIMERS.delete(String(e.id));await syncEventToFirestore_(e,true);}}
-   await run({kind:'add',memberId:id,eventId:String(e.id),paidNow:wasPaid,player:{manualDiscount:0,nickname:m.nickname||'',group:el('addPlayerGroup').value.trim()||m.group||''},note:wasPaid?'報名已收款，寄存金優先抵扣':'報名待收，寄存金優先抵扣'});
-   el('addPlayerGroup').value='';if(el('addPlayerSearch'))el('addPlayerSearch').value='';
-  }catch(err){setStatus(err.message||String(err),true);}
+ function registrationPrice(){
+  if(!registration)return null;const e=findEvent(registration.eventId);if(!e)throw Error('找不到本場賽事');
+  const manual=Number(el('ppRegManual').value||0);if(!Number.isSafeInteger(manual)||manual<0)throw Error('手動優惠須為非負整數');
+  const p={buyin:1,rebuy:0,addon:0,earlyBird:el('ppRegEarly').checked,lateBird:el('ppRegLate').checked,ladies:el('ppRegLadies').checked,manualDiscount:manual};
+  const c=calcPlayerForEvent(p,e),base=calcPlayerForEvent({...p,earlyBird:false,lateBird:false,ladies:false,manualDiscount:0},e).paid;
+  if(manual+Number(c.earlyDiscount||0)+Number(c.lateDiscount||0)+Number(c.ladiesDiscount||0)>base)throw Error('優惠總額不能超過買入金額');
+  return {e,p,c,base};
+ }
+ function registrationPreview(changed){
+  if(!registration)return;
+  if(changed==='early'&&el('ppRegEarly').checked)el('ppRegLate').checked=false;
+  if(changed==='late'&&el('ppRegLate').checked)el('ppRegEarly').checked=false;
+  try{
+   const {c}=registrationPrice(),wallet=ledger(registration.memberId).wallet,used=Math.min(wallet,c.paid),cashDue=c.paid-used;
+   el('ppRegTotal').textContent=cash(c.paid);
+   el('ppRegBreakdown').textContent='優惠合計 '+cash(c.totalDiscount)+'｜寄存金抵扣 '+cash(used)+'｜'+(el('ppRegistrationPaid').checked?'本次收款 ':'尚待收款 ')+cash(cashDue);
+   el('ppRegStatus').textContent='';el('ppRegConfirm').disabled=registrationSaving||busy;
+  }catch(err){el('ppRegStatus').textContent=err.message;el('ppRegConfirm').disabled=true;}
+ }
+ function cancelRegistration(){if(registrationSaving||busy)return;registration=null;el('ppRegistrationDialog').close();}
+ function add(){
+  if(busy||registrationSaving)return;
+  try{
+   ensure();const e=currentEvent(),id=el('addPlayerMember').value,m=members().find(x=>String(x.id)===String(id));
+   if(!e||!m)throw Error('請先搜尋並選擇會員');
+   if(['settled','已結算'].includes(e.status))throw Error('此賽事已結算，不能加入玩家');
+   if(player(e,id))throw Error('此玩家已在本場');
+   registration={eventId:String(e.id),memberId:String(id)};
+   const base=calcPlayerForEvent({buyin:1,rebuy:0,addon:0,manualDiscount:0},e).paid;
+   const ladies=e.ladiesDiscount??Math.floor(Number((e.pricingMode==='custom'?e.buyinAdmin:e.admin)||0)/2);
+   el('ppRegistrationTitle').textContent=name(id)+'｜加入本場';
+   el('ppRegistrationBody').innerHTML=`<p>${esc(businessDateForEvent(e))}｜${esc(eventDisplayName_(e))}</p><label>應付金額（本場買入）</label><input aria-label="應付金額" readonly value="${cash(base)}"><div class="pp-reg-discounts"><label><input type="checkbox" id="ppRegEarly" onchange="PP.registrationPreview('early')">早鳥 −${cash(e.earlyBirdDiscount)}</label><label><input type="checkbox" id="ppRegLate" onchange="PP.registrationPreview('late')">晚鳥 −${cash(e.lateBirdDiscount)}</label><label><input type="checkbox" id="ppRegLadies" onchange="PP.registrationPreview('ladies')">女士 −${cash(ladies)}</label></div><p class="small">早鳥、晚鳥擇一；女士與手動優惠另計。各優惠每場折一次。</p><div class="formgrid" style="grid-template-columns:1fr 1fr"><div><label>手動優惠</label><input id="ppRegManual" type="number" min="0" step="1" value="0" oninput="PP.registrationPreview()"></div><div><label>本場結帳群組</label><input id="addPlayerGroup" value="${esc(m.group||'')}" placeholder="可留白"></div></div><label style="margin-top:16px">實際支付金額</label><div class="pp-reg-total" id="ppRegTotal"></div><p id="ppRegBreakdown" class="small"></p><label style="display:flex;align-items:center;gap:8px"><input id="ppRegistrationPaid" type="checkbox" onchange="PP.registrationPreview()">已收到本次應收款（寄存金會優先抵扣）</label><div class="toolbar"><button class="primary" id="ppRegConfirm" data-pp-action onclick="PP.confirmRegistration()">確認加入本場</button></div><div id="ppRegStatus" class="pp-reg-feedback" role="status"></div>`;
+   el('addPlayerMember').hidden=true;registrationPreview();el('ppRegistrationDialog').showModal();
+  }catch(err){actionMsg(err.message||String(err),true);}
+ }
+ async function confirmRegistration(){
+  if(!registration||busy||registrationSaving)return;
+  let saved=false;
+  try{
+   ensure();const {e,p,c}=registrationPrice(),id=registration.memberId,m=members().find(x=>String(x.id)===id),wasPaid=el('ppRegistrationPaid').checked;
+   if(!m)throw Error('找不到會員');
+   const group=el('addPlayerGroup').value.trim()||m.group||'';
+   registrationSaving=true;el('ppRegConfirm').disabled=true;el('ppRegConfirm').textContent='加入中…';el('ppRegStatus').textContent='正在儲存報名與付款，請稍候…';
+   if(typeof EPC_FIRESTORE_EVENT_SAVE_TIMERS!=='undefined'){
+    const t=EPC_FIRESTORE_EVENT_SAVE_TIMERS.get(String(e.id));if(t){clearTimeout(t);EPC_FIRESTORE_EVENT_SAVE_TIMERS.delete(String(e.id));await syncEventToFirestore_(e,true);}
+   }
+   await run({kind:'add',memberId:id,eventId:String(e.id),paidNow:wasPaid,expectedCharge:c.paid,player:{...p,nickname:m.nickname||'',group},note:wasPaid?'依優惠後金額報名收款，寄存金優先抵扣':'依優惠後金額報名待收，寄存金優先抵扣'});
+   saved=true;registration=null;el('ppRegistrationDialog').close();
+   if(el('addPlayerSearch'))el('addPlayerSearch').value='';
+   if(typeof filterAddPlayerMembers==='function')filterAddPlayerMembers('');
+   actionMsg('已加入本場');
+  }catch(err){el('ppRegStatus').textContent=err.message||String(err);}
+  finally{
+   registrationSaving=false;
+   if(!saved&&el('ppRegConfirm')){el('ppRegConfirm').disabled=false;el('ppRegConfirm').textContent='確認加入本場';}
+   if(saved)el('addPlayerSearch')?.focus();
+  }
  }
  async function edit(e,id,field,value,increment=false){
   if(busy){actionMsg('帳務儲存中，請稍候再操作',true);refresh();return;}
   try{
    ensure();const p=player(e,id);if(!p)throw Error('找不到玩家');
    if(typeof EPC_FIRESTORE_EVENT_SAVE_TIMERS!=='undefined'){const t=EPC_FIRESTORE_EVENT_SAVE_TIMERS.get(String(e.id));if(t){clearTimeout(t);EPC_FIRESTORE_EVENT_SAVE_TIMERS.delete(String(e.id));await syncEventToFirestore_(e,true);}}
-   const bool=['earlyBird','lateBird'].includes(field),baseline=p[field]??(bool?false:0);
+   const bool=['earlyBird','lateBird','ladies'].includes(field),baseline=p[field]??(bool?false:0);
    await run({kind:'change',memberId:String(id),eventId:String(e.id),field,baseline,value:bool?!!value:Number(value),increment});
   }catch(err){setStatus(err.message||String(err),true);refresh();}
  }
@@ -147,7 +196,7 @@
    return;
   }
  },250);}
- window.PP={open,clearAll,removeAccount,undo,submit,methodChanged,nameCell,amountCell,rebuyCell,renderPage,refresh,pending,info,renderPending,
+ window.PP={registrationPreview,confirmRegistration,cancelRegistration,open,clearAll,removeAccount,undo,submit,methodChanged,nameCell,amountCell,rebuyCell,renderPage,refresh,pending,info,renderPending,
   retryPending:async()=>{if(!uncertain||busy)return;try{await run(uncertain.command);}catch(err){setStatus(err.message,true);}},
   increment:(e,id)=>edit(findEvent(e),id,'rebuy',0,true),
   openMember:()=>{const id=actResolveMember_('ppMember');if(!members().some(m=>String(m.id)===String(id)))return actionMsg('請選擇會員',true);open('',id);}
@@ -155,7 +204,7 @@
  // The existing table retains editable numeric inputs; only money-related changes use transactions.
  window.addPlayer=add;
  const originalSetP=setP;
- window.setP=(i,k,v)=>{if(['buyin','rebuy','addon','manualDiscount','earlyBird','lateBird'].includes(k)){const e=currentEvent(),p=e?.players?.[i];if(p)return edit(e,p.memberId,k,v);}else return originalSetP(i,k,v);};
+ window.setP=(i,k,v)=>{if(['buyin','rebuy','addon','manualDiscount','earlyBird','lateBird','ladies'].includes(k)){const e=currentEvent(),p=e?.players?.[i];if(p)return edit(e,p.memberId,k,v);}else return originalSetP(i,k,v);};
  window.openPlayerCheckout_=id=>open(currentEvent()?.id||'',id);
  window.renderEventUnpaidStatus_=renderPending;
  for(const fn of ['removePlayerSafe','removePlayerByIndex','delP']){
@@ -167,7 +216,9 @@
   for(const x of ev.detail?.rows||[]){const old=state.get(String(x.memberId));if(!old||Number(x.revision)>=Number(old.revision))state.set(String(x.memberId),x);}
   loaded=!!ev.detail?.connected;refresh();scheduleAuto();
  });
- window.addEventListener('epcFirestoreEvents',()=>{refresh();scheduleAuto();});
+ window.addEventListener('epcFirestoreEvents',()=>{renderPending();if(el('playerpayments')?.classList.contains('active'))renderPage();scheduleAuto();});
+ el('ppRegistrationDialog').addEventListener('cancel',ev=>{if(registrationSaving||busy)ev.preventDefault();else registration=null;});
+ document.addEventListener('click',ev=>{if(!ev.target.closest('.pp-search-box'))el('addPlayerMember').hidden=true;});
  if(window.EPCFirestore?.accountingReady){for(const x of window.EPC_PLAYER_PAYMENT_ROWS||[])state.set(String(x.memberId),x);loaded=true;}
  renderPage();refresh();scheduleAuto();
 })();

@@ -1992,6 +1992,9 @@ button.epc-clicked-now,.btn.epc-clicked-now{transform:scale(.985);filter:brightn
 .member-profile-history summary:hover{filter:brightness(1.15)}
 @media(max-width:700px){.member-profile-history summary span{margin-right:12px}.member-profile-history .mph-label{min-width:105px}.member-profile-history .mph-days{padding:0 5px}}
 </style><style>
+
+.pp-add-card{padding:16px!important}.pp-add-row{display:flex;align-items:center;gap:12px;flex-wrap:wrap}.pp-add-row>label{font-size:17px;font-weight:700;margin:0}.pp-search-box{position:relative;flex:0 1 430px;min-width:220px}.pp-search-box input{width:100%}.pp-search-box select{position:absolute;top:100%;left:0;width:100%;z-index:30;margin-top:4px;box-shadow:0 12px 30px #0009}.pp-search-box select[hidden]{display:none}
+#ppRegistrationDialog{width:min(580px,94vw);max-height:90vh;overflow:auto;background:var(--bg);color:var(--text);border:1px solid var(--accent);border-radius:14px;padding:22px}#ppRegistrationDialog::backdrop{background:#000a}.pp-reg-discounts{display:flex;gap:12px;flex-wrap:wrap;margin:14px 0}.pp-reg-discounts label{display:flex;align-items:center;gap:5px;padding:9px;border:1px solid var(--line);border-radius:8px}#ppRegistrationDialog input[type=checkbox]{width:auto}.pp-reg-total{font-size:30px;font-weight:900;color:var(--accent);margin:14px 0}.pp-reg-feedback{min-height:24px;margin-top:10px}
 #ppDialog{width:min(900px,94vw);max-height:88vh;overflow:auto;background:var(--bg);color:var(--text);border:1px solid var(--accent);border-radius:14px;padding:20px}
 #ppDialog::backdrop{background:#000a}#ppDialog h3{margin-top:16px}#ppDialog .tablewrap{margin-top:12px}
 .pp-player-link{padding:4px 7px;border-radius:6px;white-space:nowrap;background:transparent;border:0;text-align:inherit;cursor:pointer}.pp-player-link small{display:block;font-size:11px}
@@ -2188,22 +2191,13 @@ window.addEventListener('error',function(e){
    <div><label>JP %</label><input type="number" step=".1" id="eJP" value="3"></div>
    <div><label>JP 取整單位</label><input type="number" id="eJPRound" value="100"></div>
    <div><label>早鳥折扣金額</label><input id="eEarlyBirdDiscount" type="number" min="0" step="1" value="0"></div>
-   <div><label>晚鳥折扣金額</label><input id="eLateBirdDiscount" type="number" min="0" step="1" value="0"></div>
+   <div><label>晚鳥折扣金額</label><input id="eLateBirdDiscount" type="number" min="0" step="1" value="0"></div><div><label>女士折扣金額（每場一次）</label><input id="eLadiesDiscount" type="number" min="0" step="1" value="200"></div>
    <div><label>ICM 獎金梯度 %</label><input id="ePayout" value="50,30,20" placeholder="例如 50,30,20"></div>
   </div>
   <div class="toolbar"><button class="primary" onclick="saveEvent()">儲存賽事設定</button></div>
  </div>
- <div class="card">
-  <h3>加入玩家</h3>
-  <div class="formgrid">
-   <div>
-    <label>會員搜尋</label>
-    <input id="addPlayerSearch" autocomplete="off" placeholder="輸入姓名、會員 ID 或結帳群組" oninput="filterAddPlayerMembers(this.value)" onkeydown="handleAddPlayerSearchKey(event)">
-    <select id="addPlayerMember" size="5" style="margin-top:6px" onchange="syncAddPlayerSearch()"></select>
-   </div>
-   <div><label>本場結帳群組</label><input id="addPlayerGroup" placeholder="可留白"></div>
-  </div>
-  <div class="toolbar"><label style="display:flex;align-items:center;gap:6px"><input id="ppRegistrationPaid" type="checkbox" checked style="width:auto">已收款（寄存金優先；未勾選則標記待收）</label><button class="primary" data-pp-action onclick="addPlayer()">加入本場</button></div>
+ <div class="card pp-add-card">
+  <div class="pp-add-row"><label for="addPlayerSearch">加入玩家</label><div class="pp-search-box"><input id="addPlayerSearch" autocomplete="off" placeholder="搜尋姓名、綽號或會員編號" oninput="filterAddPlayerMembers(this.value)" onfocus="filterAddPlayerMembers(this.value)" onkeydown="handleAddPlayerSearchKey(event)"><select id="addPlayerMember" size="5" hidden onchange="syncAddPlayerSearch()"></select></div><button class="primary" data-pp-action onclick="addPlayer()">加入本場</button></div>
  </div>
  <div class="card" style="margin-bottom:10px">
   <div class="player-col-controls">
@@ -3586,7 +3580,7 @@ function birdDiscountDefaults_(){
  const saved=(db.events||[]).filter(e=>+e.birdDiscountDefaultsAt>0)
    .sort((a,b)=>(+b.birdDiscountDefaultsAt||0)-(+a.birdDiscountDefaultsAt||0))[0];
  const source=saved&&(+saved.birdDiscountDefaultsAt||0)>=(+cached?.birdDiscountDefaultsAt||0)?saved:cached;
- return {earlyBirdDiscount:Math.max(0,+source?.earlyBirdDiscount||0),lateBirdDiscount:Math.max(0,+source?.lateBirdDiscount||0)};
+ return {earlyBirdDiscount:Math.max(0,+source?.earlyBirdDiscount||0),lateBirdDiscount:Math.max(0,+source?.lateBirdDiscount||0),ladiesDiscount:source?.ladiesDiscount??null};
 }
 function blankEvent(){
  const time=eventCurrentTime_();
@@ -3883,7 +3877,7 @@ function firestoreEventPayload_(e){
  return {
   eventId:e.id,businessDate:businessDateForEvent(e),date:e.date||businessDateForEvent(e),
   seq:+e.seq||1,name:eventDisplayName_(e),startTime:e.startTime||'',regClose:e.regCloseTime||'',endTime:e.endTime||'',
-  earlyBirdDiscount:Math.max(0,+e.earlyBirdDiscount||0),lateBirdDiscount:Math.max(0,+e.lateBirdDiscount||0),
+  earlyBirdDiscount:Math.max(0,+e.earlyBirdDiscount||0),lateBirdDiscount:Math.max(0,+e.lateBirdDiscount||0),ladiesDiscount:e.ladiesDiscount??null,
   birdDiscountDefaultsAt:+e.birdDiscountDefaultsAt||0,
   level:+e.level||3400,buyin:+e.poolUnit||0,fee:+e.admin||0,pricingMode:e.pricingMode||'standard',
   buyinTotal:+e.buyinTotal||0,buyinAdmin:+e.buyinAdmin||0,rebuyTotal:+e.rebuyTotal||0,
@@ -4059,6 +4053,7 @@ async function saveEvent(){
  e.regCloseTime=($('eRegCloseTime')?.value||'').trim();
  e.earlyBirdDiscount=Math.max(0,+$('eEarlyBirdDiscount')?.value||0);
  e.lateBirdDiscount=Math.max(0,+$('eLateBirdDiscount')?.value||0);
+ e.ladiesDiscount=Math.max(0,+$('eLadiesDiscount')?.value||0);
  e.level=+$('eLevel').value;
  e.pricingMode=$('ePricingMode')?.value||'standard';
  e.poolUnit=+$('ePoolUnit').value;
@@ -4080,24 +4075,26 @@ async function saveEvent(){
  e.birdDiscountDefaultsAt=Date.now();
  touchEvent_(e);persist();render();
  try{await syncEventToFirestore_(e,true);}catch(err){return alert('賽事設定 Firebase 同步失敗：'+String(err?.message||err));}
- try{localStorage.setItem('epcBirdDiscountDefaultsV1',JSON.stringify({earlyBirdDiscount:e.earlyBirdDiscount,lateBirdDiscount:e.lateBirdDiscount,birdDiscountDefaultsAt:e.birdDiscountDefaultsAt}))}catch(_){}
+ try{localStorage.setItem('epcBirdDiscountDefaultsV1',JSON.stringify({earlyBirdDiscount:e.earlyBirdDiscount,lateBirdDiscount:e.lateBirdDiscount,ladiesDiscount:e.ladiesDiscount,birdDiscountDefaultsAt:e.birdDiscountDefaultsAt}))}catch(_){}
  alert('賽事設定已儲存並同步');
 }
 function filterAddPlayerMembers(keyword){
  const sel=$('addPlayerMember');if(!sel)return;
  const q=String(keyword||'').trim().toLowerCase();
  const current=sel.value;
+ if(!q){sel.innerHTML='<option value="">請先輸入關鍵字</option>';sel.hidden=true;return;}
  const list=db.members.filter(m=>{
    const name=String(m.name||'').toLowerCase();
    const nickname=String(m.nickname||'').toLowerCase();
    const id=String(m.id||'').toLowerCase();
    const group=String(m.group||m.settleGroup||m.settlementGroup||m.accountGroup||'').toLowerCase();
-   return !q || name.includes(q) || nickname.includes(q) || id.includes(q) || group.includes(q) || memberSearchLabel_(m).toLowerCase().includes(q);
- });
+   return !((currentEvent()?.players||[]).some(p=>String(p.memberId)===String(m.id))) && (!q || name.includes(q) || nickname.includes(q) || id.includes(q) || group.includes(q) || memberSearchLabel_(m).toLowerCase().includes(q));
+ }).slice(0,30);
+ sel.hidden=!q;
  sel.innerHTML=list.length
    ? list.map(m=>`<option value="${m.id}">${epcDisplayEscape_(memberSearchLabel_(m))}</option>`).join('')
    : '<option value="">找不到符合的會員</option>';
- if(current && list.some(m=>m.id===current))sel.value=current;
+ if(current && list.some(m=>String(m.id)===String(current)))sel.value=current;
  else if(list.length===1)sel.value=list[0].id;
 }
 function syncAddPlayerSearch(){
@@ -4106,6 +4103,7 @@ function syncAddPlayerSearch(){
  if(m){
    input.value=memberSearchLabel_(m);
    if($('addPlayerGroup'))$('addPlayerGroup').value=m.group||'';
+   sel.hidden=true;
  }
 }
 function handleAddPlayerSearchKey(event){
@@ -4140,9 +4138,9 @@ function setP(i,k,v){
  let e=currentEvent();if(!e)return;
  if(e.status==='已結算'||e.status==='settled')return alert('此賽事已完成結算並鎖定，不能再修改。');
  const p=e.players[i]; if(!p)return;
- if(k==='earlyBird'||k==='lateBird'){
+ if(['earlyBird','lateBird','ladies'].includes(k)){
    p[k]=!!v;
-   if(v)p[k==='earlyBird'?'lateBird':'earlyBird']=false;
+   if(v&&k!=='ladies')p[k==='earlyBird'?'lateBird':'earlyBird']=false;
  }else p[k]=((k==='group'||k==='nickname'||k==='seat')?v:+v);
  if(k==='stack'){p._stackRevision=(+p._stackRevision||0)+1;}
  if(k==='seat'){p._seatRevision=(+p._seatRevision||0)+1;}
@@ -4397,7 +4395,7 @@ async function newEvent(){
    try{
      const remote=await window.EPCFirestore.createEvent({
        eventId:e.id,businessDate:bd,date:bd,seq:e.seq,name:eventDisplayName_(e),startTime:e.startTime,endTime:e.endTime,
-       earlyBirdDiscount:e.earlyBirdDiscount,lateBirdDiscount:e.lateBirdDiscount,
+       earlyBirdDiscount:e.earlyBirdDiscount,lateBirdDiscount:e.lateBirdDiscount,ladiesDiscount:e.ladiesDiscount,
        level:e.level,buyin:e.poolUnit,fee:e.admin,buyinTotal:e.buyinTotal,buyinAdmin:e.buyinAdmin,
        rebuyTotal:e.rebuyTotal,rebuyAdmin:e.rebuyAdmin,freeAdminFrom:(+e.overbuyThreshold||10)+1,
        jpRate:e.jp,icmRound:e.jpRound,status:'open',revision:1
@@ -5295,7 +5293,7 @@ function applyFirestoreEventsToLegacy_(rows){
    const prev=previousById.get(String(v.eventId))||{};
    return ({
    id:v.eventId,date:v.businessDate||v.date,name:v.name||'',startTime:v.startTime||'',regCloseTime:v.regClose||'',endTime:v.endTime||'',
-   earlyBirdDiscount:Math.max(0,+v.earlyBirdDiscount||0),lateBirdDiscount:Math.max(0,+v.lateBirdDiscount||0),
+   earlyBirdDiscount:Math.max(0,+v.earlyBirdDiscount||0),lateBirdDiscount:Math.max(0,+v.lateBirdDiscount||0),ladiesDiscount:v.ladiesDiscount??null,
    birdDiscountDefaultsAt:+v.birdDiscountDefaultsAt||0,
    seq:+v.seq||1,level:+v.level||3400,poolUnit:+v.buyin||Math.max(0,(+v.buyinTotal||3400)-(+v.buyinAdmin||400)),
    admin:+v.fee||+v.buyinAdmin||400,pricingMode:(v.pricingMode||'standard'),buyinTotal:+v.buyinTotal||3400,
@@ -5314,10 +5312,14 @@ function applyFirestoreEventsToLegacy_(rows){
  const remoteIds=new Set(remote.map(x=>String(x.id)));
  // Firestore is authoritative: never re-introduce stale local/legacy event rows.
  db.events=remote;
- if(typeof render==='function' && ($('event')?.classList.contains('active')||$('settle')?.classList.contains('active')))render();
- renderEventList();
- renderMemberRows();
- renderDashboardSummary();
+ if($('event')?.classList.contains('active')){
+  const e=currentEvent(),prev=previousById.get(String(e?.id));
+  const settings=x=>JSON.stringify(x&&Object.fromEntries(Object.entries(x).filter(([k])=>!['players','_eventUpdatedAt','hunterHeadHistory'].includes(k))));
+  if(!prev||settings(prev)!==settings(e))render();else renderEventFast_();
+ }else if($('settle')?.classList.contains('active'))render();
+ else if($('events')?.classList.contains('active'))renderEventList();
+ if($('members')?.classList.contains('active'))renderMemberRows();
+ if($('dashboard')?.classList.contains('active'))renderDashboardSummary();
  if(db.currentAccountingDate && $('accountingDetailView')?.style.display!=='none')renderDailyAccountingDetail();
  if($('activities')?.classList.contains('active'))renderActivities();
  else if(typeof publishAllDisplays_==='function')publishAllDisplays_();
@@ -5400,8 +5402,9 @@ function calcPlayerForEvent(p,e){
  let groups=buyin+rebuy+addon;
  const earlyDiscount=groups>0&&p.earlyBird?Math.max(0,+e.earlyBirdDiscount||0):0;
  const lateDiscount=groups>0&&p.lateBird?Math.max(0,+e.lateBirdDiscount||0):0;
+ const ladiesDiscount=groups>0&&p.ladies?Math.max(0,Number(e.ladiesDiscount??Math.floor(Number((e.pricingMode==='custom'?e.buyinAdmin:e.admin)||0)/2))):0;
  const birdDiscount=earlyDiscount+lateDiscount;
- let manual=(+p.manualDiscount||0)+birdDiscount;
+ let manual=(+p.manualDiscount||0)+birdDiscount+ladiesDiscount;
 
  if((e.pricingMode||'standard')==='custom'){
    let buyinTotal=(+e.buyinTotal||0), buyinAdmin=(+e.buyinAdmin||0);
@@ -5446,7 +5449,7 @@ function calcPlayerForEvent(p,e){
    let netAdmin=Math.max(0,grossAdmin-rebuyDiscount-accountingGroupDiscount-manual);
 
    return {
-     groups, auto, manual, earlyDiscount,lateDiscount,birdDiscount, totalDiscount, original, paid, pool,
+     groups, auto, manual, earlyDiscount,lateDiscount,birdDiscount,ladiesDiscount, totalDiscount, original, paid, pool,
      grossAdmin, netAdmin,
      rebuyDiscount, overbuyDiscount, accountingRebuyDiscount, accountingGroupDiscount, normalRebuyGroups, overbuyGroups
    };
@@ -5465,7 +5468,7 @@ function calcPlayerForEvent(p,e){
  let accountingDisc=rebuyDiscount+accountingGroupDiscount+manual;
  let grossAdmin=groups*(+e.admin||0);
  return {
-   groups, auto, manual, earlyDiscount,lateDiscount,birdDiscount, totalDiscount:disc,
+   groups, auto, manual, earlyDiscount,lateDiscount,birdDiscount,ladiesDiscount, totalDiscount:disc,
    original:base, paid:Math.max(0,base-accountingDisc),
    pool:groups*(+e.poolUnit||0),
    grossAdmin, netAdmin:Math.max(0,grossAdmin-accountingDisc),
@@ -5854,7 +5857,7 @@ function renderEventFast_(){
  const visible=playerVisibleCols();
  const cols=[
   ['seat','座位',visible.has('seat')],['name','玩家',visible.has('name')],['memberId','會員編號',visible.has('memberId')],['nickname','綽號',visible.has('nickname')],
-  ['buyin','買入',true],['rebuy','重買',true],['earlyBird','早鳥',true],['lateBird','晚鳥',true],['groups','總組數',true],
+  ['buyin','買入',true],['rebuy','重買',true],['earlyBird','早鳥',true],['lateBird','晚鳥',true],['ladies','女士',true],['groups','總組數',true],
   ['rebuyDiscount','重買優惠',visible.has('rebuyDiscount')],['overbuyDiscount','超買優惠',visible.has('overbuyDiscount')],
   ['manualDiscount','手動優惠',visible.has('manualDiscount')],['totalDiscount','總優惠',visible.has('totalDiscount')],
   ['paid','實收',visible.has('paid')],['settleGroup','結帳群組',visible.has('settleGroup')],['action','操作',true]
@@ -5875,6 +5878,7 @@ function renderEventFast_(){
     rebuy:`<td>${window.PP?PP.rebuyCell(ev,p,i):`<input type="number" min="0" value="${+p.rebuy||0}" onchange="setP(${i},'rebuy',this.value)">`}</td>`,
     earlyBird:`<td><input type="checkbox" ${p.earlyBird?'checked':''} onchange="setP(${i},'earlyBird',this.checked)"></td>`,
     lateBird:`<td><input type="checkbox" ${p.lateBird?'checked':''} onchange="setP(${i},'lateBird',this.checked)"></td>`,
+    ladies:`<td><input type="checkbox" ${p.ladies?'checked':''} onchange="setP(${i},'ladies',this.checked)"></td>`,
     groups:`<td>${cc.groups}</td>`,rebuyDiscount:`<td>${money(cc.rebuyDiscount)}</td>`,overbuyDiscount:`<td>${money(cc.overbuyDiscount)}</td>`,
     manualDiscount:`<td><input type="number" value="${+p.manualDiscount||0}" onchange="setP(${i},'manualDiscount',this.value)"></td>`,
     totalDiscount:`<td>${money(cc.totalDiscount)}</td>`,paid:`<td>${window.PP?PP.amountCell(ev,p):money(cc.paid)}</td>`,
@@ -5886,13 +5890,13 @@ function renderEventFast_(){
    const c=calcPlayerForEvent(p,ev),row=rows.children[i];if(!row)return;
    const values={groups:c.groups,rebuyDiscount:money(c.rebuyDiscount),overbuyDiscount:money(c.overbuyDiscount),totalDiscount:money(c.totalDiscount),paid:money(c.paid)};
    Object.entries(values).forEach(([key,value])=>{const cell=row.querySelector('.col-'+key);if(cell){if(key==='paid'&&window.PP)cell.innerHTML=PP.amountCell(ev,p);else cell.textContent=value;}});
-   ['earlyBird','lateBird'].forEach(key=>{const input=row.querySelector('.col-'+key+' input');if(input)input.checked=!!p[key]});
+   ['earlyBird','lateBird','ladies'].forEach(key=>{const input=row.querySelector('.col-'+key+' input');if(input)input.checked=!!p[key]});
  });
  const totals=$('eventPlayerTotals');
  if(totals){
    const sums={groups:0,rebuyDiscount:0,overbuyDiscount:0,manualDiscount:0,totalDiscount:0,paid:0};
    (ev.players||[]).forEach(p=>{const x=calcPlayerForEvent(p,ev);sums.groups+=x.groups;sums.rebuyDiscount+=x.rebuyDiscount;sums.overbuyDiscount+=x.overbuyDiscount;sums.manualDiscount+=+p.manualDiscount||0;sums.totalDiscount+=x.totalDiscount;sums.paid+=x.paid;});
-   const totalCell={seat:'',name:'本場總計｜參賽 '+(ev.players||[]).length+' 人',memberId:'',nickname:'',buyin:'',rebuy:'',earlyBird:String(ev.players.filter(p=>p.earlyBird).length)+' 人',lateBird:String(ev.players.filter(p=>p.lateBird).length)+' 人',groups:String(sums.groups),
+   const totalCell={seat:'',name:'本場總計｜參賽 '+(ev.players||[]).length+' 人',memberId:'',nickname:'',buyin:'',rebuy:'',earlyBird:String(ev.players.filter(p=>p.earlyBird).length)+' 人',lateBird:String(ev.players.filter(p=>p.lateBird).length)+' 人',ladies:String(ev.players.filter(p=>p.ladies).length)+' 人',groups:String(sums.groups),
     rebuyDiscount:money(sums.rebuyDiscount),overbuyDiscount:money(sums.overbuyDiscount),manualDiscount:money(sums.manualDiscount),
     totalDiscount:money(sums.totalDiscount),paid:money(sums.paid),settleGroup:'',action:''};
    totals.innerHTML=cols.map((x,idx)=>'<td>'+(idx===0?'本場總計｜參賽 '+(ev.players||[]).length+' 人':(totalCell[x[0]]||''))+'</td>').join('');
@@ -6633,6 +6637,7 @@ function render(){
  }
  if($('eEarlyBirdDiscount'))$('eEarlyBirdDiscount').value=ev.earlyBirdDiscount||0;
  if($('eLateBirdDiscount'))$('eLateBirdDiscount').value=ev.lateBirdDiscount||0;
+ if($('eLadiesDiscount'))$('eLadiesDiscount').value=ev.ladiesDiscount??Math.floor(Number((ev.pricingMode==='custom'?ev.buyinAdmin:ev.admin)||0)/2);
  if($('settleStartTime'))$('settleStartTime').value=ev.startTime||'';
  if($('settleRegCloseTime'))$('settleRegCloseTime').value=ev.regCloseTime||'';
  if($('settleEndTime'))$('settleEndTime').value=ev.endTime||'';
@@ -6649,7 +6654,7 @@ function render(){
  const visible=playerVisibleCols();
  const cols=[
   ['seat','座位',visible.has('seat')],['name','玩家',visible.has('name')],['memberId','會員編號',visible.has('memberId')],['nickname','綽號',visible.has('nickname')],
-  ['buyin','買入',true],['rebuy','重買',true],['earlyBird','早鳥',true],['lateBird','晚鳥',true],['groups','總組數',true],
+  ['buyin','買入',true],['rebuy','重買',true],['earlyBird','早鳥',true],['lateBird','晚鳥',true],['ladies','女士',true],['groups','總組數',true],
   ['rebuyDiscount','重買優惠',visible.has('rebuyDiscount')],['overbuyDiscount','超買優惠',visible.has('overbuyDiscount')],
   ['manualDiscount','手動優惠',visible.has('manualDiscount')],['totalDiscount','總優惠',visible.has('totalDiscount')],
   ['paid','實收',visible.has('paid')],['settleGroup','結帳群組',visible.has('settleGroup')],['action','操作',true]
@@ -6682,6 +6687,7 @@ function render(){
     rebuy:window.PP?PP.rebuyCell(ev,p,i):`<input type="number" min="0" value="${p.rebuy}" style="width:100%;min-width:0" onchange="setP(${i},'rebuy',this.value)">`,
     earlyBird:`<input type="checkbox" ${p.earlyBird?'checked':''} onchange="setP(${i},'earlyBird',this.checked)">`,
     lateBird:`<input type="checkbox" ${p.lateBird?'checked':''} onchange="setP(${i},'lateBird',this.checked)">`,
+    ladies:`<input type="checkbox" ${p.ladies?'checked':''} onchange="setP(${i},'ladies',this.checked)">`,
     groups:`<span style="white-space:nowrap">${c.groups}</span>`,
     rebuyDiscount:`<span style="white-space:nowrap">${money(c.rebuyDiscount||0)}</span>`,
     overbuyDiscount:`<span style="white-space:nowrap">${money(c.overbuyDiscount||0)}</span>`,
@@ -6707,7 +6713,7 @@ function render(){
  },{groups:0,rebuyDiscount:0,overbuyDiscount:0,manualDiscount:0,totalDiscount:0,paid:0});
  const totalVals={
   name:'<b style="white-space:nowrap">本場總計｜參賽 '+(ev.players||[]).length+' 人</b>',memberId:'',nickname:'',buyin:'',rebuy:'',
-  earlyBird:ev.players.filter(p=>p.earlyBird).length+' 人',lateBird:ev.players.filter(p=>p.lateBird).length+' 人',
+  earlyBird:ev.players.filter(p=>p.earlyBird).length+' 人',lateBird:ev.players.filter(p=>p.lateBird).length+' 人',ladies:ev.players.filter(p=>p.ladies).length+' 人',
   groups:`<b>${totals.groups.toLocaleString()}</b>`,
   rebuyDiscount:`<b>${money(totals.rebuyDiscount)}</b>`,
   overbuyDiscount:`<b>${money(totals.overbuyDiscount)}</b>`,
@@ -7630,8 +7636,8 @@ async function epcShowRecoveryAudit_(){
 </script>
 <script src="firebase-config.js?v=20261007-0780"></script>
 <script src="phone/stack-core.js?v=20261009-settlement-confirmed"></script>
-<script src="firebase-events.js?v=20261016-payments2"></script>
+<script src="firebase-events.js?v=20261016-registration1"></script>
 <script src="sync-v3.js?v=20261007-0780"></script>
 <script src="app.js?v=20261009-identity-roles"></script><dialog id="ppDialog"><div class="toolbar" style="justify-content:space-between"><h2 id="ppDialogTitle">玩家帳務</h2><button onclick="document.getElementById('ppDialog').close()">關閉</button></div><div id="ppDialogBody"></div></dialog>
-<script src="player-payments-core.js?v=20261016-payments2"></script><script src="player-payments.js?v=20261016-payments2"></script></body></html>
+<dialog id="ppRegistrationDialog"><div class="toolbar" style="justify-content:space-between"><h2 id="ppRegistrationTitle">加入本場</h2><button data-pp-action onclick="PP.cancelRegistration()">取消</button></div><div id="ppRegistrationBody"></div></dialog><script src="player-payments-core.js?v=20261016-registration1"></script><script src="player-payments.js?v=20261016-registration1"></script></body></html>
 

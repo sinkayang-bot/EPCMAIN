@@ -38,3 +38,10 @@ await assert.rejects(bridge.playerPayment(cmd('change',{eventId:'A',field:'rebuy
 const ledger=store.get(ledgerKey('42'));assert.equal(ledger.date,'PLAYER_PAYMENTS_42');assert(Array.isArray(ledger.items));assert.equal(ledger.kind,'playerPaymentsV1');
 assert([...store.keys()].every(k=>k.startsWith('events/')||k.startsWith('accounting/PLAYER_PAYMENTS_')));
 console.log('PASS: cloud atomicity/idempotency, concurrent rebuy, stale revision, immutable settled entries, legacy baseline, debt mirror, protected ledger isolation.');
+
+const previous=JSON.stringify([...store]);
+await assert.rejects(bridge.playerPayment({id:'wrong-price',kind:'add',memberId:'43',eventId:'B',paidNow:true,expectedCharge:3300,player:{manualDiscount:0}}),/價格或優惠已變更/);
+assert.equal(JSON.stringify([...store]),previous);
+await assert.rejects(bridge.playerPayment({id:'dual-bird',kind:'add',memberId:'43',eventId:'B',player:{earlyBird:true,lateBird:true}}),/只能擇一/);
+assert.equal(JSON.stringify([...store]),previous);
+console.log('PASS: changed registration prices and incompatible discount selections cannot create a charge or receipt.');

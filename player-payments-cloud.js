@@ -1,4 +1,4 @@
-import './player-payments-core.js?v=20261016-payments2';
+import './player-payments-core.js?v=20261016-registration1';
 export function setupPlayerPayments({fs,db,col,accountingCol,bridge}){
  const Core=globalThis.EPCPlayerPaymentsCore;
  bridge.playerPaymentDocId=id=>'PLAYER_PAYMENTS_'+encodeURIComponent(String(id));
@@ -22,18 +22,21 @@ export function setupPlayerPayments({fs,db,col,accountingCol,bridge}){
     let p=players.find(x=>String(x.memberId)===String(cmd.memberId));
     if(cmd.kind==='add'){
      if(p)throw Error('此玩家已加入本場，請重新整理');
-     p={...cmd.player,memberId:String(cmd.memberId),buyin:1,rebuy:0,addon:0,prize:0,stack:0,registrationUnpaid:!cmd.paidNow};players.push(p);
+     const details=cmd.player||{};
+     if(!Number.isSafeInteger(Number(details.manualDiscount||0))||Number(details.manualDiscount||0)<0)throw Error('手動優惠須為非負整數');
+     if(details.earlyBird&&details.lateBird)throw Error('早鳥與晚鳥只能擇一');
+     p={nickname:String(details.nickname||''),group:String(details.group||''),earlyBird:!!details.earlyBird,lateBird:!!details.lateBird,ladies:!!details.ladies,manualDiscount:Number(details.manualDiscount||0),memberId:String(cmd.memberId),buyin:1,rebuy:0,addon:0,prize:0,stack:0,registrationUnpaid:!cmd.paidNow};players.push(p);
     }else{
      if(!p)throw Error('這位玩家已不在本場');
-     const fields=['buyin','rebuy','addon','manualDiscount','earlyBird','lateBird'];
+     const fields=['buyin','rebuy','addon','manualDiscount','earlyBird','lateBird','ladies'];
      if(!fields.includes(cmd.field))throw Error('不支援的修改欄位');
-     const current=p[cmd.field]??(['earlyBird','lateBird'].includes(cmd.field)?false:0);
+     const current=p[cmd.field]??(['earlyBird','lateBird','ladies'].includes(cmd.field)?false:0);
      if(cmd.increment){if(cmd.field!=='rebuy')throw Error('僅重買支援加一');p.rebuy=Number(p.rebuy||0)+1;}
      else{
       if(current!==cmd.baseline)throw Error('數量或優惠已被其他設備修改，請確認最新資料');
-      const bool=['earlyBird','lateBird'].includes(cmd.field),v=bool?!!cmd.value:Number(cmd.value);
+      const bool=['earlyBird','lateBird','ladies'].includes(cmd.field),v=bool?!!cmd.value:Number(cmd.value);
       if(!bool&&(!Number.isSafeInteger(v)||v<0))throw Error('數值須為非負整數');
-      p[cmd.field]=v;if(bool&&v)p[cmd.field==='earlyBird'?'lateBird':'earlyBird']=false;
+      p[cmd.field]=v;if(['earlyBird','lateBird'].includes(cmd.field)&&v)p[cmd.field==='earlyBird'?'lateBird':'earlyBird']=false;
      }
      if(cmd.field==='manualDiscount'){p._manualDiscountEditedAt=Date.now();p._manualDiscountEditedValue=p.manualDiscount;}
     }
@@ -56,6 +59,7 @@ export function setupPlayerPayments({fs,db,col,accountingCol,bridge}){
     const charge=window.epcPlayerPaymentPrice_(e,p);
     info[id]={charge,date:e.businessDate||e.date||'',name:e.name||'',settled:['settled','已結算'].includes(e.status),profit:Math.max(0,Number(p.prize||0)-charge),legacyDue:Math.max(0,Number(p.registrationUnpaidAmount)||0)+Math.max(0,Number(p.rebuyUnpaidAmount)||0),newPlayer:cmd.kind==='add'&&id===String(cmd.eventId)};
    }
+   if(cmd.kind==='add'&&cmd.expectedCharge!=null&&Number(cmd.expectedCharge)!==info[String(cmd.eventId)]?.charge)throw Error('本場價格或優惠已變更，請取消並重新開啟加入視窗確認金額');
    if(cmd.kind==='profit'){
     const source=raws.get(String(cmd.sourceEventId)),target=raws.get(String(cmd.eventId));
     const sourceDate=String(source?.businessDate||source?.date||''),targetDate=String(target?.businessDate||target?.date||'');

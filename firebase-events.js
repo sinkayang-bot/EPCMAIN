@@ -53,7 +53,7 @@
      protectedEvent.players=(protectedEvent.players||[]).map(p=>{
       const before=byId.get(String(p.memberId));if(!before)return p;
       if(Number(before._paymentRevision||0)>Number(p._paymentRevision||0)){
-       const next={...p};for(const k of ['buyin','rebuy','addon','manualDiscount','earlyBird','lateBird','registrationUnpaidAmount','rebuyUnpaidAmount','registrationUnpaid','_paymentRevision','_manualDiscountEditedAt','_manualDiscountEditedValue']){
+       const next={...p};for(const k of ['buyin','rebuy','addon','manualDiscount','earlyBird','lateBird','ladies','registrationUnpaidAmount','rebuyUnpaidAmount','registrationUnpaid','_paymentRevision','_manualDiscountEditedAt','_manualDiscountEditedValue']){
         if(before[k]!==undefined)next[k]=before[k];else delete next[k];
        }return next;
       }return p;
@@ -79,7 +79,7 @@
    },
    async deleteDailyAccounting(date){this.requireAccountingAccess();date=String(date||'').trim();if(date)await fs.deleteDoc(fs.doc(accountingCol,date))}
   };
-  const paymentModule=await import('./player-payments-cloud.js?v=20261016-payments2');
+  const paymentModule=await import('./player-payments-cloud.js?v=20261016-registration1');
   paymentModule.setupPlayerPayments({fs,db,col,accountingCol,bridge:window.EPCFirestore});
   fs.onSnapshot(col,snap=>{
    const rows=[];snap.forEach(d=>{const x=d.data()||{};if(x.status!=='deleted')rows.push({...x,eventId:x.eventId||d.id})});
@@ -91,7 +91,7 @@
   try{
    const [authMod,accountingAuth]=await Promise.all([
     import('https://www.gstatic.com/firebasejs/12.4.0/firebase-auth.js'),
-    import('./firebase-accounting-auth.js?v=20261016-payments2')
+    import('./firebase-accounting-auth.js?v=20261016-registration1')
    ]);
    accountingAuth.setupAccountingAuth({app,fs,accountingCol,bridge:window.EPCFirestore,authMod});
   }catch(err){
