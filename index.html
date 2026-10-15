@@ -2084,9 +2084,8 @@ window.addEventListener('error',function(e){
    <div><label>收支方向</label><select id="ledgerDirection" onchange="renderLedgerAnalysis()"><option value="">全部</option><option value="income">收入</option><option value="expense">支出</option></select></div>
    <div><label>分類 / 項目名稱</label><input id="ledgerKeyword" type="search" placeholder="例如：兼職薪資、餐飲、方大哥飲料" oninput="renderLedgerAnalysis()"></div>
   </div>
-  <div class="tablewrap" style="margin-top:12px">
-   <table><thead><tr><th>營業日</th><th>方向</th><th>分類</th><th>項目名稱</th><th>金額</th><th>來源</th></tr></thead><tbody id="ledgerAnalysisRows"></tbody></table>
-  </div>
+  <p class="small" style="margin-top:12px">點月份查看各營業日，再點日期展開當天收支；下方合計依目前篩選條件計算。</p>
+  <div id="ledgerAnalysisRows"></div>
  </div>
 </section>
 
@@ -5642,6 +5641,27 @@ function renderDashboardDailyReport(){
    <td>${x.category}</td><td>${x.name}</td><td>${money(x.amount)}</td><td>${x.source}</td>
  </tr>`).join('')||'<tr><td colspan="5" class="small">本日尚無另外新增的收支明細</td></tr>';
 }
+function ledgerGroupedEntries_(entries){
+ if(!entries.length)return '<div class="small">找不到符合條件的收支明細</div>';
+ const esc=epcDisplayEscape_,months=new Map();
+ entries.forEach(x=>{
+  const date=String(x.date||'未設定日期'),month=/^\d{4}-\d{2}-\d{2}$/.test(date)?date.slice(0,7):'未設定月份';
+  if(!months.has(month))months.set(month,new Map());
+  const days=months.get(month);if(!days.has(date))days.set(date,[]);days.get(date).push(x);
+ });
+ const summary=(label,rows,dayCount)=>{
+  const income=rows.filter(x=>x.direction!=='expense').reduce((n,x)=>n+(Number(x.amount)||0),0);
+  const expense=rows.filter(x=>x.direction==='expense').reduce((n,x)=>n+(Number(x.amount)||0),0),net=income-expense;
+  return '<span class="mph-label">'+esc(label)+'</span><span class="mph-count">'+(dayCount?dayCount+' 天・':'')+rows.length+' 筆</span><span class="pos">收入 '+money(income)+'</span><span class="neg">支出 '+money(expense)+'</span><span class="'+epcPnlClass_(net)+'">收支淨額 '+money(net)+'</span>';
+ };
+ const rowHtml=x=>'<tr><td>'+esc(x.date||'')+'</td><td class="'+(x.direction==='expense'?'neg':'pos')+'">'+(x.direction==='expense'?'支出':'收入')+'</td><td>'+esc(x.category||'')+'</td><td>'+esc(x.name||'')+'</td><td>'+money(x.amount)+'</td><td>'+esc(x.source||'')+'</td></tr>';
+ return '<div class="member-profile-history ledger-analysis-groups">'+[...months.entries()].sort((a,b)=>b[0].localeCompare(a[0])).map(([month,days])=>{
+  const records=[...days.values()].flat(),label=month==='未設定月份'?month:month.slice(0,4)+' 年 '+Number(month.slice(5))+' 月';
+  return '<details class="mph-month"><summary>'+summary(label,records,days.size)+'</summary><div class="mph-days">'+[...days.entries()].sort((a,b)=>b[0].localeCompare(a[0])).map(([date,rows])=>
+   '<details class="mph-day"><summary>'+summary(date,rows)+'</summary><div class="tablewrap"><table><thead><tr><th>營業日</th><th>方向</th><th>分類</th><th>項目名稱</th><th>金額</th><th>來源</th></tr></thead><tbody>'+rows.map(rowHtml).join('')+'</tbody></table></div></details>'
+  ).join('')+'</div></details>';
+ }).join('')+'</div>';
+}
 function renderLedgerAnalysis(){
  const def=dashboardDefaultRange();
  const fromEl=$('ledgerDateFrom'),toEl=$('ledgerDateTo'); if(!fromEl||!toEl)return;
@@ -5651,10 +5671,8 @@ function renderLedgerAnalysis(){
  const rows=reportingLedgerEntries().filter(x=>(!from||x.date>=from)&&(!to||x.date<=to)&&(!dir||x.direction===dir)&&(!kw||`${x.category} ${x.name} ${x.source}`.toLowerCase().includes(kw)));
  const total=rows.reduce((n,x)=>n+x.amount,0);
  if($('ledgerSearchTotal'))$('ledgerSearchTotal').textContent=money(total);
- if($('ledgerAnalysisRows'))$('ledgerAnalysisRows').innerHTML=rows.sort((a,b)=>b.date.localeCompare(a.date)).map(x=>`<tr>
-   <td>${x.date}</td><td>${x.direction==='expense'?'<span class="neg">支出</span>':'<span class="pos">收入</span>'}</td>
-   <td>${x.category}</td><td>${x.name}</td><td>${money(x.amount)}</td><td>${x.source}</td>
- </tr>`).join('')||'<tr><td colspan="6" class="small">找不到符合條件的收支明細</td></tr>';
+ if($('ledgerAnalysisRows'))$('ledgerAnalysisRows').innerHTML=ledgerGroupedEntries_(rows);
+
 }
 function dashboardDefaultRange(){
  const now=new Date(), y=now.getFullYear(), m=String(now.getMonth()+1).padStart(2,'0');
