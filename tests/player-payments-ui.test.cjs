@@ -1,0 +1,48 @@
+const assert=require('node:assert/strict'),fs=require('node:fs');
+const {JSDOM}=require('jsdom');
+const Core=require('../player-payments-core.js');
+(async()=>{
+const {setupPlayerPayments}=await import('../player-payments-cloud.js');
+const html=fs.readFileSync(require.resolve('../index.html'),'utf8');
+const dom=new JSDOM(html,{url:'https://example.test/',runScripts:'outside-only'}),w=dom.window;
+global.window=w;
+const clone=x=>JSON.parse(JSON.stringify(x));let selected='A';
+const events=[{id:'A',seq:1,date:'2026-10-15',status:'已結算',level:3400,poolUnit:3000,admin:400,players:[{memberId:'42',buyin:1,rebuy:0,addon:0,manualDiscount:0,prize:5400}]},{id:'B',seq:1,date:'2026-10-16',status:'open',level:3400,poolUnit:3000,admin:400,players:[]}];
+w.db={events,members:[{id:'42',name:'甲',nickname:'小甲'}]};w.epcDb=w.db;
+const calcStart=html.indexOf('function calcPlayerForEvent('),calcEnd=html.indexOf('function memberHistoryInRange(',calcStart);w.eval(html.slice(calcStart,calcEnd));
+w.currentEvent=()=>w.db.events.find(e=>e.id===selected);w.businessDateForEvent=e=>e.date||e.businessDate;w.eventDisplayName_=e=>e.name||'EPC#'+e.seq;
+w.epcPlayerEditing_=()=>false;w.renderEventFast_=()=>{};w.setP=()=>{};w.addPlayer=()=>{};
+w.actMemberSearchOptions_=()=>'<option value="42">甲</option>';w.actResolveMember_=id=>w.document.getElementById(id).value;
+let notices=[];w.actionMsg=(text)=>notices.push(text);w.confirm=()=>true;
+w.EPC_FIRESTORE_LAST_EVENTS=events.map(e=>({...clone(e),eventId:e.id,buyin:e.poolUnit,fee:e.admin}));
+w.applyFirestoreEventsToLegacy_=rows=>{w.db.events=rows.map(e=>({...clone(e),id:e.eventId,poolUnit:e.buyin,admin:e.fee,overbuyThreshold:(e.freeAdminFrom||11)-1}));};
+w.HTMLDialogElement.prototype.showModal=function(){this.open=true;};
+w.HTMLDialogElement.prototype.close=function(){this.open=false;};
+// Do not run background reconciliation during deterministic interaction assertions.
+w.setTimeout=()=>0;w.clearTimeout=()=>{};
+const data=new Map(w.EPC_FIRESTORE_LAST_EVENTS.map(e=>['events/'+e.eventId,clone(e)]));let lock=Promise.resolve();
+const bridge={accountingReady:true,requireAccountingAccess(){}};
+const api={doc:(col,id)=>col+'/'+id,serverTimestamp:()=>0,runTransaction(db,callback){const promise=lock.then(async()=>{
+ const draft=new Map([...data].map(([k,v])=>[k,clone(v)]));let written=false;
+ const tx={get:async key=>{assert(!written);const x=draft.get(key);return {exists:()=>!!x,data:()=>clone(x)};},set:(key,x)=>{written=true;draft.set(key,clone(x));},update:(key,x)=>{written=true;draft.set(key,{...draft.get(key),...clone(x)});}};
+ const result=await callback(tx);data.clear();draft.forEach((v,k)=>data.set(k,v));return result;
+ });lock=promise.catch(()=>{});return promise;}};
+setupPlayerPayments({fs:api,db:{},col:'events',accountingCol:'accounting',bridge});w.EPCFirestore=bridge;
+w.eval(fs.readFileSync(require.resolve('../player-payments-core.js'),'utf8'));w.eval(fs.readFileSync(require.resolve('../player-payments.js'),'utf8'));
+const $=id=>w.document.getElementById(id);
+assert($('playerpayments'));assert($('ppRegistrationPaid'));assert(w.document.querySelector('#nav [data-page="playerpayments"]'));
+w.PP.open('A','42');assert($('ppDialog').open);assert($('ppDialogBody').textContent.includes('尚欠 $0'));
+$('ppMethod').value='deposit';$('ppAmount').value='5000';await w.PP.submit();assert.equal(data.get('accounting/PLAYER_PAYMENTS_42').wallet,5000);
+selected='B';$('addPlayerMember').innerHTML='<option value="42" selected>甲</option>';$('ppRegistrationPaid').checked=false;
+await w.addPlayer();let p=w.currentEvent().players[0];assert(p);assert.equal(w.PP.info(w.currentEvent(),p).due,0);assert.equal(data.get('accounting/PLAYER_PAYMENTS_42').wallet,1600);
+assert(w.PP.rebuyCell(w.currentEvent(),p,0).includes('＋'));
+await w.PP.increment('B','42');p=w.currentEvent().players[0];assert.equal(p.rebuy,1);assert.equal(w.PP.info(w.currentEvent(),p).due,1600);assert(w.PP.nameCell(w.currentEvent(),p,'甲').includes('pp-unpaid'));
+w.PP.open('B','42');$('ppAmount').value='600';$('ppMethod').value='cash';await w.PP.submit();assert.equal(w.PP.info(w.currentEvent(),w.currentEvent().players[0]).due,1000);
+$('ppMethod').value='profit';w.PP.methodChanged();assert(!$('ppProfitArea').hidden);$('ppSource').value='A';$('ppProfitConfirmed').checked=true;$('ppAmount').value='1000';await w.PP.submit();
+assert.equal(w.PP.info(w.currentEvent(),w.currentEvent().players[0]).due,0);assert.equal(data.get('accounting/PLAYER_PAYMENTS_42').profits.A.used,1000);assert(w.PP.nameCell(w.currentEvent(),w.currentEvent().players[0],'甲').includes('pp-clear'));
+await w.PP.increment('B','42');assert(w.PP.pending('42').length===1);w.PP.renderPending();assert($('epcUnpaidPlayers').textContent.includes('小甲'));
+await w.PP.clearAll('','42');assert.equal(w.PP.pending('42').length,0);
+w.PP.renderPage();assert($('ppPageBody').textContent.includes('小甲'));assert($('ppPageBody').textContent.includes('結清剩餘帳款'));
+assert.equal(w.currentEvent().players[0].prize,0);assert.equal(w.db.events.find(e=>e.id==='A').players[0].prize,5400);
+dom.window.close();console.log('PASS: real page DOM, register checkbox, deposit, +1 rebuy, partial cash, prior net-profit offset, red/clear labels, pending summary, cross-event clear, preserved prizes.');
+})().catch(e=>{console.error(e);process.exitCode=1});

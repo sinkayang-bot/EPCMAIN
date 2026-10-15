@@ -1991,6 +1991,14 @@ button.epc-clicked-now,.btn.epc-clicked-now{transform:scale(.985);filter:brightn
 .member-profile-history .mph-day summary{background:var(--card)}
 .member-profile-history summary:hover{filter:brightness(1.15)}
 @media(max-width:700px){.member-profile-history summary span{margin-right:12px}.member-profile-history .mph-label{min-width:105px}.member-profile-history .mph-days{padding:0 5px}}
+</style><style>
+#ppDialog{width:min(900px,94vw);max-height:88vh;overflow:auto;background:var(--bg);color:var(--text);border:1px solid var(--accent);border-radius:14px;padding:20px}
+#ppDialog::backdrop{background:#000a}#ppDialog h3{margin-top:16px}#ppDialog .tablewrap{margin-top:12px}
+.pp-player-link{padding:4px 7px;border-radius:6px;white-space:nowrap;background:transparent;border:0;text-align:inherit;cursor:pointer}.pp-player-link small{display:block;font-size:11px}
+.pp-unpaid,.pp-unpaid *{color:#ff6b6b!important}.pp-clear,.pp-clear *{color:var(--text)!important}.pp-clear{background:rgba(127,127,127,.10)}
+.pp-rebuy{display:flex;align-items:center;gap:3px;min-width:65px}.pp-rebuy input{min-width:28px;width:100%;padding:7px 3px}.pp-rebuy button{flex:0 0 25px;padding:6px 3px;font-size:17px}
+.pp-pending{display:flex;gap:8px;flex-wrap:wrap;margin-top:9px}.pp-summary{display:flex;gap:18px;flex-wrap:wrap;padding:10px;background:var(--card2);border-radius:8px}
+#ppDialog input[type=checkbox]{width:auto}#playerpayments .card{margin-top:12px}
 </style></head>
 <script>
 (function(){
@@ -2008,6 +2016,7 @@ button.epc-clicked-now,.btn.epc-clicked-now{transform:scale(.985);filter:brightn
 
 <button data-page="dailysettle">分帳報表</button>
 <button data-page="accounting">EPC帳務</button>
+<button data-page="playerpayments">玩家帳務</button>
 <button data-page="activities">活動管理</button>
 <button data-page="displays">顯示設備</button>
 
@@ -2089,6 +2098,7 @@ window.addEventListener('error',function(e){
  </div>
 </section>
 
+<section id="playerpayments" class="page"><h2>玩家帳務</h2><p id="ppConnection" class="small"></p><div class="card"><div class="formgrid" style="grid-template-columns:1fr 1fr"><div><label>搜尋寄存／欠款玩家</label><input id="ppSearch" placeholder="姓名、綽號、會員編號" oninput="PP.renderPage()"></div><div><label>新增寄存／查看玩家</label><input id="ppMember" list="ppMemberList" placeholder="輸入姓名或會員編號"><datalist id="ppMemberList"></datalist></div></div><div class="toolbar"><button onclick="PP.openMember()">開啟玩家帳務／寄存金</button><button onclick="showPage('accounting')">前往 EPC帳務登入</button></div></div><div id="ppPageBody"></div></section>
 <section id="members" class="page"><div id="memberProfilePanel" class="card" hidden></div>
  <h2>會員管理</h2>
  <div class="card">
@@ -2193,7 +2203,7 @@ window.addEventListener('error',function(e){
    </div>
    <div><label>本場結帳群組</label><input id="addPlayerGroup" placeholder="可留白"></div>
   </div>
-  <div class="toolbar"><button class="primary" onclick="addPlayer()">加入本場</button></div>
+  <div class="toolbar"><label style="display:flex;align-items:center;gap:6px"><input id="ppRegistrationPaid" type="checkbox" checked style="width:auto">已收款（寄存金優先；未勾選則標記待收）</label><button class="primary" data-pp-action onclick="addPlayer()">加入本場</button></div>
  </div>
  <div class="card" style="margin-bottom:10px">
   <div class="player-col-controls">
@@ -2228,7 +2238,7 @@ window.addEventListener('error',function(e){
    <tfoot><tr id="eventPlayerTotals" style="font-weight:900;background:#17222d"></tr></tfoot>
   </table>
  </div>
- <div class="card" id="epcUnpaidPlayersPanel" hidden style="display:none;margin-top:12px"><h3>本場買入結帳狀態</h3><p class="small">手機勾選「尚未結帳」的買入會在此顯示。可在賽事結算後繼續確認收款；此狀態不改變獎池、JP 或賽事結算。</p><div id="epcUnpaidPlayers"></div></div>
+ <div class="card" id="epcUnpaidPlayersPanel" style="margin-top:12px"><div id="epcUnpaidPlayers"></div></div>
  <div class="notice" id="pricingNotice">標準模式：第 1 組行政費原價；第 2～10 組行政費半價；第 11 組起免行政費。自訂模式：第 2 組至超買門檻依重買價計價；超過門檻後免重買行政費。早鳥／晚鳥依本場設定折抵一次，同一玩家擇一勾選；重買、超買及手動優惠另外計算。</div>
 </section>
 
@@ -5859,15 +5869,15 @@ function renderEventFast_(){
    const m=(db.members||[]).find(x=>String(x.id)===String(p.memberId))||{},cc=calcPlayerForEvent(p,ev);
    const cell={
     seat:`<td><input value="${epcDisplayEscape_(p.seat||'')}" oninput="setP(${i},'seat',this.value)"></td>`,
-    name:`<td>${epcPlayerDisplayHtml_(p,m)}</td>`,memberId:`<td>${p.memberId||''}</td>`,
+    name:`<td>${window.PP?PP.nameCell(ev,p,epcPlayerDisplayHtml_(p,m)):epcPlayerDisplayHtml_(p,m)}</td>`,memberId:`<td>${p.memberId||''}</td>`,
     nickname:`<td><input value="${epcDisplayEscape_(p.nickname||'')}" oninput="setP(${i},'nickname',this.value)" onchange="syncPlayerNickname_('${p.memberId}',this.value)"></td>`,
-    buyin:`<td><input type="number" min="0" value="${+p.buyin||0}" oninput="setP(${i},'buyin',this.value)"></td>`,
-    rebuy:`<td><input type="number" min="0" value="${+p.rebuy||0}" oninput="setP(${i},'rebuy',this.value)"></td>`,
+    buyin:`<td><input type="number" min="0" value="${+p.buyin||0}" onchange="setP(${i},'buyin',this.value)"></td>`,
+    rebuy:`<td>${window.PP?PP.rebuyCell(ev,p,i):`<input type="number" min="0" value="${+p.rebuy||0}" onchange="setP(${i},'rebuy',this.value)">`}</td>`,
     earlyBird:`<td><input type="checkbox" ${p.earlyBird?'checked':''} onchange="setP(${i},'earlyBird',this.checked)"></td>`,
     lateBird:`<td><input type="checkbox" ${p.lateBird?'checked':''} onchange="setP(${i},'lateBird',this.checked)"></td>`,
     groups:`<td>${cc.groups}</td>`,rebuyDiscount:`<td>${money(cc.rebuyDiscount)}</td>`,overbuyDiscount:`<td>${money(cc.overbuyDiscount)}</td>`,
-    manualDiscount:`<td><input type="number" value="${+p.manualDiscount||0}" oninput="setP(${i},'manualDiscount',this.value)"></td>`,
-    totalDiscount:`<td>${money(cc.totalDiscount)}</td>`,paid:`<td>${money(cc.paid)}</td>`,
+    manualDiscount:`<td><input type="number" value="${+p.manualDiscount||0}" onchange="setP(${i},'manualDiscount',this.value)"></td>`,
+    totalDiscount:`<td>${money(cc.totalDiscount)}</td>`,paid:`<td>${window.PP?PP.amountCell(ev,p):money(cc.paid)}</td>`,
     settleGroup:`<td><input value="${epcDisplayEscape_(p.group||'')}" oninput="setP(${i},'group',this.value)"></td>`,
     action:`<td><button class="danger" onclick="delP(${i})">移除</button></td>`
    };return '<tr>'+cols.map(x=>(cell[x[0]]||'<td></td>').replace('<td>',`<td class="col-${x[0]}">`)).join('')+'</tr>';
@@ -5875,7 +5885,7 @@ function renderEventFast_(){
  if(rows&&editing)(ev.players||[]).forEach((p,i)=>{
    const c=calcPlayerForEvent(p,ev),row=rows.children[i];if(!row)return;
    const values={groups:c.groups,rebuyDiscount:money(c.rebuyDiscount),overbuyDiscount:money(c.overbuyDiscount),totalDiscount:money(c.totalDiscount),paid:money(c.paid)};
-   Object.entries(values).forEach(([key,value])=>{const cell=row.querySelector('.col-'+key);if(cell)cell.textContent=value;});
+   Object.entries(values).forEach(([key,value])=>{const cell=row.querySelector('.col-'+key);if(cell){if(key==='paid'&&window.PP)cell.innerHTML=PP.amountCell(ev,p);else cell.textContent=value;}});
    ['earlyBird','lateBird'].forEach(key=>{const input=row.querySelector('.col-'+key+' input');if(input)input.checked=!!p[key]});
  });
  const totals=$('eventPlayerTotals');
@@ -6569,7 +6579,7 @@ function actExtremeTen_(){
  <div><label>備註</label><input id="tenNote" placeholder="手牌確認／挑戰備註"></div>
  </div><div class="toolbar"><button class="primary" onclick="addExtremeTen_()">儲存挑戰紀錄</button></div>
  <div class="small">8Xo（假日 8Xs 亦適用）翻牌後收池至少 20BB，累積兩次可挑戰一次；28o 轉牌圈收池至少 20BB 一次可挑戰一次。此處由工作人員確認資格後登記真實秒數。</div>
- <h3 style="margin-top:18px">依最接近 10.00 秒排序</h3><div class="tablewrap"><table><thead><tr><th>排名</th><th>日期</th><th>玩家</th><th>秒數</th><th>差距</th><th>資格</th><th>獎勵狀態</th><th>已領取</th><th>備註</th><th>操作</th></tr></thead><tbody>${rows.map(x=>`<tr><td>${rankById.get(x.id)}</td><td>${epcDisplayEscape_(x.date)}</td><td>${epcPlayerDisplayHtml_(x.memberId)}</td><td><b class="${x.success?'pos':''}">${(x.cents/100).toFixed(2)}</b></td><td>${(x.difference/100).toFixed(2)} 秒</td><td>${epcDisplayEscape_(x.method||'')}</td><td>${x.awardType?epcDisplayEscape_(x.awardType)+'｜2,000 元':x.success?'挑戰成功，待確認':candidateIds.has(x.id)?'月底補發候選':'未得獎'}</td><td>${x.awardType?`<input type="checkbox" ${x.claimed?'checked':''} onchange="extremeTenClaim_('${x.id}',this.checked)">`:'—'}</td><td>${epcDisplayEscape_(x.note||'')}</td><td>${x.awardType?`<button onclick="extremeTenAward_('${x.id}','')">取消得獎</button>`:`${x.success?`<button onclick="extremeTenAward_('${x.id}','成功')">確認成功獎勵</button>`:''}<button onclick="extremeTenAward_('${x.id}','補發')">登記月底補發</button><button onclick="extremeTenEdit_('${x.id}')">修改秒數</button><button class="danger" onclick="extremeTenDelete_('${x.id}')">刪除</button>`}</td></tr>`).join('')||'<tr><td colspan="10">尚無挑戰紀錄</td></tr>'}</tbody></table></div></div>`;
+ <h3 style="margin-top:18px">依最接近 10.00 秒排序</h3><div class="tablewrap"><table><thead><tr><th>排名</th><th>日期</th><th>玩家</th><th>挑戰秒數</th><th>距離 10.00 秒</th><th>資格</th><th>獎勵狀態</th><th>已領取</th><th>備註</th><th>操作</th></tr></thead><tbody>${rows.map(x=>`<tr><td>${rankById.get(x.id)}</td><td>${epcDisplayEscape_(x.date)}</td><td>${epcPlayerDisplayHtml_(x.memberId)}</td><td><b class="${x.success?'pos':''}">${(x.cents/100).toFixed(2)} 秒</b></td><td>${(x.difference/100).toFixed(2)} 秒</td><td>${epcDisplayEscape_(x.method||'')}</td><td>${x.awardType?epcDisplayEscape_(x.awardType)+'｜2,000 元':x.success?'挑戰成功，待確認':candidateIds.has(x.id)?'月底補發候選':'未得獎'}</td><td>${x.awardType?`<input type="checkbox" ${x.claimed?'checked':''} onchange="extremeTenClaim_('${x.id}',this.checked)">`:'—'}</td><td>${epcDisplayEscape_(x.note||'')}</td><td>${x.awardType?`<button onclick="extremeTenAward_('${x.id}','')">取消得獎</button>`:`${x.success?`<button onclick="extremeTenAward_('${x.id}','成功')">確認成功獎勵</button>`:''}<button onclick="extremeTenAward_('${x.id}','補發')">登記月底補發</button><button onclick="extremeTenEdit_('${x.id}')">修改秒數</button><button class="danger" onclick="extremeTenDelete_('${x.id}')">刪除</button>`}</td></tr>`).join('')||'<tr><td colspan="10">尚無挑戰紀錄</td></tr>'}</tbody></table></div></div>`;
 }
 
 function renderActivities(){
@@ -6594,6 +6604,7 @@ function renderActivities(){
  }finally{window.epcActivityIdentityMode_=previous;}
 }
 function render(){
+ if($('playerpayments')?.classList.contains('active'))window.PP?.renderPage();
  if(epcPlayerEditing_()){epcFullRenderPending_=true;return}
  renderDashboardSummary();
  if($('activities')?.classList.contains('active')){renderActivities();setTimeout(enhanceSearchCombos_,0);}
@@ -6664,19 +6675,19 @@ function render(){
    const custom=(currentEvent().pricingMode||'standard')==='custom';
    return {p,i,m,c,vals:{
     seat:`<input value="${p.seat??''}" placeholder="座位" inputmode="numeric" style="width:100%;min-width:0" onchange="setP(${i},'seat',this.value)">`,
-    name:`<span style="white-space:nowrap">${epcPlayerDisplayHtml_(p,m)}</span>`,
+    name:`<span style="white-space:nowrap">${window.PP?PP.nameCell(ev,p,epcPlayerDisplayHtml_(p,m)):epcPlayerDisplayHtml_(p,m)}</span>`,
     memberId:`<span style="white-space:nowrap">${m.id||p.memberId||''}</span>`,
     nickname:`<input value="${p.nickname??m.nickname??''}" placeholder="綽號" style="width:100%;min-width:0" onchange="setP(${i},'nickname',this.value);syncPlayerNickname_('${p.memberId}',this.value)">`,
-    buyin:`<input type="number" min="0" value="${p.buyin}" style="width:100%;min-width:0" oninput="setP(${i},'buyin',this.value)">`,
-    rebuy:`<input type="number" min="0" value="${p.rebuy}" style="width:100%;min-width:0" oninput="setP(${i},'rebuy',this.value)">`,
+    buyin:`<input type="number" min="0" value="${p.buyin}" style="width:100%;min-width:0" onchange="setP(${i},'buyin',this.value)">`,
+    rebuy:window.PP?PP.rebuyCell(ev,p,i):`<input type="number" min="0" value="${p.rebuy}" style="width:100%;min-width:0" onchange="setP(${i},'rebuy',this.value)">`,
     earlyBird:`<input type="checkbox" ${p.earlyBird?'checked':''} onchange="setP(${i},'earlyBird',this.checked)">`,
     lateBird:`<input type="checkbox" ${p.lateBird?'checked':''} onchange="setP(${i},'lateBird',this.checked)">`,
     groups:`<span style="white-space:nowrap">${c.groups}</span>`,
     rebuyDiscount:`<span style="white-space:nowrap">${money(c.rebuyDiscount||0)}</span>`,
     overbuyDiscount:`<span style="white-space:nowrap">${money(c.overbuyDiscount||0)}</span>`,
-    manualDiscount:`<input type="number" min="0" value="${p.manualDiscount}" style="width:100%;min-width:0" oninput="setP(${i},'manualDiscount',this.value)">`,
+    manualDiscount:`<input type="number" min="0" value="${p.manualDiscount}" style="width:100%;min-width:0" onchange="setP(${i},'manualDiscount',this.value)">`,
     totalDiscount:`<b style="white-space:nowrap">${money(c.totalDiscount||0)}</b>`,
-    paid:`<span style="white-space:nowrap">${money(c.paid)}</span>`,
+    paid:`<span style="white-space:nowrap">${window.PP?PP.amountCell(ev,p):money(c.paid)}</span>`,
     settleGroup:`<input value="${p.group??''}" placeholder="結帳群組" style="width:100%;min-width:0" onchange="setP(${i},'group',this.value)">`,
     action:`<button type="button" class="danger" onclick="removePlayerByIndex(${i})">移除</button>`
    }};
@@ -7407,7 +7418,7 @@ function displayPayload_(type){
  ensureActDb_();const A=db.activityManagement||{},range=actActivityRange_(type);
  if(type==='extremeTen'){
   const S=extremeTenStats_();let last=null,rank=0;
-  return {type,title:'極限 10 秒',activityFrom:range.from,activityTo:range.to,
+  return {type,metric:'seconds',title:'極限 10 秒',activityFrom:range.from,activityTo:range.to,
    target:'10.00',rewardCash:1000,rewardCoupon:1000,rewardLimit:8,awarded:S.awarded.length,remaining:S.remaining,
    rows:S.rows.slice(0,20).map((x,i)=>{if(last!==x.difference)rank=i+1;last=x.difference;return {
     id:x.id,memberId:x.memberId,name:epcPlayerDisplayName_(x.memberId),rank,
@@ -7619,6 +7630,8 @@ async function epcShowRecoveryAudit_(){
 </script>
 <script src="firebase-config.js?v=20261007-0780"></script>
 <script src="phone/stack-core.js?v=20261009-settlement-confirmed"></script>
-<script src="firebase-events.js?v=20261009-settlement-confirmed"></script>
+<script src="firebase-events.js?v=20261016-payments1"></script>
 <script src="sync-v3.js?v=20261007-0780"></script>
-<script src="app.js?v=20261009-identity-roles"></script></body></html>
+<script src="app.js?v=20261009-identity-roles"></script><dialog id="ppDialog"><div class="toolbar" style="justify-content:space-between"><h2 id="ppDialogTitle">玩家帳務</h2><button onclick="document.getElementById('ppDialog').close()">關閉</button></div><div id="ppDialogBody"></div></dialog>
+<script src="player-payments-core.js?v=20261016-payments1"></script><script src="player-payments.js?v=20261016-payments1"></script></body></html>
+

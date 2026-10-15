@@ -6,6 +6,7 @@ export function setupAccountingAuth({app, fs, accountingCol, bridge, authMod}) {
  let unsubscribe=null,generation=0;
  const message=(state,text)=>{
   bridge.accountingReady=state==='connected';
+  if(state!=='connected'){window.EPC_PLAYER_PAYMENT_ROWS=[];window.dispatchEvent(new CustomEvent('epcPlayerPayments',{detail:{rows:[],connected:false}}));}
   bridge.accountingState=state;
   if(el('epcAccountingAuthState'))el('epcAccountingAuthState').textContent=text;
  };
@@ -25,9 +26,11 @@ export function setupAccountingAuth({app, fs, accountingCol, bridge, authMod}) {
    if(current!==generation)return;
    // A cached snapshot does not prove that the server allows this user to read/write.
    if(snap.metadata?.fromCache){message('connecting','帳務：正在連線，尚未確認伺服器權限');return;}
-   const rows=[];snap.forEach(d=>{const x=d.data()||{};rows.push({...x,date:x.date||d.id});});
+   const rows=[],ledgers=[];snap.forEach(d=>{const x=d.data()||{};if(x.kind==='playerPaymentsV1'||d.id.startsWith('PLAYER_PAYMENTS_')){if(x.kind==='playerPaymentsV1')ledgers.push(x);return;}rows.push({...x,date:x.date||d.id});});
+   window.EPC_PLAYER_PAYMENT_ROWS=ledgers;
    window.EPC_FIRESTORE_LAST_ACCOUNTING=rows;
    message('connected','帳務：管理員已連線｜'+(user.displayName||user.email||'已登入'));
+   window.dispatchEvent(new CustomEvent('epcPlayerPayments',{detail:{rows:ledgers,connected:true}}));
    window.dispatchEvent(new CustomEvent('epcFirestoreAccounting',{detail:{rows}}));
   },err=>{
    if(current!==generation)return;
@@ -58,3 +61,4 @@ export function setupAccountingAuth({app, fs, accountingCol, bridge, authMod}) {
  });
  return authMod.onAuthStateChanged(auth,subscribe);
 }
+

@@ -49,6 +49,15 @@
       throw Error(newerMobileOnly?'手機已有較新的籌碼／座位／人頭資料，已阻止舊電腦資料覆蓋；請重新整理後再儲存':'賽事已有較新修改，已阻止覆蓋；請重新整理後再編輯');
      }
      const protectedEvent=window.EPCStackCore.protectStacks(e,old,options);
+     // Preserve transaction-owned payment quantities/status against older desktop copies.
+     protectedEvent.players=(protectedEvent.players||[]).map(p=>{
+      const before=byId.get(String(p.memberId));if(!before)return p;
+      if(Number(before._paymentRevision||0)>Number(p._paymentRevision||0)){
+       const next={...p};for(const k of ['buyin','rebuy','addon','manualDiscount','earlyBird','lateBird','registrationUnpaidAmount','rebuyUnpaidAmount','registrationUnpaid','_paymentRevision','_manualDiscountEditedAt','_manualDiscountEditedValue']){
+        if(before[k]!==undefined)next[k]=before[k];else delete next[k];
+       }return next;
+      }return p;
+     });
      const row={...clean(protectedEvent),status:settled(e.status)?'settled':'open',updatedAt:fs.serverTimestamp()};
      // Keep mobile hunter audit entries even if a desktop snapshot is older.
      const oldHistory=Array.isArray(old.hunterHeadHistory)?old.hunterHeadHistory:[];
@@ -70,6 +79,8 @@
    },
    async deleteDailyAccounting(date){this.requireAccountingAccess();date=String(date||'').trim();if(date)await fs.deleteDoc(fs.doc(accountingCol,date))}
   };
+  const paymentModule=await import('./player-payments-cloud.js?v=20261016-payments1');
+  paymentModule.setupPlayerPayments({fs,db,col,accountingCol,bridge:window.EPCFirestore});
   fs.onSnapshot(col,snap=>{
    const rows=[];snap.forEach(d=>{const x=d.data()||{};if(x.status!=='deleted')rows.push({...x,eventId:x.eventId||d.id})});
    window.EPC_FIRESTORE_LAST_EVENTS=rows;
@@ -80,7 +91,7 @@
   try{
    const [authMod,accountingAuth]=await Promise.all([
     import('https://www.gstatic.com/firebasejs/12.4.0/firebase-auth.js'),
-    import('./firebase-accounting-auth.js?v=20261007-admin-auth')
+    import('./firebase-accounting-auth.js?v=20261016-payments1')
    ]);
    accountingAuth.setupAccountingAuth({app,fs,accountingCol,bridge:window.EPCFirestore,authMod});
   }catch(err){
@@ -90,3 +101,4 @@
   }
  }catch(e){window.EPC_FIRESTORE_DIAG={state:'error',projectId:cfg?.projectId||'?',count:0,error:String(e?.message||e)};window.dispatchEvent(new CustomEvent('epcFirestoreError',{detail:{message:String(e?.message||e)}}))}
 })();
+

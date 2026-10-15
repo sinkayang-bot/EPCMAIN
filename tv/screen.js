@@ -5,14 +5,14 @@ let timer,cloud,lastSignature='',renewing=false;
 function identity(r,ui){return [ui.showName!==false?esc(r.name||r.member||''):null,ui.showMemberId?esc(r.memberId||r.id||''):null].filter(Boolean).join(' · ')}
 function render(p,target=host){
  const ui=p.ui||{},header=`<header><h1>${esc(p.title||'EPC')}</h1><span>${esc(p.activityFrom||'')} ～ ${esc(p.activityTo||'')}</span></header>`;
- if(p.type==='extremeTen'){
+ if(p.type==='extremeTen'||ui.kind==='extremeTen'||String(p.title||'').replace(/\s/g,'')==='極限10秒'){
   const rows=(p.rows||[]).slice(0,ui.limit||10),compact=!!ui.compact;
   const cols=(ui.showRank!==false?1:0)+(ui.showName!==false?1:0)+(ui.showMemberId?1:0)+3;
   target.innerHTML=header+`<div class="grid" style="grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:18px">
    <div class="card"><div>成功獎勵</div><div style="font-size:clamp(22px,3vw,52px);font-weight:900">${money(Number(p.rewardCash||0)+Number(p.rewardCoupon||0))}</div><div style="font-size:clamp(14px,1.1vw,24px)">現金 ${money(p.rewardCash)}＋折價卡 ${money(p.rewardCoupon)}</div></div>
    <div class="card"><div>挑戰目標</div><div style="font-size:clamp(22px,3vw,52px);font-weight:900">10.00 秒</div></div>
    <div class="card"><div>剩餘獎勵</div><div style="font-size:clamp(22px,3vw,52px);font-weight:900">${Number(p.remaining??8)} / ${Number(p.rewardLimit||8)} 份</div></div>
-  </div><table class="leaderboard" style="font-size:clamp(16px,${compact?1.25:1.8}vw,40px)"><thead><tr>${ui.showRank!==false?'<th>排名</th>':''}${ui.showName!==false?'<th>玩家</th>':''}${ui.showMemberId?'<th>會員編號</th>':''}<th>秒數</th><th>差距</th><th>結果</th></tr></thead><tbody>${rows.map(r=>`<tr>${ui.showRank!==false?`<td>${Number(r.rank||0)}</td>`:''}${ui.showName!==false?`<td class="player-identity">${esc(r.name||'')}</td>`:''}${ui.showMemberId?`<td class="member-number">${esc(r.memberId||'')}</td>`:''}<td style="font-weight:900;color:${r.success?'#49c27d':'inherit'}">${esc(r.seconds)}</td><td>${esc(r.difference)} 秒</td><td>${esc(r.awardType|| (r.success?'挑戰成功':'挑戰紀錄'))}</td></tr>`).join('')||`<tr><td colspan="${cols}">尚無挑戰紀錄</td></tr>`}</tbody></table><footer style="font-size:clamp(14px,1.1vw,24px)">月底未送完，依最接近 10.00 秒的排名補發獎勵</footer>`;
+  </div><table class="leaderboard" style="font-size:clamp(16px,${compact?1.25:1.8}vw,40px)"><thead><tr>${ui.showRank!==false?'<th>排名</th>':''}${ui.showName!==false?'<th>玩家</th>':''}${ui.showMemberId?'<th>會員編號</th>':''}<th>挑戰秒數</th><th>距離 10.00 秒</th><th>結果</th></tr></thead><tbody>${rows.map(r=>`<tr>${ui.showRank!==false?`<td>${Number(r.rank||0)}</td>`:''}${ui.showName!==false?`<td class="player-identity">${esc(r.name||'')}</td>`:''}${ui.showMemberId?`<td class="member-number">${esc(r.memberId||'')}</td>`:''}<td style="font-weight:900;color:${r.success?'#49c27d':'inherit'}">${esc(r.seconds??'—')} 秒</td><td>${esc(r.difference)} 秒</td><td>${esc(r.awardType|| (r.success?'挑戰成功':'挑戰紀錄'))}</td></tr>`).join('')||`<tr><td colspan="${cols}">尚無挑戰紀錄</td></tr>`}</tbody></table><footer style="font-size:clamp(14px,1.1vw,24px)">月底未送完，依最接近 10.00 秒的排名補發獎勵</footer>`;
   return;
  }
  if(p.type==='boss'){
@@ -78,3 +78,4 @@ try{
  },e=>{host.innerHTML=`<div class="center error"><h1>顯示連線失敗</h1><p>${esc(e.message)}</p><p>請重新整理後再試</p></div>`});
  setInterval(()=>cloud.heartbeat(id).catch(()=>{}),30000);
 }catch(e){host.innerHTML=`<div class="center error"><h1>無法連線</h1><p>${esc(e.message)}</p><p>請重新整理後再試</p></div>`}
+
