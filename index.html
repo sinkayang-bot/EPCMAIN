@@ -1981,6 +1981,16 @@ button.epc-clicked-now,.btn.epc-clicked-now{transform:scale(.985);filter:brightn
   height:4mm!important;border-bottom:1px solid #555!important;margin-left:2mm!important;
  }
 }
+</style><style>
+.member-profile-history details{border:1px solid var(--line);border-radius:10px;margin:10px 0;overflow:hidden}
+.member-profile-history summary{cursor:pointer;padding:15px 12px;display:list-item;list-style-position:inside;background:var(--card2);line-height:1.8}
+.member-profile-history summary span{display:inline-block;margin-right:22px;font-size:14px}
+.member-profile-history .mph-label{font-size:16px;font-weight:800;color:var(--accent);min-width:125px}
+.member-profile-history .mph-count{color:var(--muted);min-width:130px}
+.member-profile-history .mph-days{padding:0 12px 4px}
+.member-profile-history .mph-day summary{background:var(--card)}
+.member-profile-history summary:hover{filter:brightness(1.15)}
+@media(max-width:700px){.member-profile-history summary span{margin-right:12px}.member-profile-history .mph-label{min-width:105px}.member-profile-history .mph-days{padding:0 5px}}
 </style></head>
 <script>
 (function(){
@@ -5485,18 +5495,44 @@ function openMemberProfile_(id){
  const h=memberHistoryInRange(m,from,to),paid=h.reduce((n,x)=>n+(+x.paid||0),0),prize=h.reduce((n,x)=>n+(+x.prize||0),0),net=prize-paid;
  const esc=epcDisplayEscape_;
  const box=(label,value,cls='')=>'<div class="card"><div class="small">'+label+'</div><div class="'+cls+'" style="font-size:22px;font-weight:800">'+value+'</div></div>';
- const rows=ev.map(e=>{
+ const historyItems=ev.map(e=>{
   const p=(e.players||[]).find(x=>String(x.memberId)===String(id)),settled=e.status==='settled'||e.status==='已結算',c=settled&&p?calcPlayerForEvent(p,e):null;
   const cost=c?Number(c.paid||0):null,win=settled?Number(p?.prize||0):null,netRow=cost===null?null:win-cost;
-  return '<tr><td>'+esc(businessDateForEvent(e))+'</td><td>'+esc(e.name||eventDisplayName_(e)||'賽事')+'</td><td>'+esc(settled?'已結算':'進行中')+'</td><td>'+esc(p?String((+p.buyin||0)+(+p.rebuy||0)+(+p.addon||0)):'—')+'</td><td>'+(cost===null?'—':money(cost))+'</td><td>'+(win===null?'—':money(win))+'</td><td class="'+(netRow===null?'':epcPnlClass_(netRow))+'">'+(netRow===null?'—':money(netRow))+'</td></tr>';
- }).join('');
+  const row='<tr><td>'+esc(businessDateForEvent(e))+'</td><td>'+esc(e.name||eventDisplayName_(e)||'賽事')+'</td><td>'+esc(settled?'已結算':'進行中')+'</td><td>'+esc(p?String((+p.buyin||0)+(+p.rebuy||0)+(+p.addon||0)):'—')+'</td><td>'+(cost===null?'—':money(cost))+'</td><td>'+(win===null?'—':money(win))+'</td><td class="'+(netRow===null?'':epcPnlClass_(netRow))+'">'+(netRow===null?'—':money(netRow))+'</td></tr>';
+  return {date:businessDateForEvent(e)||'未設定日期',groups:p?(+p.buyin||0)+(+p.rebuy||0)+(+p.addon||0):0,cost,win,row};
+ });
+ const groupedHistory=memberProfileGroupedHistory_(historyItems);
+
  const panel=$('memberProfilePanel');if(!panel)return;
  panel.innerHTML='<div class="toolbar" style="justify-content:space-between"><h2>'+esc(epcMemberDisplayName_(m))+'｜會員資料</h2><button onclick="closeMemberProfile_()">關閉</button></div>'+
  '<p class="small">會員編號：'+esc(String(m.id||''))+'　綽號：'+esc(epcNickname_(m)||'—')+'　分帳群組：'+esc(m.group||'—')+'　最後來店：'+esc(memberLastVisit_(m))+'</p>'+
  '<p class="small">營業日：'+esc(from||'全部')+' ～ '+esc(to||'全部')+'；未結算不計入盈虧</p>'+
  '<div class="grid">'+box('參賽場次',String(ev.length))+box('已結算場次',String(new Set(h.map(x=>x.eventId||x.date)).size))+box('實付金額',money(paid))+box('領回金額',money(prize))+box('淨盈虧',money(net),epcPnlClass_(net))+'</div>'+
- '<h3>逐場參賽紀錄</h3><div class="tablewrap"><table><thead><tr><th>營業日</th><th>賽事</th><th>狀態</th><th>組數</th><th>實付</th><th>領回</th><th>盈虧</th></tr></thead><tbody>'+(rows||'<tr><td colspan="7">查無紀錄</td></tr>')+'</tbody></table></div>';
+ '<h3>參賽紀錄｜按月／日查看</h3><p class="small">點月份查看各營業日，再點日期展開當天逐場明細；實付、領回及盈虧僅計已結算場次。</p>'+groupedHistory;
  panel.hidden=false;panel.scrollIntoView({behavior:'smooth',block:'start'});
+}
+function memberProfileGroupedHistory_(items){
+ if(!items.length)return '<div class="small">查無紀錄</div>';
+ const esc=epcDisplayEscape_,months=new Map();
+ items.forEach(x=>{
+  const month=/^\d{4}-\d{2}-\d{2}$/.test(x.date)?x.date.slice(0,7):'未設定月份';
+  if(!months.has(month))months.set(month,new Map());
+  const days=months.get(month);if(!days.has(x.date))days.set(x.date,[]);days.get(x.date).push(x);
+ });
+ const totals=list=>list.reduce((r,x)=>{
+  r.groups+=x.groups;if(x.cost!==null){r.settled++;r.paid+=x.cost;r.prize+=x.win;}return r;
+ },{groups:0,settled:0,paid:0,prize:0});
+ const summary=(label,list,dayCount)=>{
+  const t=totals(list),net=t.prize-t.paid;
+  return '<span class="mph-label">'+esc(label)+'</span><span class="mph-count">'+(dayCount?dayCount+' 天・':'')+list.length+' 場・'+t.groups+' 組</span><span>實付 '+(t.settled?money(t.paid):'—')+'</span><span>領回 '+(t.settled?money(t.prize):'—')+'</span><span class="'+(t.settled?epcPnlClass_(net):'')+'">盈虧 '+(t.settled?money(net):'—')+'</span>';
+ };
+ return '<div class="member-profile-history">'+[...months.entries()].sort((a,b)=>b[0].localeCompare(a[0])).map(([month,days])=>{
+  const list=[...days.values()].flat(),label=month==='未設定月份'?month:month.slice(0,4)+' 年 '+Number(month.slice(5))+' 月';
+  const dayHtml=[...days.entries()].sort((a,b)=>b[0].localeCompare(a[0])).map(([date,records])=>
+   '<details class="mph-day"><summary>'+summary(date,records)+'</summary><div class="tablewrap"><table><thead><tr><th>營業日</th><th>賽事</th><th>狀態</th><th>組數</th><th>實付</th><th>領回</th><th>盈虧</th></tr></thead><tbody>'+records.map(x=>x.row).join('')+'</tbody></table></div></details>'
+  ).join('');
+  return '<details class="mph-month"><summary>'+summary(label,list,days.size)+'</summary><div class="mph-days">'+dayHtml+'</div></details>';
+ }).join('')+'</div>';
 }
 function closeMemberProfile_(){const p=$('memberProfilePanel');if(p)p.hidden=true;}
 function renderMemberRows(){
