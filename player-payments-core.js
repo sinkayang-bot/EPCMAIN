@@ -52,9 +52,14 @@
    const total=totalDue(s);if(total!==Number(cmd.expectedDue))throw Error('尚欠總額已變更，請重新確認收款');
    for(const id of Object.keys(s.accounts).sort((a,b)=>String(s.accounts[a].date).localeCompare(String(s.accounts[b].date))))useWallet(id);
    for(const a of Object.values(s.accounts))a.paid+=due(a);
+  }else if(cmd.kind==='archive'){
+   if(s.wallet||totalDue(s))throw Error('尚有寄存金或未結清款項，請先處理餘額再刪除');
+   if(Object.values(s.accounts).some(a=>a.paid>a.charge))throw Error('尚有溢付金額，請先處理後再刪除');
+   if(Object.values(s.profits).some(p=>p.limit>p.used+p.cash))throw Error('尚有未領取盈餘，請先處理後再刪除');
+   s.archived=true;
   }else if(cmd.kind==='void'){
    const old=s.items.find(x=>x.id===cmd.targetId);
-   if(!old||old.voidedBy||!old.effects||['void','change','reconcile'].includes(old.kind)||(old.kind==='add'&&!old.cashAmount))throw Error('此筆紀錄不能撤銷；請修正場次數量或核對後續使用');
+   if(!old||old.voidedBy||!old.effects||['void','change','reconcile','archive'].includes(old.kind)||(old.kind==='add'&&!old.cashAmount))throw Error('此筆紀錄不能撤銷；請修正場次數量或核對後續使用');
    s.wallet-=old.effects.wallet||0;
    for(const [id,n] of Object.entries(old.effects.paid||{})){if(!s.accounts[id])throw Error('原始場次帳務不存在');s.accounts[id].paid-=n;}
    for(const [id,v] of Object.entries(old.effects.profits||{})){if(!s.profits[id])throw Error('原始盈餘不存在');s.profits[id].used-=v.used;s.profits[id].cash-=v.cash;}
@@ -68,6 +73,7 @@
   for(const [id,p] of Object.entries(s.profits)){const old=before.profits[id]||{used:0,cash:0};if(p.used!==old.used||p.cash!==old.cash)effects.profits[id]={used:p.used-old.used,cash:p.cash-old.cash};}
   const changed=effects.wallet||Object.keys(effects.paid).length||Object.keys(effects.profits).length||JSON.stringify(s.accounts)!==JSON.stringify(before.accounts);
   if(cmd.kind==='reconcile'&&!changed)return {state:original||s,unchanged:true};
+  if(cmd.kind!=='archive')s.archived=false;
   const cashAmount=['add','settleAll'].includes(cmd.kind)?Object.values(effects.paid).reduce((n,x)=>n+x,0)+effects.wallet:cmd.kind==='cash'?Number(cmd.amount):0;
   s.items.push({id:cmd.id,kind:cmd.kind,at:now,eventId,sourceEventId:cmd.sourceEventId||'',amount:Number(cmd.amount)||0,cashAmount,note:String(cmd.note||''),targetId:cmd.targetId||'',effects});
   s.revision=(Number(s.revision)||0)+1;

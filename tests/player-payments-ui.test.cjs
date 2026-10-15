@@ -44,5 +44,11 @@ await w.PP.increment('B','42');assert(w.PP.pending('42').length===1);w.PP.render
 await w.PP.clearAll('','42');assert.equal(w.PP.pending('42').length,0);
 w.PP.renderPage();assert($('ppPageBody').textContent.includes('小甲'));assert($('ppPageBody').textContent.includes('結清剩餘帳款'));
 assert.equal(w.currentEvent().players[0].prize,0);assert.equal(w.db.events.find(e=>e.id==='A').players[0].prize,5400);
+assert($('ppPageBody').textContent.includes('刪除'));
+await w.PP.removeAccount('','42');assert.notEqual(data.get('accounting/PLAYER_PAYMENTS_42').archived,true);assert(notices.some(x=>x.includes('未領取盈餘')));
+w.PP.open('B','42');$('ppMethod').value='profitCash';w.PP.methodChanged();$('ppSource').value='A';$('ppProfitConfirmed').checked=true;$('ppAmount').value='1000';await w.PP.submit();
+const beforeDelete=data.get('accounting/PLAYER_PAYMENTS_42').items.length;
+await w.PP.removeAccount('','42');assert.equal(data.get('accounting/PLAYER_PAYMENTS_42').archived,true);assert.equal(data.get('accounting/PLAYER_PAYMENTS_42').items.length,beforeDelete+1);assert(!$('ppPageBody').textContent.includes('小甲'));
+w.PP.open('','42');$('ppMethod').value='deposit';$('ppAmount').value='100';await w.PP.submit();w.PP.renderPage();assert($('ppPageBody').textContent.includes('小甲'));assert.equal(data.get('accounting/PLAYER_PAYMENTS_42').archived,false);
 dom.window.close();console.log('PASS: real page DOM, register checkbox, deposit, +1 rebuy, partial cash, prior net-profit offset, red/clear labels, pending summary, cross-event clear, preserved prizes.');
 })().catch(e=>{console.error(e);process.exitCode=1});

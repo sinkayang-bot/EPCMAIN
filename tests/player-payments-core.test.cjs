@@ -51,3 +51,15 @@ const staleRevision=all.revision;const first=op(all,'withdraw',{}, {amount:1500}
 assert.throws(()=>C.apply(first,{id:'terminal-B',memberId,kind:'withdraw',amount:1500,expectedRevision:staleRevision},{}),/已有更新/);
 assert.equal(first.wallet,500);
 console.log('PASS: legacy baseline; add/rebuy auto-deposit; partial payments; net-profit confirmation/limits; retries; stale revision; reversals; overpayments; cross-event clear.');
+
+assert.throws(()=>op(first,'archive'),/寄存金/);
+assert.throws(()=>op(all,'archive'),/寄存金/);
+let archived=op(null,'archive');assert.equal(archived.archived,true);
+const archiveItem=archived.items.at(-1).id;
+assert.throws(()=>op(archived,'void',{}, {targetId:archiveItem}),/不能撤銷/);
+archived=op(archived,'deposit',{}, {amount:100});assert.equal(archived.archived,false);
+assert.throws(()=>op(p,'archive'),/未結清/);
+let clean=op(null,'reconcile',{A:event(3400)},{eventId:'A'});
+clean.profits.P={limit:1000,used:0,cash:0};assert.throws(()=>op(clean,'archive'),/未領取盈餘/);
+clean.profits.P.cash=1000;clean=op(clean,'archive');assert.equal(clean.archived,true);assert.equal(clean.accounts.A.paid,3400);
+console.log('PASS: deletion guards outstanding balances/profits, retains payment history and restores on new activity.');
