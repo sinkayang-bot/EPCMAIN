@@ -36,5 +36,26 @@ main.parallel-screen{height:100vh;min-height:0;padding:1.5vh 1.5vw;display:grid;
 .activity-panel .leaderboard .member-number{white-space:nowrap;font-variant-numeric:tabular-nums}
 .activity-panel .leaderboard .player-identity{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;overflow-wrap:normal}
 .activity-panel .leaderboard td:last-child,.activity-panel .leaderboard th:last-child{text-align:right}
-</style><main id="screen"><div class="center"><h1>EPC 顯示設備</h1><p>正在連線…</p></div></main><script src="../firebase-config.js"></script><script type="module" src="./screen.js?v=20261016-seconds"></script></html>
+
+/* Extreme10: keep the ranking above the fold, including parallel panels. */
+.ten-content{min-width:0}
+.ten-summary{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:12px 0 16px;font-size:clamp(16px,1.4vw,28px);border-bottom:1px solid #454039}
+.ten-summary b{color:#e3c36d}.ten-summary small{display:block;font-size:.65em;color:#bdc6d4}
+.ten-ranking{table-layout:fixed;font-size:clamp(22px,2vw,40px);font-variant-numeric:tabular-nums}
+.ten-ranking .ten-rank-col{width:12%}.ten-ranking .ten-id-col{width:24%}.ten-ranking .ten-seconds-col{width:36%}
+.ten-ranking .ten-rank{font-weight:900;color:#e3c36d;font-size:1.2em}
+.ten-ranking td,.ten-ranking th{padding:.8vh .7vw}
+.ten-ranking .ten-seconds{white-space:nowrap;text-align:right}
+.ten-ranking small{display:block;font-size:.52em;color:#aeb9c9;line-height:1.3;font-weight:400}
+.ten-ranking .ten-success b{color:#49c27d}.ten-ranking tbody tr:nth-child(-n+3){background:#d8b65f0c}
+.activity-panel .ten-summary{font-size:clamp(12px,1vw,20px);padding:.6vh 0;gap:.4vw}
+.activity-panel .ten-summary small{font-size:.65em}
+.activity-panel .ten-ranking{font-size:clamp(13px,1.2vw,25px)!important}
+.activity-panel .ten-ranking td,.activity-panel .ten-ranking th{padding:.35vh .3vw}
+.activity-panel .ten-ranking .ten-seconds{overflow-wrap:normal}
+.activity-panel .ten-ranking .ten-seconds-col{width:39%}
+.activity-panel .ten-ranking .ten-rank-col{width:12%}
+.activity-panel .ten-ranking small{font-size:.58em}
+.ten-ranking .player-identity .ten-result{white-space:normal}
+</style><main id="screen"><div class="center"><h1>EPC 顯示設備</h1><p>正在連線…</p></div></main><script src="../firebase-config.js"></script><script type="module" src="./screen.js?v=20261016-ranking-layout2"></script></html>
 

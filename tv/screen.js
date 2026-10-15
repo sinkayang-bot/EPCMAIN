@@ -6,13 +6,10 @@ function identity(r,ui){return [ui.showName!==false?esc(r.name||r.member||''):nu
 function render(p,target=host){
  const ui=p.ui||{},header=`<header><h1>${esc(p.title||'EPC')}</h1><span>${esc(p.activityFrom||'')} ～ ${esc(p.activityTo||'')}</span></header>`;
  if(p.type==='extremeTen'||ui.kind==='extremeTen'||String(p.title||'').replace(/\s/g,'')==='極限10秒'){
-  const rows=(p.rows||[]).slice(0,ui.limit||10),compact=!!ui.compact;
-  const cols=(ui.showRank!==false?1:0)+(ui.showName!==false?1:0)+(ui.showMemberId?1:0)+3;
-  target.innerHTML=header+`<div class="grid" style="grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:18px">
-   <div class="card"><div>成功獎勵</div><div style="font-size:clamp(22px,3vw,52px);font-weight:900">${money(Number(p.rewardCash||0)+Number(p.rewardCoupon||0))}</div><div style="font-size:clamp(14px,1.1vw,24px)">現金 ${money(p.rewardCash)}＋折價卡 ${money(p.rewardCoupon)}</div></div>
-   <div class="card"><div>挑戰目標</div><div style="font-size:clamp(22px,3vw,52px);font-weight:900">10.00 秒</div></div>
-   <div class="card"><div>剩餘獎勵</div><div style="font-size:clamp(22px,3vw,52px);font-weight:900">${Number(p.remaining??8)} / ${Number(p.rewardLimit||8)} 份</div></div>
-  </div><table class="leaderboard" style="font-size:clamp(16px,${compact?1.25:1.8}vw,40px)"><thead><tr>${ui.showRank!==false?'<th>排名</th>':''}${ui.showName!==false?'<th>玩家</th>':''}${ui.showMemberId?'<th>會員編號</th>':''}<th>挑戰秒數</th><th>距離 10.00 秒</th><th>結果</th></tr></thead><tbody>${rows.map(r=>`<tr>${ui.showRank!==false?`<td>${Number(r.rank||0)}</td>`:''}${ui.showName!==false?`<td class="player-identity">${esc(r.name||'')}</td>`:''}${ui.showMemberId?`<td class="member-number">${esc(r.memberId||'')}</td>`:''}<td style="font-weight:900;color:${r.success?'#49c27d':'inherit'}">${esc(r.seconds??'—')} 秒</td><td>${esc(r.difference)} 秒</td><td>${esc(r.awardType|| (r.success?'挑戰成功':'挑戰紀錄'))}</td></tr>`).join('')||`<tr><td colspan="${cols}">尚無挑戰紀錄</td></tr>`}</tbody></table><footer style="font-size:clamp(14px,1.1vw,24px)">月底未送完，依最接近 10.00 秒的排名補發獎勵</footer>`;
+  const rows=(p.rows||[]).slice(0,ui.limit||10);
+  const cols=3+(ui.showMemberId?1:0);
+  target.innerHTML=header+`<div class="ten-content"><div class="ten-summary"><span>目標 <b>10.00 秒</b></span><span>獎勵 <b>${money(Number(p.rewardCash||0)+Number(p.rewardCoupon||0))}</b><small>現金 ${money(p.rewardCash)}＋折價卡 ${money(p.rewardCoupon)}</small></span><span>剩餘 <b>${Number(p.remaining??8)}／${Number(p.rewardLimit||8)} 份</b></span></div>
+  <table class="leaderboard ten-ranking"><colgroup><col class="ten-rank-col"><col>${ui.showMemberId?'<col class="ten-id-col">':''}<col class="ten-seconds-col"></colgroup><thead><tr><th>排名</th><th>${ui.showName!==false?'玩家':'會員'}</th>${ui.showMemberId?'<th>會員編號</th>':''}<th>挑戰秒數</th></tr></thead><tbody>${rows.map((r,i)=>`<tr><td class="ten-rank">${Number(r.rank||i+1)}</td><td class="player-identity">${esc(ui.showName!==false?(r.name||r.memberId||''):(ui.showMemberId?'—':r.memberId||''))}${r.awardType||r.success?`<small class="ten-result">${esc(r.awardType||(r.success?'挑戰成功':''))}</small>`:''}</td>${ui.showMemberId?`<td class="member-number">${esc(r.memberId||'')}</td>`:''}<td class="ten-seconds${r.success?' ten-success':''}"><b>${esc(r.seconds??'—')} 秒</b><small>距離 10.00 秒：${esc(r.difference??'—')} 秒</small></td></tr>`).join('')||`<tr><td colspan="${cols}">尚無挑戰紀錄</td></tr>`}</tbody></table><footer>依最接近 10.00 秒排名；月底未送完依排名補發。</footer></div>`;
   return;
  }
  if(p.type==='boss'){

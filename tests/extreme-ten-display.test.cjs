@@ -7,6 +7,7 @@ const source=fs.readFileSync(require.resolve('../tv/screen.js'),'utf8');
 vm.runInContext(source.slice(source.indexOf('function identity'),source.indexOf('\ntry{\n cloud=')),ctx);
 const data={type:'extremeTen',title:'極限 10 秒',rewardCash:1000,rewardCoupon:1000,rows:[{rank:1,name:'甲',seconds:'9.98',difference:'0.02'}]};
 function check(payload){ctx.data={paired:true,payload};vm.runInContext('show(data)',ctx);assert(host.textContent.includes('挑戰秒數'));assert(host.textContent.includes('9.98 秒'));assert(host.textContent.includes('0.02 秒'));assert(!host.textContent.includes('積分'));}
+check({...data,ui:{showRank:false}});assert(host.querySelector('.ten-rank'));assert(!host.querySelector('.grid'));assert.equal(host.querySelectorAll('th').length,3);
 check(data);check({type:'parallel',panels:[data]});check({type:'rotate',slides:[data]});check({type:'rotateParallel',slides:[{type:'parallel',panels:[data]},data]});next();assert(host.textContent.includes('9.98 秒'));
 check({...data,type:'legacy',ui:{kind:'extremeTen'}});
 check({...data,type:'legacy'});
