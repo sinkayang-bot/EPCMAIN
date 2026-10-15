@@ -41,15 +41,16 @@ w.PP.open('B','42');$('ppAmount').value='600';$('ppMethod').value='cash';await w
 $('ppMethod').value='profit';w.PP.methodChanged();assert(!$('ppProfitArea').hidden);$('ppSource').value='A';$('ppProfitConfirmed').checked=true;$('ppAmount').value='1000';await w.PP.submit();
 assert.equal(w.PP.info(w.currentEvent(),w.currentEvent().players[0]).due,0);assert.equal(data.get('accounting/PLAYER_PAYMENTS_42').profits.A.used,1000);assert(w.PP.nameCell(w.currentEvent(),w.currentEvent().players[0],'甲').includes('pp-clear'));
 await w.PP.increment('B','42');assert(w.PP.pending('42').length===1);w.PP.renderPending();assert($('epcUnpaidPlayers').textContent.includes('小甲'));
+w.PP.renderPage();assert($('ppPageBody').textContent.includes('小甲'));assert($('ppPageBody').textContent.includes('刪除'));
 await w.PP.clearAll('','42');assert.equal(w.PP.pending('42').length,0);
-w.PP.renderPage();assert($('ppPageBody').textContent.includes('小甲'));assert($('ppPageBody').textContent.includes('結清剩餘帳款'));
+w.PP.renderPage();assert(!$('ppPageBody').textContent.includes('小甲'));assert($('ppPageBody').textContent.includes('目前沒有未結帳玩家'));
 assert.equal(w.currentEvent().players[0].prize,0);assert.equal(w.db.events.find(e=>e.id==='A').players[0].prize,5400);
-assert($('ppPageBody').textContent.includes('刪除'));
 await w.PP.removeAccount('','42');assert.notEqual(data.get('accounting/PLAYER_PAYMENTS_42').archived,true);assert(notices.some(x=>x.includes('未領取盈餘')));
 w.PP.open('B','42');$('ppMethod').value='profitCash';w.PP.methodChanged();$('ppSource').value='A';$('ppProfitConfirmed').checked=true;$('ppAmount').value='1000';await w.PP.submit();
 const beforeDelete=data.get('accounting/PLAYER_PAYMENTS_42').items.length;
 await w.PP.removeAccount('','42');assert.equal(data.get('accounting/PLAYER_PAYMENTS_42').archived,true);assert.equal(data.get('accounting/PLAYER_PAYMENTS_42').items.length,beforeDelete+1);assert(!$('ppPageBody').textContent.includes('小甲'));
-w.PP.open('','42');$('ppMethod').value='deposit';$('ppAmount').value='100';await w.PP.submit();w.PP.renderPage();assert($('ppPageBody').textContent.includes('小甲'));assert.equal(data.get('accounting/PLAYER_PAYMENTS_42').archived,false);
+w.PP.open('','42');$('ppMethod').value='deposit';$('ppAmount').value='100';await w.PP.submit();w.PP.renderPage();assert(!$('ppPageBody').textContent.includes('小甲'));assert.equal(data.get('accounting/PLAYER_PAYMENTS_42').archived,false);
+await w.PP.increment('B','42');w.PP.renderPage();assert($('ppPageBody').textContent.includes('小甲'));console.log('PASS: zero-debt players disappear even with deposits, history remains accessible, new debt restores the row.');
 // Registration prices discounts before collecting cash, avoiding false overpayment.
 w.db.members.push({id:'43',name:'乙'});
 Object.assign(w.currentEvent(),{earlyBirdDiscount:100,lateBirdDiscount:200,ladiesDiscount:200});

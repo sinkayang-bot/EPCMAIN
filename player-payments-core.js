@@ -28,9 +28,14 @@
   const account=()=>{if(!s.accounts[eventId])throw Error('找不到本場玩家帳務');return s.accounts[eventId];};
   const useWallet=id=>{const a=s.accounts[id];if(!a)return;const used=Math.min(s.wallet,due(a));s.wallet-=used;a.paid+=used;return used;};
   const pay=(n,id=eventId)=>{if(!s.accounts[id])throw Error('找不到欠款場次');if(n>due(s.accounts[id]))throw Error('付款超過尚欠金額；多出的款項請另登記寄存');s.accounts[id].paid+=n;};
-  if(['add','change','reconcile','walletPay'].includes(cmd.kind)){
-   account();useWallet(eventId);
+  if(['add','rebuy','change','reconcile','walletPay'].includes(cmd.kind)){
+   const a=account(),previousDue=cmd.kind==='rebuy'?Math.max(0,a.charge-Number(cmd.chargeDelta||0)-a.paid):0;
+   const used=useWallet(eventId)||0;
    if(cmd.kind==='add'&&cmd.paidNow)pay(due(account()));
+   if(cmd.kind==='rebuy'&&cmd.paidNow){
+    const delta=Number(cmd.chargeDelta);if(!money(delta))throw Error('本次重買金額不正確');
+    pay(Math.min(due(a),Math.max(0,delta-Math.max(0,used-previousDue))));
+   }
   }else if(cmd.kind==='cash'||cmd.kind==='transfer')pay(amount(cmd.amount));
   else if(cmd.kind==='deposit')s.wallet+=amount(cmd.amount);
   else if(cmd.kind==='withdraw'){const n=amount(cmd.amount);if(n>s.wallet)throw Error('寄存金不足');s.wallet-=n;}
@@ -59,7 +64,7 @@
    s.archived=true;
   }else if(cmd.kind==='void'){
    const old=s.items.find(x=>x.id===cmd.targetId);
-   if(!old||old.voidedBy||!old.effects||['void','change','reconcile','archive'].includes(old.kind)||(old.kind==='add'&&!old.cashAmount))throw Error('此筆紀錄不能撤銷；請修正場次數量或核對後續使用');
+   if(!old||old.voidedBy||!old.effects||['void','change','reconcile','archive'].includes(old.kind)||(['add','rebuy'].includes(old.kind)&&!old.cashAmount))throw Error('此筆紀錄不能撤銷；請修正場次數量或核對後續使用');
    s.wallet-=old.effects.wallet||0;
    for(const [id,n] of Object.entries(old.effects.paid||{})){if(!s.accounts[id])throw Error('原始場次帳務不存在');s.accounts[id].paid-=n;}
    for(const [id,v] of Object.entries(old.effects.profits||{})){if(!s.profits[id])throw Error('原始盈餘不存在');s.profits[id].used-=v.used;s.profits[id].cash-=v.cash;}
@@ -74,7 +79,7 @@
   const changed=effects.wallet||Object.keys(effects.paid).length||Object.keys(effects.profits).length||JSON.stringify(s.accounts)!==JSON.stringify(before.accounts);
   if(cmd.kind==='reconcile'&&!changed)return {state:original||s,unchanged:true};
   if(cmd.kind!=='archive')s.archived=false;
-  const cashAmount=['add','settleAll'].includes(cmd.kind)?Object.values(effects.paid).reduce((n,x)=>n+x,0)+effects.wallet:cmd.kind==='cash'?Number(cmd.amount):0;
+  const cashAmount=['add','rebuy','settleAll'].includes(cmd.kind)?Object.values(effects.paid).reduce((n,x)=>n+x,0)+effects.wallet:cmd.kind==='cash'?Number(cmd.amount):0;
   s.items.push({id:cmd.id,kind:cmd.kind,at:now,eventId,sourceEventId:cmd.sourceEventId||'',amount:Number(cmd.amount)||0,cashAmount,note:String(cmd.note||''),targetId:cmd.targetId||'',effects});
   s.revision=(Number(s.revision)||0)+1;
   if(JSON.stringify(s).length>750000)throw Error('玩家帳務紀錄容量接近上限，請先匯出封存');

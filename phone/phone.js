@@ -1,8 +1,48 @@
 import {initializeApp} from 'https://www.gstatic.com/firebasejs/12.4.0/firebase-app.js';
 import {getFirestore,collection,doc,onSnapshot,runTransaction,serverTimestamp} from 'https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js';
+import * as fs from 'https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js';
+import * as authMod from 'https://www.gstatic.com/firebasejs/12.4.0/firebase-auth.js';
+import {setupAccountingAuth} from '../firebase-accounting-auth.js?v=20261016-phone-payments1';
+import {setupPlayerPayments} from '../player-payments-cloud.js?v=20261016-phone-payments1';
+import {pricePlayer,registrationPrice,rebuyPrice} from '../player-pricing.js?v=20261016-phone-payments1';
 const $=id=>document.getElementById(id),esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const store=getFirestore(initializeApp(window.EPC_FIREBASE_CONFIG,'epc-phone')),col=collection(store,'epc_events');
-let events=[],selected='',unsubscribe,members=new Map();const drafts=new Map(),busy=new Set();
+const app=initializeApp(window.EPC_FIREBASE_CONFIG,'epc-phone'),store=getFirestore(app),col=collection(store,'epc_events');
+let events=[],selected='',unsubscribe,members=new Map(),memberRows=[];const drafts=new Map(),busy=new Set();
+// Share the desktop transaction ledger; every money write requires verified admin access.
+const paymentBridge={accountingReady:false,requireAccountingAccess(){throw Error('請先完成 Google 管理員登入')}};
+window.epcPlayerPaymentPrice_=(raw,p)=>pricePlayer(raw,p).paid;
+setupPlayerPayments({fs,db:store,col,accountingCol:collection(store,'epc_daily_accounting'),bridge:paymentBridge});
+let paymentRows=new Map(),mobilePaymentBusy=false,mobilePending=null;
+try{mobilePending=JSON.parse(sessionStorage.getItem('epcMobilePaymentPendingV1')||'null')}catch(_){}
+function playerDue(e,p){const a=paymentRows.get(String(p.memberId))?.accounts?.[e.eventId];return a?Math.max(0,pricePlayer(e,p).paid-Number(a.paid||0)):Math.max(0,Number(p.registrationUnpaidAmount)||0)+Math.max(0,Number(p.rebuyUnpaidAmount)||0);}
+function paymentBadge(e,p){const due=playerDue(e,p);return '<span class="payment-badge '+(due?'unpaid':'clear')+'">'+(due?'未結帳 $'+num(due):'已結帳')+'</span>';}
+function showPaymentPending(){$('mobilePaymentRetry').hidden=!mobilePending;}
+async function mobilePayment(command){
+ paymentBridge.requireAccountingAccess();
+ if(mobilePaymentBusy)throw Error('上一筆正在儲存，請稍候');
+ if(mobilePending)throw Error('上一筆儲存結果尚未確認，請先按「確認上一筆報名／重買結果」');
+ const ledger=paymentRows.get(String(command.memberId));
+ mobilePending={...command,id:'MP_'+Date.now()+'_'+crypto.randomUUID(),expectedRevision:ledger?.revision||0};
+ sessionStorage.setItem('epcMobilePaymentPendingV1',JSON.stringify(mobilePending));showPaymentPending();
+ return flushMobilePayment();
+}
+async function flushMobilePayment(){
+ paymentBridge.requireAccountingAccess();if(!mobilePending||mobilePaymentBusy)return;
+ mobilePaymentBusy=true;$('mobilePaymentRetry').disabled=true;$('mobilePaymentState').textContent='正在確認報名／重買儲存結果…';
+ try{
+  const cmd=mobilePending,result=await paymentBridge.playerPayment(cmd);
+  if(result.ledger)paymentRows.set(String(cmd.memberId),result.ledger);
+  if(result.event){const i=events.findIndex(e=>e.eventId===result.event.eventId);if(i>=0&&Number(events[i]._eventUpdatedAt||0)<=Number(result.event._eventUpdatedAt||0))events[i]=result.event;}
+  mobilePending=null;sessionStorage.removeItem('epcMobilePaymentPendingV1');
+  $('mobilePaymentState').textContent='已儲存，玩家帳務同步完成';$('mobilePaymentState').className='message good';render();calculateRegistrationPrice();return result;
+ }catch(err){
+  if(!['unavailable','deadline-exceeded','unknown'].includes(err?.code)){mobilePending=null;sessionStorage.removeItem('epcMobilePaymentPendingV1');}
+  $('mobilePaymentState').textContent=err.message;$('mobilePaymentState').className='message error';throw err;
+ }finally{mobilePaymentBusy=false;$('mobilePaymentRetry').disabled=false;showPaymentPending();}
+}
+$('mobilePaymentRetry').addEventListener('click',()=>flushMobilePayment().catch(err=>status(err.message,true)));showPaymentPending();
+window.addEventListener('epcPlayerPayments',ev=>{if(!ev.detail?.connected)paymentRows.clear();for(const x of ev.detail?.rows||[]){const old=paymentRows.get(String(x.memberId));if(!old||Number(x.revision)>=Number(old.revision))paymentRows.set(String(x.memberId),x);}calculateRegistrationPrice();render();});
+setupAccountingAuth({app,fs,accountingCol:collection(store,'epc_daily_accounting'),bridge:paymentBridge,authMod});
 // Keep the summary below the actual header height, including wrapped status text.
 const header=document.querySelector('header');
 const updateHeaderHeight=()=>document.documentElement.style.setProperty('--phone-header-height',header.getBoundingClientRect().height+'px');
@@ -96,39 +136,39 @@ function updateDashboard(){
  $('dashRebuys').textContent=ps.reduce((n,p)=>n+(+p.rebuy||0),0)+' 組';
  $('dashGroups').textContent=ps.reduce((n,p)=>n+(+p.buyin||0)+(+p.rebuy||0)+(+p.addon||0),0)+' 組';
  $('overviewStats').textContent=e?'賽事：'+(e.name||'')+'｜報名 '+ps.length+' 人｜總買入 '+ps.reduce((n,p)=>n+(+p.buyin||0)+(+p.rebuy||0)+(+p.addon||0),0)+' 組':'無進行中賽事';
- $('overviewPlayers').innerHTML=e?'<h3 class="overview-player-title">參賽玩家（點擊可操作）</h3>'+ps.map(p=>'<button type="button" class="overview-person" data-overview-player="'+esc(p.memberId)+'"><b>'+esc(seatLabel(p))+'</b><small>會員編號 '+esc(p.memberId)+'｜首次 '+num(p.buyin)+' 組｜重買 '+num(p.rebuy)+' 組｜總計 '+num((+p.buyin||0)+(+p.rebuy||0)+(+p.addon||0))+' 組｜'+(p.earlyBird?'早鳥':p.lateBird?'晚鳥':'一般')+'</small></button>').join(''):'<div class="empty">目前沒有進行中的賽事</div>';
+ $('overviewPlayers').innerHTML=e?'<h3 class="overview-player-title">參賽玩家（點擊可操作）</h3>'+ps.map(p=>'<button type="button" class="overview-person" data-overview-player="'+esc(p.memberId)+'"><b>'+esc(seatLabel(p))+'</b>'+paymentBadge(e,p)+'<small>會員編號 '+esc(p.memberId)+'｜首次 '+num(p.buyin)+' 組｜重買 '+num(p.rebuy)+' 組｜總計 '+num((+p.buyin||0)+(+p.rebuy||0)+(+p.addon||0))+' 組｜'+([p.earlyBird?'早鳥':p.lateBird?'晚鳥':'',p.ladies?'女士':''].filter(Boolean).join('＋')||'一般')+'</small></button>').join(''):'<div class="empty">目前沒有進行中的賽事</div>';
 }
 
 function renderRebuy(){
  const e=events.find(x=>x.eventId===selected),sel=$('rebuyPlayer');if(!sel)return;
- const old=sel.value;sel.innerHTML=(e?.players||[]).map(p=>'<option value="'+esc(p.memberId)+'">'+esc(seatLabel(p))+'｜已重買 '+num(p.rebuy)+' 組</option>').join('');
+ const old=sel.value;sel.innerHTML=(e?.players||[]).map(p=>'<option value="'+esc(p.memberId)+'">'+esc(seatLabel(p))+'｜已重買 '+num(p.rebuy)+' 組'+(playerDue(e,p)?'｜未結帳 $'+num(playerDue(e,p)):'｜已結帳')+'</option>').join('');
  if((e?.players||[]).some(p=>String(p.memberId)===old))sel.value=old;
- const n=Number($('rebuyGroups').value||0),p=(e?.players||[]).find(p=>String(p.memberId)===sel.value);
- const unit=Number(e?.rebuyTotal||e?.buyinTotal||e?.level||0),discount=Number($('rebuyManualDiscount').value||0);
- $('rebuyPriceNote').textContent=p?'本次新增 '+n+' 組｜每組 '+num(unit)+' 元｜參考應收 '+num(Math.max(0,n*unit-discount))+' 元（優惠計價仍須核對電腦帳務規則）':'請先選擇已報名玩家';
+ const p=(e?.players||[]).find(p=>String(p.memberId)===sel.value),ladies=$('rebuyLadies');
+ if(p?.ladies){ladies.checked=true;ladies.disabled=true;ladies.dataset.player=sel.value;}else{if(ladies.dataset.player!==sel.value){ladies.checked=false;ladies.dataset.player=sel.value;}ladies.disabled=false;}
+ try{
+  const cost=rebuyPrice(e,p,Number($('rebuyGroups').value),Number($('rebuyManualDiscount').value||0),ladies.checked),due=playerDue(e,p),wallet=paymentRows.get(String(p.memberId))?.wallet||0;
+  const used=Math.min(wallet,due+cost.amount),cashDue=Math.max(0,cost.amount-Math.max(0,used-due));
+  $('rebuyPriceNote').textContent='本次新增 '+$('rebuyGroups').value+' 組｜應付 '+num(cost.amount)+' 元｜原欠 '+num(due)+' 元｜寄存抵扣 '+num(used)+' 元｜本次另收 '+num(cashDue)+' 元（不含原欠款）';
+ }catch(err){$('rebuyPriceNote').textContent=err.message;}
 }
 $('overviewPlayers').addEventListener('click',ev=>{const b=ev.target.closest('[data-overview-player]');if(!b)return;showPanel('rebuyPanel');$('rebuyPlayer').value=b.dataset.overviewPlayer;renderRebuy();});
 $('rebuyPlayer').addEventListener('change',renderRebuy);
 $('rebuyGroups').addEventListener('input',renderRebuy);
 $('rebuyManualDiscount').addEventListener('input',renderRebuy);
+$('rebuyLadies').addEventListener('change',renderRebuy);
 $('rebuySaveBtn').addEventListener('click',async()=>{
- const e=events.find(x=>x.eventId===selected),id=$('rebuyPlayer').value,groups=Number($('rebuyGroups').value),discount=Number($('rebuyManualDiscount').value),msg=$('rebuyMessage'),btn=$('rebuySaveBtn');
- if(!e||!id||!Number.isSafeInteger(groups)||groups<1||groups>100||!Number.isSafeInteger(discount)||discount<0||discount>0){msg.textContent='請選擇玩家並輸入 1～100 組；手動優惠尚未支援安全帳務累加，請設為 0';msg.className='message error';return}
- const unpaid=$('rebuyUnpaid').checked;
- if(!confirm('確定為此玩家新增 '+groups+' 組重買？'+(unpaid?'（本次未結帳）':'')))return;
- btn.disabled=true;msg.textContent='正在儲存重買…';msg.className='message';
- try{await runTransaction(store,async tx=>{
-  const ref=doc(col,e.eventId),snap=await tx.get(ref);if(!snap.exists())throw Error('賽事不存在');
-  const cur=snap.data();if(['settled','已結算','deleted'].includes(cur.status))throw Error('賽事已結算');
-  const players=(cur.players||[]).map(p=>({...p})),p=players.find(p=>String(p.memberId)===id);
-  if(!p)throw Error('玩家不在本場');
-  if(unpaid){const amount=groups*Number(cur.rebuyTotal||cur.buyinTotal||cur.level||0);if(!Number.isSafeInteger(amount)||amount<=0)throw Error('重買金額不正確，請確認電腦賽事計價');p.rebuyUnpaidAmount=(Number(p.rebuyUnpaidAmount)||0)+amount;p.rebuyUnpaidEntries=[...(Array.isArray(p.rebuyUnpaidEntries)?p.rebuyUnpaidEntries:[]),{id:'RB'+Date.now()+'-'+groups,amount,groups,createdAt:Date.now()}]}
-  p.rebuy=(Number(p.rebuy)||0)+groups;p._rebuyRevision=(Number(p._rebuyRevision)||0)+1;
-  tx.update(ref,{players,_eventUpdatedAt:Date.now(),updatedAt:serverTimestamp()});
- });msg.textContent='重買成功，新增 '+groups+' 組'+(unpaid?'｜本次未結帳':'｜本次已結帳');msg.className='message good';$('rebuyGroups').value='1';$('rebuyUnpaid').checked=false}
- catch(err){msg.textContent='重買失敗：'+err.message;msg.className='message error'}
- finally{btn.disabled=false;renderRebuy()}
+ const e=events.find(x=>x.eventId===selected),id=$('rebuyPlayer').value,groups=Number($('rebuyGroups').value),discount=Number($('rebuyManualDiscount').value||0),msg=$('rebuyMessage'),btn=$('rebuySaveBtn');
+ if(btn.disabled||mobilePaymentBusy)return;
+ try{
+  const p=e?.players?.find(p=>String(p.memberId)===id),cost=rebuyPrice(e,p,groups,discount,$('rebuyLadies').checked),unpaid=$('rebuyUnpaid').checked;
+  if(!confirm('新增 '+groups+' 組重買｜本次應付 '+num(cost.amount)+' 元｜'+(unpaid?'尚未付款':'確認已收本次款項')+'（寄存金優先抵扣）'))return;
+  btn.disabled=true;msg.textContent='正在儲存重買與付款…';msg.className='message';
+  await mobilePayment({kind:'rebuy',eventId:e.eventId,memberId:id,groups,manualDiscount:discount,ladies:$('rebuyLadies').checked,paidNow:!unpaid,expectedDelta:cost.amount,note:'手機重買｜'+(unpaid?'本次待收':'本次已收款')});
+  msg.textContent='重買成功，新增 '+groups+' 組｜款項已同步玩家帳務';msg.className='message good';$('rebuyGroups').value='1';$('rebuyManualDiscount').value='0';$('rebuyUnpaid').checked=true;
+ }catch(err){msg.textContent='重買失敗：'+err.message;msg.className='message error';}
+ finally{btn.disabled=false;renderRebuy();}
 });
+
 function render(){
  const open=events.filter(e=>!['settled','已結算','deleted'].includes(e.status)).sort((a,b)=>String(b.businessDate||b.date||'').localeCompare(String(a.businessDate||a.date||''))||Number(b.seq||1)-Number(a.seq||1));
  if(!open.some(e=>e.eventId===selected))selected=open[0]?.eventId||'';
@@ -144,7 +184,7 @@ function render(){
  const reb=(e.players||[]).reduce((a,p)=>a+(+p.rebuy||0),0);
  if($('entrySummary'))$('entrySummary').textContent='報名 '+(e.players||[]).length+' 人｜重買 '+reb+' 組｜總買入 '+total+' 組';
  const focus=document.activeElement?.dataset.member,focusField=document.activeElement?.dataset.field,start=document.activeElement?.selectionStart;
- $('players').innerHTML=players.map(p=>{const id=String(p.memberId),d=drafts.get(key(selected,id)),m=members.get(id);return `<div class="card"><div class="name">${esc([p.nickname,m?.nickname,m?.name,p.name,id].map(v=>String(v??'').trim()).find(Boolean))}</div><div class="meta">會員編號 ${esc(id)}｜${num((+p.buyin||0)+(+p.rebuy||0)+(+p.addon||0))} 組｜已儲存籌碼：${p.stack==null?'未輸入':num(p.stack)}｜人頭：${num(p.hunterHeads)}</div>${Object.entries(fieldLabels).map(([field,label])=>`<label>${label}</label><input type="text" ${field==='seat'?'maxlength="20"':'inputmode="numeric" pattern="[0-9]*"'} data-member="${esc(id)}" data-field="${field}" value="${esc(d?.patch&&field in d.patch?d.patch[field]:(p[field]??(field==='hunterHeads'?0:'')))}" ${busy.has(key(selected,id))?'disabled':''}>`).join('')}<div class="toolbar"><button data-save="${esc(id)}" ${busy.has(key(selected,id))?'disabled':''}>${busy.has(key(selected,id))?'儲存中':'儲存'}</button></div><div class="message ${d?.error?'error':d?.saved?'good':''}">${esc(d?.message||'')}</div></div>`}).join('');
+ $('players').innerHTML=players.map(p=>{const id=String(p.memberId),d=drafts.get(key(selected,id)),m=members.get(id);return `<div class="card"><div class="name ${playerDue(e,p)?'unpaid-player':''}">${esc([p.nickname,m?.nickname,m?.name,p.name,id].map(v=>String(v??'').trim()).find(Boolean))}</div>${paymentBadge(e,p)}<div class="meta">會員編號 ${esc(id)}｜${num((+p.buyin||0)+(+p.rebuy||0)+(+p.addon||0))} 組｜已儲存籌碼：${p.stack==null?'未輸入':num(p.stack)}｜人頭：${num(p.hunterHeads)}</div>${Object.entries(fieldLabels).map(([field,label])=>`<label>${label}</label><input type="text" ${field==='seat'?'maxlength="20"':'inputmode="numeric" pattern="[0-9]*"'} data-member="${esc(id)}" data-field="${field}" value="${esc(d?.patch&&field in d.patch?d.patch[field]:(p[field]??(field==='hunterHeads'?0:'')))}" ${busy.has(key(selected,id))?'disabled':''}>`).join('')}<div class="toolbar"><button data-save="${esc(id)}" ${busy.has(key(selected,id))?'disabled':''}>${busy.has(key(selected,id))?'儲存中':'儲存'}</button></div><div class="message ${d?.error?'error':d?.saved?'good':''}">${esc(d?.message||'')}</div></div>`}).join('');
  if(focus){const input=Array.from($('players').querySelectorAll('input')).find(x=>x.dataset.member===focus&&x.dataset.field===focusField);if(input&&!input.disabled){input.focus();if(start!=null)input.setSelectionRange(start,start)}}
 
 }
@@ -184,7 +224,6 @@ $('chipTableSelect').addEventListener('change',()=>{selectedChipTable=$('chipTab
 $('eventSelect').addEventListener('change',()=>{selected=$('eventSelect').value;selectedChipTable='all';render();calculateRegistrationPrice()});$('reload').addEventListener('click',subscribe);subscribe();
 // Read-only member labels; roster and writes always use EPCMAIN Firestore.
 const API='https://script.google.com/macros/s/AKfycbwZi5bXuFJdtXiE6oxPmn4NZti-wZyOwEfTKZ8VPo5nXP5GK1mPOYrfkxz714AN4UQx9w/exec';
-let memberRows=[];
 async function api(action,data={}){
  const response=await fetch(API,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({action,...data})});
  if(!response.ok)throw Error('伺服器 HTTP '+response.status);
@@ -199,7 +238,7 @@ function renderMemberOptions(){
  else if(q&&!list.length)$('memberResults').innerHTML='<div class="meta">找不到符合的會員（目前已載入 '+memberRows.length+' 筆）</div>';
 }
 $('memberSearch').addEventListener('focus',renderMemberOptions);
-$('memberSearch').addEventListener('input',()=>{$('memberSelect').value='';$('memberChosen').textContent='尚未選擇會員';renderMemberOptions()});
+$('memberSearch').addEventListener('input',()=>{$('memberSelect').value='';$('memberChosen').textContent='尚未選擇會員';renderMemberOptions();calculateRegistrationPrice()});
 $('memberResults').addEventListener('click',e=>{
  const btn=e.target.closest('[data-memberkey]');if(!btn)return;
  const m=memberRows.find(x=>memberKeyOf(x)===btn.dataset.memberkey);if(!m)return;
@@ -208,43 +247,34 @@ $('memberResults').addEventListener('click',e=>{
  $('memberSelect').value=k;
  $('memberSearch').value=[m.name,m.nickname,m.memberId].filter(Boolean).join(' / ');
  $('memberChosen').textContent='已選擇：'+$('memberSearch').value;
- $('memberResults').innerHTML='';
+ $('memberResults').innerHTML='';calculateRegistrationPrice();
 });
 function selectedEvent(){return events.find(x=>x.eventId===selected)}
 function calculateRegistrationPrice(){
- const e=selectedEvent(),groups=Number($('buyinGroups').value),bird=$('birdType').value,manual=Number($('manualDiscount').value||0);
- if(!e||!Number.isSafeInteger(groups)||groups<1||groups>100){$('priceNote').textContent='請選擇賽事並輸入有效組數';return}
- const unit=Number(e.buyinTotal||e.level||0),discount=bird==='early'?Number(e.earlyBirdDiscount||0):bird==='late'?Number(e.lateBirdDiscount||0):0;
- const base=groups*unit,amount=Math.max(0,base-discount-Math.max(0,manual));
- $('amountPaid').value=amount;
- $('priceNote').textContent='每組 '+num(unit)+' 元 × '+groups+' 組；'+(discount?'優惠 '+num(discount)+' 元':'無早晚鳥優惠')+'；手動優惠 '+num(manual)+' 元；應收 '+num(amount)+' 元';
+ const e=selectedEvent();if(!e)return;
+ $('registrationLadiesAmount').textContent='−'+num(e.ladiesDiscount??Math.floor(Number(e.pricingMode==='custom'?e.buyinAdmin:e.fee||0)/2))+' 元／場';
+ try{
+  const cost=registrationPrice(e,Number($('buyinGroups').value),$('birdType').value,$('registrationLadies').checked,Number($('manualDiscount').value||0));
+  const m=memberRows.find(x=>memberKeyOf(x)===$('memberSelect').value),wallet=paymentRows.get(String(m?.memberId))?.wallet||0;
+  $('amountPaid').value=cost.paid;$('priceNote').textContent='應付 '+num(cost.paid)+' 元｜優惠合計 '+num(cost.totalDiscount)+' 元｜寄存抵扣 '+num(Math.min(wallet,cost.paid))+' 元｜本次另收 '+num(Math.max(0,cost.paid-wallet))+' 元';
+ }catch(err){$('amountPaid').value='';$('priceNote').textContent=err.message;}
 }
 $('buyinGroups').addEventListener('input',calculateRegistrationPrice);
 $('birdType').addEventListener('change',calculateRegistrationPrice);
+$('registrationLadies').addEventListener('change',calculateRegistrationPrice);
 $('manualDiscount').addEventListener('input',calculateRegistrationPrice);
 $('registerBtn').addEventListener('click',async()=>{
- const e=selectedEvent(),memberKey=$('memberSelect').value,m=memberRows.find(x=>memberKeyOf(x)===memberKey),msg=$('registerMessage');
- if(!e||!m){msg.textContent='請先選擇賽事及會員';msg.className='message error';return}
- const groups=Number($('buyinGroups').value),amount=Number($('amountPaid').value),unit=Number(e.buyinTotal||e.level||0),bird=$('birdType').value;
- const discount=bird==='early'?Number(e.earlyBirdDiscount||0):bird==='late'?Number(e.lateBirdDiscount||0):0;
- const standard=groups*unit-discount,manual=Number($('manualDiscount').value);
- if(!Number.isSafeInteger(groups)||groups<1||groups>100||!Number.isSafeInteger(manual)||manual<0||manual>standard||!Number.isSafeInteger(amount)||amount<0||amount!==standard-manual||!Number.isFinite(unit)||unit<=0){msg.textContent='組數或金額無效，應收金額不可超過標準金額';msg.className='message error';return}
- const unpaid=$('registrationUnpaid').checked;
- const btn=$('registerBtn');btn.disabled=true;msg.textContent='正在寫入賽事…';msg.className='message';
+ const e=selectedEvent(),memberKey=$('memberSelect').value,m=memberRows.find(x=>memberKeyOf(x)===memberKey),msg=$('registerMessage'),btn=$('registerBtn');
+ if(btn.disabled||mobilePaymentBusy)return;
  try{
-  await runTransaction(store,async tx=>{
-   const ref=doc(col,e.eventId),snap=await tx.get(ref);
-   if(!snap.exists())throw Error('Firebase 賽事不存在，請重新整理');
-   const current=snap.data();
-   if(['settled','已結算','deleted'].includes(current.status))throw Error('賽事已結算，禁止報名');
-   const players=Array.isArray(current.players)?current.players.slice():[];
-   if(players.some(p=>String(p.memberKey||'')===memberKey||String(p.memberId||'')===String(m.memberId)))throw Error('此會員已報名本場');
-   players.push({memberId:String(m.memberId),memberKey:memberKeyOf(m),name:m.name||'',nickname:m.nickname||'',group:m.group||'',buyin:groups,rebuy:0,addon:0,earlyBird:bird==='early',lateBird:bird==='late',manualDiscount:manual,registrationUnpaid:unpaid,registrationUnpaidAmount:unpaid?amount:0,stack:null,hunterHeads:0,seat:'',prize:0});
-   tx.update(ref,{players,_eventUpdatedAt:Date.now(),updatedAt:serverTimestamp()});
-  });
-  msg.textContent='報名成功｜'+groups+' 組｜'+(unpaid?'尚未結帳 ':'已結帳 ') +num(amount)+' 元';msg.className='message good';
-  $('memberSearch').value='';$('memberSelect').innerHTML='<option value="">尚未選擇</option>';$('memberChosen').textContent='尚未選擇會員';renderMemberOptions();$('registrationUnpaid').checked=false;
- }catch(err){msg.textContent='報名失敗：'+err.message;msg.className='message error'}
- finally{btn.disabled=false}
+  if(!e||!m)throw Error('請先選擇賽事及會員');
+  const cost=registrationPrice(e,Number($('buyinGroups').value),$('birdType').value,$('registrationLadies').checked,Number($('manualDiscount').value||0)),unpaid=$('registrationUnpaid').checked;
+  btn.disabled=true;msg.textContent='正在儲存報名與付款…';msg.className='message';
+  await mobilePayment({kind:'add',eventId:e.eventId,memberId:String(m.memberId),paidNow:!unpaid,expectedCharge:cost.paid,player:{...cost.p,memberKey:memberKeyOf(m),name:m.name||'',nickname:m.nickname||'',group:m.group||'',stack:null},note:'手機報名｜'+(unpaid?'待收':'已收款')});
+  msg.textContent='報名成功｜'+cost.p.buyin+' 組｜應付 '+num(cost.paid)+' 元｜已同步玩家帳務';msg.className='message good';
+  $('memberSearch').value='';$('memberSelect').innerHTML='<option value="">尚未選擇</option>';$('memberChosen').textContent='尚未選擇會員';$('memberResults').innerHTML='';$('registrationUnpaid').checked=true;$('registrationLadies').checked=false;$('birdType').value='none';$('manualDiscount').value='0';$('buyinGroups').value='1';calculateRegistrationPrice();
+ }catch(err){msg.textContent='報名失敗：'+err.message;msg.className='message error';}
+ finally{btn.disabled=false;}
 });
 api('member.list').then(r=>{memberRows=Array.isArray(r.members)?r.members:[];members=new Map(memberRows.map(m=>[String(m.memberId),m]));renderMemberOptions();render();$('memberChosen').textContent='會員已載入 '+memberRows.length+' 筆，點擊搜尋框選擇'}).catch(err=>{$('registerMessage').textContent='會員載入失敗：'+err.message;$('registerMessage').className='message error'});
+

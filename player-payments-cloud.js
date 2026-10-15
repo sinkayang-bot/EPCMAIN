@@ -1,4 +1,4 @@
-import './player-payments-core.js?v=20261016-registration1';
+import './player-payments-core.js?v=20261016-phone-payments1';
 export function setupPlayerPayments({fs,db,col,accountingCol,bridge}){
  const Core=globalThis.EPCPlayerPaymentsCore;
  bridge.playerPaymentDocId=id=>'PLAYER_PAYMENTS_'+encodeURIComponent(String(id));
@@ -15,7 +15,7 @@ export function setupPlayerPayments({fs,db,col,accountingCol,bridge}){
    const snapshots=await Promise.all(ids.map(id=>tx.get(fs.doc(col,id))));
    const raws=new Map();snapshots.forEach((x,i)=>{if(x.exists())raws.set(ids[i],{...x.data(),eventId:ids[i]});});
    let changed=null;
-   if(cmd.kind==='add'||cmd.kind==='change'){
+   if(cmd.kind==='add'||cmd.kind==='change'||cmd.kind==='rebuy'){
     const old=raws.get(String(cmd.eventId));if(!old)throw Error('找不到賽事');
     if(['settled','已結算'].includes(old.status))throw Error('已結算賽事不能新增買入或重買');
     const players=(old.players||[]).map(x=>({...x}));
@@ -25,7 +25,21 @@ export function setupPlayerPayments({fs,db,col,accountingCol,bridge}){
      const details=cmd.player||{};
      if(!Number.isSafeInteger(Number(details.manualDiscount||0))||Number(details.manualDiscount||0)<0)throw Error('手動優惠須為非負整數');
      if(details.earlyBird&&details.lateBird)throw Error('早鳥與晚鳥只能擇一');
-     p={nickname:String(details.nickname||''),group:String(details.group||''),earlyBird:!!details.earlyBird,lateBird:!!details.lateBird,ladies:!!details.ladies,manualDiscount:Number(details.manualDiscount||0),memberId:String(cmd.memberId),buyin:1,rebuy:0,addon:0,prize:0,stack:0,registrationUnpaid:!cmd.paidNow};players.push(p);
+     const groups=Number(details.buyin??1);if(!Number.isSafeInteger(groups)||groups<1||groups>100)throw Error('首次買入須為 1～100 組');
+     p={memberKey:String(details.memberKey||''),name:String(details.name||''),nickname:String(details.nickname||''),group:String(details.group||''),earlyBird:!!details.earlyBird,lateBird:!!details.lateBird,ladies:!!details.ladies,manualDiscount:Number(details.manualDiscount||0),memberId:String(cmd.memberId),buyin:groups,rebuy:0,addon:0,prize:0,stack:details.stack===null?null:0,registrationUnpaid:!cmd.paidNow};players.push(p);
+    }else if(cmd.kind==='rebuy'){
+     if(!p)throw Error('這位玩家已不在本場');
+     const groups=Number(cmd.groups),discount=Number(cmd.manualDiscount||0);
+     if(!Number.isSafeInteger(groups)||groups<1||groups>100||!Number.isSafeInteger(discount)||discount<0)throw Error('重買組數或優惠不正確');
+     const oldCharge=window.epcPlayerPaymentPrice_(old,p);
+     p.rebuy=Number(p.rebuy||0)+groups;p.manualDiscount=Number(p.manualDiscount||0)+discount;
+     if(cmd.ladies)p.ladies=true;
+     if(discount){p._manualDiscountEditedAt=Date.now();p._manualDiscountEditedValue=p.manualDiscount;}
+     p._rebuyRevision=Number(p._rebuyRevision||0)+1;
+     const delta=window.epcPlayerPaymentPrice_(old,p)-oldCharge;
+     if(!Number.isSafeInteger(delta)||delta<0)throw Error('本次優惠不能超過重買金額');
+     if(cmd.expectedDelta!=null&&Number(cmd.expectedDelta)!==delta)throw Error('玩家組數或優惠已有變更，請重新確認本次應收金額');
+     cmd.chargeDelta=delta;
     }else{
      if(!p)throw Error('這位玩家已不在本場');
      const fields=['buyin','rebuy','addon','manualDiscount','earlyBird','lateBird','ladies'];
@@ -43,7 +57,7 @@ export function setupPlayerPayments({fs,db,col,accountingCol,bridge}){
     p._paymentRevision=(Number(p._paymentRevision)||0)+1;
     changed={...old,players,_eventUpdatedAt:Math.max(Date.now(),Number(old._eventUpdatedAt||0)+1)};
     // Baseline must be captured BEFORE applying a change to a legacy player.
-    if(cmd.kind==='change'&&!stored.accounts?.[String(cmd.eventId)]){
+    if(['change','rebuy'].includes(cmd.kind)&&!stored.accounts?.[String(cmd.eventId)]){
      const previous=(old.players||[]).find(x=>String(x.memberId)===String(cmd.memberId));
      const oldCharge=window.epcPlayerPaymentPrice_(old,previous);
      const legacyDue=Math.max(0,Number(previous.registrationUnpaidAmount)||0)+Math.max(0,Number(previous.rebuyUnpaidAmount)||0);

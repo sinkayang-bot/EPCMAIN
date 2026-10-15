@@ -79,7 +79,7 @@
    },
    async deleteDailyAccounting(date){this.requireAccountingAccess();date=String(date||'').trim();if(date)await fs.deleteDoc(fs.doc(accountingCol,date))}
   };
-  const paymentModule=await import('./player-payments-cloud.js?v=20261016-registration1');
+  const paymentModule=await import('./player-payments-cloud.js?v=20261016-phone-payments1');
   paymentModule.setupPlayerPayments({fs,db,col,accountingCol,bridge:window.EPCFirestore});
   fs.onSnapshot(col,snap=>{
    const rows=[];snap.forEach(d=>{const x=d.data()||{};if(x.status!=='deleted')rows.push({...x,eventId:x.eventId||d.id})});
@@ -91,7 +91,7 @@
   try{
    const [authMod,accountingAuth]=await Promise.all([
     import('https://www.gstatic.com/firebasejs/12.4.0/firebase-auth.js'),
-    import('./firebase-accounting-auth.js?v=20261016-registration1')
+    import('./firebase-accounting-auth.js?v=20261016-phone-payments1')
    ]);
    accountingAuth.setupAccountingAuth({app,fs,accountingCol,bridge:window.EPCFirestore,authMod});
   }catch(err){
