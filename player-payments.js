@@ -1,7 +1,7 @@
 (function(){
  'use strict';
  const Core=window.EPCPlayerPaymentsCore,el=id=>document.getElementById(id),esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
- const cash=n=>'$'+Number(n||0).toLocaleString(),state=new Map(),attempts=new Map();let loaded=false,busy=false,selection=null,autoTimer=null,uncertain=null,registration=null,registrationSaving=false;
+ const cash=n=>'$'+Number(n||0).toLocaleString(),state=new Map(),attempts=new Map();let loaded=false,busy=false,selection=null,autoTimer=null,uncertain=null,registration=null,registrationSaving=false,removal=null;
  const events=()=>window.epcDb?.events||db.events||[],members=()=>window.epcDb?.members||db.members||[];
  const findEvent=id=>events().find(e=>String(e.id)===String(id));
  const player=(e,id)=>(e?.players||[]).find(p=>String(p.memberId)===String(id));
@@ -64,10 +64,10 @@
  function renderPage(){
   const root=el('ppPageBody');if(!root)return;
   const q=String(el('ppSearch')?.value||'').trim().toLowerCase(),dues=pending(),ids=new Set([...state.keys(),...dues.map(x=>String(x.p.memberId))]);
-  const rows=[...ids].map(id=>({id,s:ledger(id),debts:dues.filter(x=>String(x.p.memberId)===id)})).filter(x=>x.debts.length>0).filter(x=>!q||[name(x.id),x.id].join(' ').toLowerCase().includes(q));
+  const rows=[...ids].map(id=>({id,s:ledger(id),debts:dues.filter(x=>String(x.p.memberId)===id)})).filter(x=>x.debts.length>0||x.s.wallet>0).filter(x=>!q||[name(x.id),x.id].join(' ').toLowerCase().includes(q));
   el('ppConnection').innerHTML=(loaded?'玩家帳務已連線':'請先到 EPC帳務完成 Google 管理員登入')+(uncertain?' <button data-pp-action onclick="PP.retryPending()">確認上一筆儲存結果</button>':'');
   el('ppMemberList').innerHTML=actMemberSearchOptions_();
-  root.innerHTML='<div class="grid"><div class="card kpi"><div class="l">寄存金合計</div><div class="v">'+cash([...state.values()].reduce((n,x)=>n+x.wallet,0))+'</div></div><div class="card kpi"><div class="l">未結清合計</div><div class="v neg">'+cash(dues.reduce((n,x)=>n+x.due,0))+'</div></div></div><div class="tablewrap"><table><thead><tr><th>玩家</th><th>會員編號</th><th>寄存金</th><th>未結清</th><th>操作</th></tr></thead><tbody>'+(!rows.length?'<tr><td colspan="5" class="small">'+(q?'沒有符合搜尋的未結帳玩家':'目前沒有未結帳玩家')+'</td></tr>':'')+rows.map(x=>'<tr><td>'+button(esc(name(x.id)),'',x.id)+'</td><td>'+esc(x.id)+'</td><td>'+cash(x.s.wallet)+'</td><td class="neg">'+cash(x.debts.reduce((n,r)=>n+r.due,0))+'</td><td>'+button('帳務明細／寄存','',x.id)+' '+button('結清剩餘帳款','',x.id,'clearAll')+' '+button('刪除','',x.id,'removeAccount')+'</td></tr>').join('')+'</tbody></table></div><p class="small">寄存、獎金抵扣及補帳屬付款紀錄，不會改動原賽事的獎池、JP 或優惠。此列表只顯示未結帳玩家，結清後自動移除；寄存與歷史明細可從上方選擇會員開啟。舊紀錄沿用既有付款狀態，不追溯產生新欠款。</p>';
+  root.innerHTML='<div class="grid"><div class="card kpi"><div class="l">寄存金合計</div><div class="v">'+cash([...state.values()].reduce((n,x)=>n+x.wallet,0))+'</div></div><div class="card kpi"><div class="l">未結清合計</div><div class="v neg">'+cash(dues.reduce((n,x)=>n+x.due,0))+'</div></div></div><div class="tablewrap"><table><thead><tr><th>玩家</th><th>會員編號</th><th>寄存金</th><th>未結清</th><th>操作</th></tr></thead><tbody>'+(!rows.length?'<tr><td colspan="5" class="small">'+(q?'沒有符合搜尋的寄存／欠款玩家':'目前沒有寄存金或未結帳款')+'</td></tr>':'')+rows.map(x=>'<tr><td>'+button(esc(name(x.id)),'',x.id)+'</td><td>'+esc(x.id)+'</td><td>'+cash(x.s.wallet)+'</td><td class="neg">'+cash(x.debts.reduce((n,r)=>n+r.due,0))+'</td><td>'+button('帳務明細／寄存','',x.id)+' '+button('結清剩餘帳款','',x.id,'clearAll')+' '+button('刪除','',x.id,'removeAccount')+'</td></tr>').join('')+'</tbody></table></div><p class="small">寄存、獎金抵扣及補帳屬付款紀錄，不會改動原賽事的獎池、JP 或優惠。此列表顯示有寄存金或未結帳款的玩家；兩者皆為 0 才自動隱藏，歷史明細可從上方選擇會員開啟。舊紀錄沿用既有付款狀態，不追溯產生新欠款。</p>';
  }
  function open(e,id){selection={eventId:String(e||''),memberId:String(id)};renderDialog();if(!el('ppDialog').open)el('ppDialog').showModal();}
  function renderDialog(){
@@ -83,7 +83,7 @@
   <div class="toolbar"><button class="primary" data-pp-action onclick="PP.submit()">確認登記</button><button data-pp-action data-m="${esc(memberId)}" onclick="PP.clearAll('',this.dataset.m)">結清剩餘帳款</button></div><div id="ppStatus" class="small"></div>
   <h3>未結帳場次</h3><div class="pp-pending">${rows.map(r=>button(esc(businessDateForEvent(r.e))+'｜'+esc(eventDisplayName_(r.e))+'｜欠 '+cash(r.due),r.e.id,memberId)).join('')||'無未結帳紀錄'}</div>
   <details style="margin-top:14px"><summary>盈餘抵扣／領取餘額</summary>${Object.entries(s.profits||{}).map(([id,x])=>'<p>'+esc(x.date)+'｜'+esc(x.name)+'：盈餘 '+cash(x.limit)+'；已抵扣 '+cash(x.used)+'；已領現金 '+cash(x.cash)+'；剩餘 '+cash(x.limit-x.used-x.cash)+'</p>').join('')||'<p>尚無已確認的盈餘來源</p>'}</details>
-  <details style="margin-top:14px"><summary>付款與異動紀錄（${s.items.length} 筆）</summary><div class="tablewrap"><table><thead><tr><th>時間</th><th>項目</th><th>金額／異動</th><th>備註</th><th>操作</th></tr></thead><tbody>${s.items.slice().reverse().map(x=>`<tr><td>${esc(new Date(x.at).toLocaleString('zh-TW'))}</td><td>${esc(({add:'報名',rebuy:'手機重買',change:'買入／優惠調整',reconcile:'寄存自動抵扣／欠款登記',walletPay:'寄存抵扣',cash:'現金補帳',transfer:'轉帳收款',deposit:'存入寄存',withdraw:'領回寄存',profit:'盈餘抵扣',profitCash:'盈餘已領現金',creditExcess:'溢付轉寄存',settleAll:'跨場結清',archive:'刪除帳務名單',void:'撤銷'})[x.kind]||x.kind)}${x.eventId?'<br>'+esc(s.accounts[x.eventId]?.date||'')+'｜'+esc(s.accounts[x.eventId]?.name||''):''}</td><td>${x.amount?cash(x.amount):''}${['add','rebuy','settleAll'].includes(x.kind)&&x.cashAmount?'<br>現金收款 '+cash(x.cashAmount):''}${x.effects?.wallet?'<br>寄存 '+(x.effects.wallet>0?'+':'')+cash(x.effects.wallet):''}${Object.entries(x.effects?.paid||{}).map(([id,n])=>'<br>付款 '+(n>0?'+':'')+cash(n)).join('')}</td><td>${esc(x.note||'')}${x.voidedBy?'（已撤銷）':''}</td><td>${!x.voidedBy&&!['change','reconcile','void','archive'].includes(x.kind)&&(!['add','rebuy'].includes(x.kind)||x.cashAmount>0)?`<button data-pp-action data-id="${esc(x.id)}" onclick="PP.undo(this.dataset.id)">撤銷</button>`:'—'}</td></tr>`).join('')}</tbody></table></div></details>`;
+  <details style="margin-top:14px"><summary>付款與異動紀錄（${s.items.length} 筆）</summary><div class="tablewrap"><table><thead><tr><th>時間</th><th>項目</th><th>金額／異動</th><th>備註</th><th>操作</th></tr></thead><tbody>${s.items.slice().reverse().map(x=>`<tr><td>${esc(new Date(x.at).toLocaleString('zh-TW'))}</td><td>${esc(({add:'報名',rebuy:'手機重買',change:'買入／優惠調整',reconcile:'寄存自動抵扣／欠款登記',walletPay:'寄存抵扣',cash:'現金補帳',transfer:'轉帳收款',deposit:'存入寄存',withdraw:'領回寄存',profit:'盈餘抵扣',profitCash:'盈餘已領現金',creditExcess:'溢付轉寄存',settleAll:'跨場結清',archive:'刪除帳務名單',cancelRegistration:'取消本場報名',void:'撤銷'})[x.kind]||x.kind)}${x.eventId?'<br>'+esc(s.accounts[x.eventId]?.date||'')+'｜'+esc(s.accounts[x.eventId]?.name||''):''}</td><td>${x.amount?cash(x.amount):''}${['add','rebuy','settleAll'].includes(x.kind)&&x.cashAmount?'<br>現金收款 '+cash(x.cashAmount):''}${x.effects?.wallet?'<br>寄存 '+(x.effects.wallet>0?'+':'')+cash(x.effects.wallet):''}${Object.entries(x.effects?.paid||{}).map(([id,n])=>'<br>付款 '+(n>0?'+':'')+cash(n)).join('')}</td><td>${esc(x.note||'')}${x.voidedBy?'（已撤銷）':''}</td><td>${!x.voidedBy&&!['change','reconcile','void','archive','cancelRegistration'].includes(x.kind)&&(!['add','rebuy'].includes(x.kind)||x.cashAmount>0)?`<button data-pp-action data-id="${esc(x.id)}" onclick="PP.undo(this.dataset.id)">撤銷</button>`:'—'}</td></tr>`).join('')}</tbody></table></div></details>`;
  }
  function methodChanged(){el('ppProfitArea').hidden=!['profit','profitCash'].includes(el('ppMethod').value);}
  async function submit(){
@@ -118,6 +118,37 @@
   }catch(err){setStatus(err.message||String(err),true);}
  }
  async function undo(id){if(!selection||busy||!confirm('撤銷此筆付款／寄存紀錄？相關餘額會一起回復。'))return;try{await run({kind:'void',memberId:selection.memberId,targetId:id});}catch(err){setStatus(err.message,true);}}
+ function closeRemoval(){if(busy)return;removal=null;el('ppRemovalDialog')?.close();}
+ async function removePlayer(e,id){
+  if(busy)return actionMsg('帳務儲存中，請稍候再操作',true);
+  try{
+   ensure();if(!e)throw Error('尚未選擇賽事');
+   if(['settled','已結算'].includes(e.status))throw Error('已結算賽事請先解鎖，再取消報名');
+   if(typeof EPC_FIRESTORE_EVENT_SAVE_TIMERS!=='undefined'){
+    const t=EPC_FIRESTORE_EVENT_SAVE_TIMERS.get(String(e.id));if(t){clearTimeout(t);EPC_FIRESTORE_EVENT_SAVE_TIMERS.delete(String(e.id));await syncEventToFirestore_(e,true);}
+   }
+   const p=player(findEvent(e.id),id);if(!p)throw Error('這位玩家已不在本場');
+   const v=info(findEvent(e.id),p);removal={eventId:String(e.id),memberId:String(id),expectedPaid:v.paid,expectedCharge:v.charge};
+   if(!el('ppRemovalDialog')){
+    const d=document.createElement('dialog');d.id='ppRemovalDialog';document.body.appendChild(d);
+    d.addEventListener('cancel',ev=>{if(busy)ev.preventDefault();else removal=null;});
+   }
+   el('ppRemovalDialog').innerHTML=`<h2>取消本場報名｜${esc(name(id))}</h2><p>本場應付 ${cash(v.charge)}｜已付 ${cash(v.paid)}｜尚欠 ${cash(v.due)}</p><p>移除後本場買入、重買與欠款會一併取消，原始收付款及取消紀錄會保留。</p><label>已付款如何處理</label><select id="ppRemovalMethod"><option value="">請選擇處理方式</option><option value="mistake">誤登／未實際收款，撤銷登記</option><option value="refund">已將已付金額退還玩家</option><option value="wallet">已付金額轉為玩家寄存金</option></select><p class="small">曾使用寄存金或盈餘抵扣時，請選轉寄存或確認已退款。</p><label>備註</label><input id="ppRemovalNote" placeholder="例如：誤加玩家、退賽已退款"><div class="toolbar"><button type="button" class="danger" data-pp-action onclick="PP.confirmRemoval()">確認移除本場玩家</button><button type="button" data-pp-action onclick="PP.closeRemoval()">返回</button></div><div id="ppRemovalStatus" role="status"></div>`;
+   if(!v.paid){el('ppRemovalMethod').value='mistake';el('ppRemovalMethod').disabled=true;}
+   el('ppRemovalDialog').showModal();
+  }catch(err){actionMsg(err.message||String(err),true);}
+ }
+ async function confirmRemoval(){
+  if(!removal||busy)return;
+  try{
+   const disposition=el('ppRemovalMethod').value;if(!disposition)throw Error('請先選擇已付款的處理方式');
+   const labels={mistake:'確認沒有實際收取此筆款項，取消誤登',refund:'確認已將款項退還玩家',wallet:'將已付款轉為玩家寄存金'};
+   if(!confirm(name(removal.memberId)+'：'+labels[disposition]+' '+cash(removal.expectedPaid)+'，並移除本場報名？'))return;
+   const result=await run({kind:'cancelRegistration',...removal,disposition,amount:removal.expectedPaid,note:labels[disposition]+'；'+el('ppRemovalNote').value.trim()});
+   if(!result)return;
+   removal=null;el('ppRemovalDialog').close();actionMsg('已移除本場玩家，帳務處理與原始紀錄已保留');
+  }catch(err){if(el('ppRemovalStatus')){el('ppRemovalStatus').textContent=err.message||String(err);el('ppRemovalStatus').className='neg';}}
+ }
  function registrationPrice(){
   if(!registration)return null;const e=findEvent(registration.eventId);if(!e)throw Error('找不到本場賽事');
   const manual=Number(el('ppRegManual').value||0);if(!Number.isSafeInteger(manual)||manual<0)throw Error('手動優惠須為非負整數');
@@ -197,7 +228,7 @@
    return;
   }
  },250);}
- window.PP={registrationPreview,confirmRegistration,cancelRegistration,open,clearAll,removeAccount,undo,submit,methodChanged,nameCell,amountCell,rebuyCell,renderPage,refresh,pending,info,renderPending,
+ window.PP={removePlayer,confirmRemoval,closeRemoval,registrationPreview,confirmRegistration,cancelRegistration,open,clearAll,removeAccount,undo,submit,methodChanged,nameCell,amountCell,rebuyCell,renderPage,refresh,pending,info,renderPending,
   retryPending:async()=>{if(!uncertain||busy)return;try{await run(uncertain.command);}catch(err){setStatus(err.message,true);}},
   increment:(e,id)=>edit(findEvent(e),id,'rebuy',0,true),
   openMember:()=>{const id=actResolveMember_('ppMember');if(!members().some(m=>String(m.id)===String(id)))return actionMsg('請選擇會員',true);open('',id);}
@@ -210,7 +241,7 @@
  window.renderEventUnpaidStatus_=renderPending;
  for(const fn of ['removePlayerSafe','removePlayerByIndex','delP']){
   const original=window[fn];if(typeof original!=='function')continue;
-  window[fn]=function(arg){const e=currentEvent(),p=fn==='removePlayerSafe'?player(e,arg):e?.players?.[Number(arg)];if(p&&ledger(p.memberId).accounts[String(e.id)])return actionMsg('此玩家已有帳務紀錄；請先將買入／重買改為 0，再處理溢付與撤銷付款，保留紀錄供查核。',true);return original(arg);};
+  window[fn]=function(arg){const e=currentEvent(),p=fn==='removePlayerSafe'?player(e,arg):e?.players?.[Number(arg)];if(p)return removePlayer(e,p.memberId);return original(arg);};
  }
  window.addEventListener('epcPlayerPayments',ev=>{
   if(!ev.detail?.connected)state.clear();

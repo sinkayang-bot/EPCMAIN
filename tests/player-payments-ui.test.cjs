@@ -43,14 +43,14 @@ assert.equal(w.PP.info(w.currentEvent(),w.currentEvent().players[0]).due,0);asse
 await w.PP.increment('B','42');assert(w.PP.pending('42').length===1);w.PP.renderPending();assert($('epcUnpaidPlayers').textContent.includes('小甲'));
 w.PP.renderPage();assert($('ppPageBody').textContent.includes('小甲'));assert($('ppPageBody').textContent.includes('刪除'));
 await w.PP.clearAll('','42');assert.equal(w.PP.pending('42').length,0);
-w.PP.renderPage();assert(!$('ppPageBody').textContent.includes('小甲'));assert($('ppPageBody').textContent.includes('目前沒有未結帳玩家'));
+w.PP.renderPage();assert(!$('ppPageBody').textContent.includes('小甲'));assert($('ppPageBody').textContent.includes('目前沒有寄存金或未結帳款'));
 assert.equal(w.currentEvent().players[0].prize,0);assert.equal(w.db.events.find(e=>e.id==='A').players[0].prize,5400);
 await w.PP.removeAccount('','42');assert.notEqual(data.get('accounting/PLAYER_PAYMENTS_42').archived,true);assert(notices.some(x=>x.includes('未領取盈餘')));
 w.PP.open('B','42');$('ppMethod').value='profitCash';w.PP.methodChanged();$('ppSource').value='A';$('ppProfitConfirmed').checked=true;$('ppAmount').value='1000';await w.PP.submit();
 const beforeDelete=data.get('accounting/PLAYER_PAYMENTS_42').items.length;
 await w.PP.removeAccount('','42');assert.equal(data.get('accounting/PLAYER_PAYMENTS_42').archived,true);assert.equal(data.get('accounting/PLAYER_PAYMENTS_42').items.length,beforeDelete+1);assert(!$('ppPageBody').textContent.includes('小甲'));
-w.PP.open('','42');$('ppMethod').value='deposit';$('ppAmount').value='100';await w.PP.submit();w.PP.renderPage();assert(!$('ppPageBody').textContent.includes('小甲'));assert.equal(data.get('accounting/PLAYER_PAYMENTS_42').archived,false);
-await w.PP.increment('B','42');w.PP.renderPage();assert($('ppPageBody').textContent.includes('小甲'));console.log('PASS: zero-debt players disappear even with deposits, history remains accessible, new debt restores the row.');
+w.PP.open('','42');$('ppMethod').value='deposit';$('ppAmount').value='100';await w.PP.submit();w.PP.renderPage();assert($('ppPageBody').textContent.includes('小甲'));assert.equal(data.get('accounting/PLAYER_PAYMENTS_42').archived,false);
+await w.PP.increment('B','42');w.PP.renderPage();assert($('ppPageBody').textContent.includes('小甲'));console.log('PASS: wallet holders remain visible without debts, zero balances disappear, history remains accessible, new debt restores the row.');
 // Registration prices discounts before collecting cash, avoiding false overpayment.
 w.db.members.push({id:'43',name:'乙'});
 Object.assign(w.currentEvent(),{earlyBirdDiscount:100,lateBirdDiscount:200,ladiesDiscount:200});
@@ -64,5 +64,9 @@ $('ppRegManual').value='9999';w.PP.registrationPreview();assert($('ppRegConfirm'
 $('ppRegistrationPaid').checked=true;w.PP.registrationPreview();assert.equal($('ppRegConfirm').disabled,false);
 await w.PP.confirmRegistration();const lady=w.currentEvent().players.find(x=>x.memberId==='43'),ladyInfo=w.PP.info(w.currentEvent(),lady);assert(lady.ladies);assert(lady.lateBird);assert(!lady.earlyBird);assert.equal(ladyInfo.charge,2950);assert.equal(ladyInfo.paid,2950);assert.equal(ladyInfo.excess,0);assert.equal(ladyInfo.due,0);
 console.log('PASS: registration confirmation dialog, live discounts, early/late exclusion, ladies and manual discounts, paid-at-final-price with no false overpayment.');
+await w.PP.removePlayer(w.currentEvent(),'43');assert($('ppRemovalDialog').open);assert.equal($('ppRemovalMethod').value,'');
+await w.PP.confirmRemoval();assert($('ppRemovalStatus').textContent.includes('請先選擇'));
+$('ppRemovalMethod').value='mistake';await w.PP.confirmRemoval();assert(!$('ppRemovalDialog').open);assert(!w.currentEvent().players.some(x=>x.memberId==='43'));assert.equal(data.get('accounting/PLAYER_PAYMENTS_43').accounts.B.charge,0);assert(data.get('accounting/PLAYER_PAYMENTS_43').items.some(x=>x.kind==='cancelRegistration'));
+console.log('PASS: removal dialog requires disposition, cancels paid mistaken entry and retains audit.');
 dom.window.close();console.log('PASS: real page DOM, register checkbox, deposit, +1 rebuy, partial cash, prior net-profit offset, red/clear labels, pending summary, cross-event clear, preserved prizes.');
 })().catch(e=>{console.error(e);process.exitCode=1});

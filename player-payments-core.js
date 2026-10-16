@@ -24,6 +24,7 @@
     s.accounts[id]={paid:baseline,charge:e.charge,date:e.date||'',name:e.name||'',openingPaid:baseline};
    }
    Object.assign(s.accounts[id],{charge:e.charge,date:e.date||'',name:e.name||''});
+   if(e.newPlayer)s.accounts[id].cancelled=false;
   }
   const account=()=>{if(!s.accounts[eventId])throw Error('找不到本場玩家帳務');return s.accounts[eventId];};
   const useWallet=id=>{const a=s.accounts[id];if(!a)return;const used=Math.min(s.wallet,due(a));s.wallet-=used;a.paid+=used;return used;};
@@ -36,6 +37,22 @@
     const delta=Number(cmd.chargeDelta);if(!money(delta))throw Error('本次重買金額不正確');
     pay(Math.min(due(a),Math.max(0,delta-Math.max(0,used-previousDue))));
    }
+  }else if(cmd.kind==='cancelRegistration'){
+   const a=account();
+   if(events[eventId]?.settled)throw Error('已結算賽事請先解鎖，再取消報名');
+   if(a.paid!==Number(cmd.expectedPaid)||a.charge!==Number(cmd.expectedCharge))throw Error('應付或已付金額已變更，請重新開啟移除視窗');
+   if(!['mistake','refund','wallet'].includes(cmd.disposition))throw Error('請選擇已付款的處理方式');
+   const profit=s.profits[eventId];
+   if(profit&&(profit.used||profit.cash))throw Error('本場盈餘已有抵扣或領取，請先撤銷相關紀錄');
+   if(cmd.disposition==='mistake'){
+    // Do not erase real wallet/profit funding under a mistaken-cash correction.
+    const funding=s.items.some(x=>!x.voidedBy&&((x.eventId===eventId&&['add','rebuy','change','reconcile','walletPay','profit'].includes(x.kind)&&((x.effects?.wallet||0)<0||Object.values(x.effects?.profits||{}).some(v=>v.used>0)))||(x.kind==='settleAll'&&(x.effects?.paid?.[eventId]||0)>0&&(x.effects?.wallet||0)<0)));
+    if(funding)throw Error('本場曾使用寄存金或盈餘，請選擇「轉寄存」或確認已退款，避免刪掉實際款項');
+   }
+   if(cmd.disposition==='wallet')s.wallet+=a.paid;
+   a.cancelled=true;a.cancelledAt=now;a.cancelDisposition=cmd.disposition;a.cancelledPaid=a.paid;a.cancelledCharge=a.charge;
+   a.paid=0;a.charge=0;
+   if(profit)profit.limit=0;
   }else if(cmd.kind==='cash'||cmd.kind==='transfer')pay(amount(cmd.amount));
   else if(cmd.kind==='deposit')s.wallet+=amount(cmd.amount);
   else if(cmd.kind==='withdraw'){const n=amount(cmd.amount);if(n>s.wallet)throw Error('寄存金不足');s.wallet-=n;}
@@ -64,7 +81,8 @@
    s.archived=true;
   }else if(cmd.kind==='void'){
    const old=s.items.find(x=>x.id===cmd.targetId);
-   if(!old||old.voidedBy||!old.effects||['void','change','reconcile','archive'].includes(old.kind)||(['add','rebuy'].includes(old.kind)&&!old.cashAmount))throw Error('此筆紀錄不能撤銷；請修正場次數量或核對後續使用');
+   if(!old||old.voidedBy||!old.effects||['void','change','reconcile','archive','cancelRegistration'].includes(old.kind)||(['add','rebuy'].includes(old.kind)&&!old.cashAmount))throw Error('此筆紀錄不能撤銷；請修正場次數量或核對後續使用');
+   if(Object.keys(old.effects.paid||{}).some(id=>s.accounts[id]?.cancelledAt&&old.at<=s.accounts[id].cancelledAt))throw Error('此筆付款所屬報名已取消，請查看取消紀錄，不能重複撤銷');
    s.wallet-=old.effects.wallet||0;
    for(const [id,n] of Object.entries(old.effects.paid||{})){if(!s.accounts[id])throw Error('原始場次帳務不存在');s.accounts[id].paid-=n;}
    for(const [id,v] of Object.entries(old.effects.profits||{})){if(!s.profits[id])throw Error('原始盈餘不存在');s.profits[id].used-=v.used;s.profits[id].cash-=v.cash;}

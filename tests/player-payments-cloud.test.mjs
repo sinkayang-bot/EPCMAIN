@@ -52,3 +52,26 @@ const latestDiscount=cmd('change',{eventId:'B',field:'manualDiscount',value:100,
 await bridge.playerPayment(latestDiscount);assert.equal(store.get(eventKey('B')).players[0].manualDiscount,100);assert.equal(store.get(ledgerKey('42')).accounts.B.paid,paidBefore);
 const revisionAfter=store.get(ledgerKey('42')).revision;await bridge.playerPayment(latestDiscount);assert.equal(store.get(ledgerKey('42')).revision,revisionAfter);
 console.log('PASS: explicit desktop last-save edits preserve receipts and remain idempotent.');
+
+// Cancellation updates the live roster and protected ledger atomically.
+const c99=(kind,extra={})=>({id:'remove-cloud-'+(++n),kind,memberId:'99',...extra});
+await bridge.playerPayment(c99('add',{eventId:'B',paidNow:true,expectedCharge:3400,player:{nickname:'誤加'}}));
+const otherPlayerBefore=copy(store.get(eventKey('B')).players.find(x=>x.memberId==='42'));
+const cancel=c99('cancelRegistration',{eventId:'B',expectedCharge:3400,expectedPaid:3400,disposition:'wallet',amount:3400});
+const beforeStale=JSON.stringify([...store]);
+await assert.rejects(bridge.playerPayment({...cancel,id:'stale-remove',expectedPaid:3300}),/已變更/);
+assert.equal(JSON.stringify([...store]),beforeStale);
+const cancelled=await bridge.playerPayment(cancel);
+assert.equal(cancelled.event.players.some(x=>x.memberId==='99'),false);
+assert.equal(store.get(eventKey('B')).players.some(x=>x.memberId==='99'),false);
+assert.deepEqual(store.get(eventKey('B')).players.find(x=>x.memberId==='42'),otherPlayerBefore);
+assert.equal(cancelled.ledger.wallet,3400);assert.equal(cancelled.ledger.accounts.B.paid,0);assert.equal(cancelled.ledger.accounts.B.charge,0);
+await bridge.playerPayment(cancel);assert.equal(store.get(ledgerKey('99')).wallet,3400);
+await bridge.playerPayment(c99('deposit',{amount:100}));assert.equal(store.get(ledgerKey('99')).wallet,3500);
+await bridge.playerPayment(c99('add',{eventId:'B',paidNow:false,expectedCharge:3400,player:{nickname:'重新報名'}}));
+assert.equal(store.get(ledgerKey('99')).wallet,100);assert.equal(store.get(ledgerKey('99')).accounts.B.paid,3400);
+store.get(eventKey('B')).status='settled';
+const beforeSettled=JSON.stringify([...store]);
+await assert.rejects(bridge.playerPayment(c99('cancelRegistration',{eventId:'B',expectedCharge:3400,expectedPaid:3400,disposition:'refund'})),/已結算/);
+assert.equal(JSON.stringify([...store]),beforeSettled);
+console.log('PASS: cancellation removes only target player atomically, preserves paid audit, guards stale totals and settlements, deduplicates wallet returns, and permits clean re-registration.');

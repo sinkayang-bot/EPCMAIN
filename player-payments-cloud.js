@@ -1,4 +1,4 @@
-import './player-payments-core.js?v=20261016-modes1';
+import './player-payments-core.js?v=20261017-remove1';
 export function setupPlayerPayments({fs,db,col,accountingCol,bridge}){
  const Core=globalThis.EPCPlayerPaymentsCore;
  bridge.playerPaymentDocId=id=>'PLAYER_PAYMENTS_'+encodeURIComponent(String(id));
@@ -81,10 +81,19 @@ export function setupPlayerPayments({fs,db,col,accountingCol,bridge}){
     if(!source||!target||sourceDate>targetDate||(sourceDate===targetDate&&Number(source.seq||0)>=Number(target.seq||0)))throw Error('僅能使用本場之前已結算的盈餘');
    }
    const result=Core.apply(stored,cmd,info);
+   if(cmd.kind==='cancelRegistration'){
+    const old=raws.get(String(cmd.eventId));
+    if(!old||!info[String(cmd.eventId)])throw Error('這位玩家已不在本場，請重新整理');
+    if(['settled','已結算'].includes(old.status))throw Error('已結算賽事請先解鎖，再取消報名');
+    const players=(old.players||[]).filter(p=>String(p.memberId)!==String(cmd.memberId));
+    changed={...old,players,_eventUpdatedAt:Math.max(Date.now(),Number(old._eventUpdatedAt||0)+1)};
+    raws.set(String(cmd.eventId),changed);
+   }
    if(!result.unchanged){
     const ledger={...result.state,date:bridge.playerPaymentDocId(cmd.memberId),updatedAt:fs.serverTimestamp()};
     tx.set(ledgerRef,ledger);
    }
+   if(cmd.kind==='cancelRegistration')tx.update(fs.doc(col,String(cmd.eventId)),{players:changed.players,_eventUpdatedAt:changed._eventUpdatedAt,updatedAt:fs.serverTimestamp()});
    // Keep legacy/mobile status fields consistent without touching prize, stack or JP.
    for(const [id,raw] of raws){
     const a=result.state.accounts[id];if(!a)continue;
