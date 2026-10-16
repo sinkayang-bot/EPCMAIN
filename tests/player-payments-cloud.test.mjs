@@ -45,3 +45,10 @@ assert.equal(JSON.stringify([...store]),previous);
 await assert.rejects(bridge.playerPayment({id:'dual-bird',kind:'add',memberId:'43',eventId:'B',player:{earlyBird:true,lateBird:true}}),/只能擇一/);
 assert.equal(JSON.stringify([...store]),previous);
 console.log('PASS: changed registration prices and incompatible discount selections cannot create a charge or receipt.');
+// Desktop operation mode permits the last explicit quantity/discount edit to win,
+// while receipts remain append-only and retry IDs still deduplicate the command.
+const paidBefore=store.get(ledgerKey('42')).accounts.B.paid;
+const latestDiscount=cmd('change',{eventId:'B',field:'manualDiscount',value:100,baseline:999,expectedRevision:0,lastSavedWins:true});
+await bridge.playerPayment(latestDiscount);assert.equal(store.get(eventKey('B')).players[0].manualDiscount,100);assert.equal(store.get(ledgerKey('42')).accounts.B.paid,paidBefore);
+const revisionAfter=store.get(ledgerKey('42')).revision;await bridge.playerPayment(latestDiscount);assert.equal(store.get(ledgerKey('42')).revision,revisionAfter);
+console.log('PASS: explicit desktop last-save edits preserve receipts and remain idempotent.');

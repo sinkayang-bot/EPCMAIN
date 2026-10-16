@@ -15,7 +15,7 @@
   const s=clone(original||empty(command.memberId)),cmd=clone(command),events=eventInfo||{};
   if(!safeId(cmd.id)||!safeId(cmd.memberId)||String(s.memberId)!==String(cmd.memberId))throw Error('玩家帳務識別錯誤');
   if(s.items.some(x=>x.id===cmd.id))return {state:s,replayed:true};
-  if(cmd.expectedRevision!=null&&Number(cmd.expectedRevision)!==Number(s.revision)&&cmd.kind!=='reconcile')throw Error('玩家帳務已有更新，請確認最新餘額後再操作');
+  if(cmd.expectedRevision!=null&&Number(cmd.expectedRevision)!==Number(s.revision)&&cmd.kind!=='reconcile'&&!(cmd.kind==='change'&&cmd.lastSavedWins))throw Error('玩家帳務已有更新，請確認最新餘額後再操作');
   const before=clone(s),eventId=String(cmd.eventId||'');
   for(const [id,e] of Object.entries(events)){
    if(!safeId(id)||!money(e.charge))throw Error('賽事應付金額不正確');

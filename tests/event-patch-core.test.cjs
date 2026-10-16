@@ -1,0 +1,10 @@
+const assert=require('node:assert/strict'),P=require('../event-patch-core.js');
+const base={eventId:'A',players:[{memberId:'1',stack:10,buyin:1},{memberId:'2',stack:20}],name:'old'},local=structuredClone(base);local.players[0].stack=30;
+const live=structuredClone(base);live.players[0].rebuy=2;live.players.push({memberId:'3',stack:99});let merged=P.apply(live,P.diff(base,local));assert.equal(merged.players[0].stack,30);assert.equal(merged.players[0].rebuy,2);assert.equal(merged.players.length,3);
+const same=P.apply(merged,P.diff(base,local));assert.equal(same.players[0]._stackRevision,merged.players[0]._stackRevision,'a committed echo cannot inflate the local field revision');
+const none=P.diff({eventId:'B'},{eventId:'B',players:[]});assert.equal(none.length,0);
+P.stage('A',base,local);const first=P.job('A',base,local),newer=structuredClone(local);newer.players[0].stack=40;P.stage('A',local,newer);P.ack(first);assert(P.hasPending());const second=P.job('A',local,newer);assert.equal(second.ops[0].value,40);P.ack(second);assert(!P.hasPending());
+const activity={hunter:[{id:'1',damage:10}],rankAdjust:{a:1}},ours={hunter:[{id:'1',damage:20}],rankAdjust:{a:1}},theirs={hunter:[{id:'1',damage:10},{id:'2',damage:5}],rankAdjust:{a:2}};
+const result=P.mergeRecords(activity,ours,theirs);assert.equal(result.hunter[0].damage,20);assert.equal(result.hunter.length,2);assert.equal(result.rankAdjust.a,2);
+assert.throws(()=>P.apply({},[{path:['__proto__','bad'],value:1}]),/無效/);
+console.log('PASS: field patches keep unrelated players/payment fields, acknowledgements retain newer queued edits, activity merge keeps separate records, unsafe paths rejected.');

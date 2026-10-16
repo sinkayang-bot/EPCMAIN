@@ -15,10 +15,15 @@
    accountingReady:false,
    requireAccountingAccess(){throw new Error('帳務登入服務尚未載入，請稍後再試')},
    async upsertEvent(e,options={}){
+    window.EPCMode?.assertWrite();
     if(!e?.eventId)return;
+    const base=(window.EPC_FIRESTORE_LAST_EVENTS||[]).find(x=>String(x.eventId)===String(e.eventId));
+    const job=window.EPCEventPatch?.job(e.eventId,base||{},e);
     const ref=fs.doc(col,String(e.eventId));
-    await fs.runTransaction(db,async tx=>{
+    const execute=()=>fs.runTransaction(db,async tx=>{
+     window.EPCMode?.assertWrite();
      const snap=await tx.get(ref),old=snap.exists()?snap.data():{};
+     if(!snap.exists()||old.status==='deleted'){window.EPCEventPatch?.drop(e.eventId);throw Error('此賽事已被刪除，請重新選擇賽事');}
      const settled=x=>x==='settled'||x==='已結算';
      if(options.rename&&snap.exists()){tx.update(ref,{name:String(e.name||''),updatedAt:fs.serverTimestamp()});return;}
      if(settled(old.status)&&options.accountingOnly){
@@ -32,33 +37,16 @@
       // A settled event is immutable until explicitly unlocked.
       return;
      }
-     // Mobile writes update the event timestamp as well. A desktop snapshot may
-     // therefore be older even when its only stale fields are mobile-owned
-     // stack/seat/hunterHeads values. Rebase those fields inside this transaction,
-     // while refusing to overwrite newer non-mobile event changes.
-     const oldPlayers=Array.isArray(old.players)?old.players:[];
-     const newPlayers=Array.isArray(e.players)?e.players:[];
-     const byId=new Map(oldPlayers.map(p=>[String(p.memberId),p]));
-     const mobileFields=['stack','seat','hunterHeads'];
-     const mobileRevs={stack:'_stackRevision',seat:'_seatRevision',hunterHeads:'_hunterHeadsRevision'};
-     const newerMobileOnly=oldPlayers.length===newPlayers.length&&oldPlayers.every(p=>newPlayers.some(q=>String(q.memberId)===String(p.memberId)))&&
-      oldPlayers.some(p=>{const q=newPlayers.find(x=>String(x.memberId)===String(p.memberId));return mobileFields.some(f=>Number(p[mobileRevs[f]]||0)>Number(q[mobileRevs[f]]||0))});
-     if(old._eventUpdatedAt&&e._eventUpdatedAt&&Number(old._eventUpdatedAt)>Number(e._eventUpdatedAt)){
-      // Do not blindly discard the desktop's unsaved changes or overwrite
-      // a concurrent change. Let the operator refresh and retry.
-      throw Error(newerMobileOnly?'手機已有較新的籌碼／座位／人頭資料，已阻止舊電腦資料覆蓋；請重新整理後再儲存':'賽事已有較新修改，已阻止覆蓋；請重新整理後再編輯');
+     for(const op of job?.ops||[]){if(op.path?.[0]==='players'&&op.path.length===2&&op.remove&&(old.players||[]).some(p=>String(p.memberId)===String(op.path[1])&&Number(p._paymentRevision||0)>0))throw Error('此玩家已有帳務紀錄，不能直接移除；請先核對玩家帳務');}
+     // Rebase only fields explicitly changed on this terminal onto the newest document.
+     // Firestore commit order determines the last saved value for the same field.
+     let protectedEvent=job?window.EPCEventPatch.apply(old,job.ops):window.EPCStackCore.protectStacks(e,old,options);
+     if(options.settle){
+      for(const p of e.players||[]){const latest=(old.players||[]).find(x=>String(x.memberId)===String(p.memberId));if(latest&&['stack','seat','hunterHeads'].some(k=>Number(latest['_'+k+'Revision']||0)>Number(p['_'+k+'Revision']||0)||(latest[k]??null)!==(p[k]??null)))throw Error('玩家籌碼已有更新，請重新計算後再結算');}
+      protectedEvent={...protectedEvent,status:e.status,finalJP:e.finalJP,finalAccounting:e.finalAccounting};
      }
-     const protectedEvent=window.EPCStackCore.protectStacks(e,old,options);
-     // Preserve transaction-owned payment quantities/status against older desktop copies.
-     protectedEvent.players=(protectedEvent.players||[]).map(p=>{
-      const before=byId.get(String(p.memberId));if(!before)return p;
-      if(Number(before._paymentRevision||0)>Number(p._paymentRevision||0)){
-       const next={...p};for(const k of ['buyin','rebuy','addon','manualDiscount','earlyBird','lateBird','ladies','registrationUnpaidAmount','rebuyUnpaidAmount','registrationUnpaid','_paymentRevision','_manualDiscountEditedAt','_manualDiscountEditedValue']){
-        if(before[k]!==undefined)next[k]=before[k];else delete next[k];
-       }return next;
-      }return p;
-     });
-     const row={...clean(protectedEvent),status:settled(e.status)?'settled':'open',updatedAt:fs.serverTimestamp()};
+     protectedEvent._eventUpdatedAt=Math.max(Date.now(),Number(old._eventUpdatedAt||0)+1);
+     const row={...clean(protectedEvent),status:settled(protectedEvent.status)?'settled':'open',updatedAt:fs.serverTimestamp()};
      // Keep mobile hunter audit entries even if a desktop snapshot is older.
      const oldHistory=Array.isArray(old.hunterHeadHistory)?old.hunterHeadHistory:[];
      const newHistory=Array.isArray(row.hunterHeadHistory)?row.hunterHeadHistory:[];
@@ -68,24 +56,30 @@
      if(options.unlock){row.finalJP=fs.deleteField();row.finalAccounting=fs.deleteField();}
      tx.set(ref,row,{merge:true});
     });
+    if(window.EPCMode)await EPCMode.runWrite(execute);else await execute();
+    if(job)window.EPCEventPatch.ack(job);
    },
    async getEvent(id){const snap=await fs.getDocFromServer(fs.doc(col,String(id)));if(!snap.exists())throw Error('找不到賽事');return {...snap.data(),eventId:String(id)}},
-   async createEvent(e){const eventId=String(e?.eventId||('EV-'+Date.now()+'-'+Math.random().toString(36).slice(2,8)));const row={...clean(e),eventId,status:e?.status||'open',revision:Number(e?.revision||1),createdAt:Date.now()};await fs.setDoc(fs.doc(col,eventId),{...row,updatedAt:fs.serverTimestamp()});return row},
-   async deleteEvent(id){if(id)await fs.deleteDoc(fs.doc(col,String(id)))},
+   async createEvent(e){window.EPCMode?.assertWrite();const eventId=String(e?.eventId||('EV-'+Date.now()+'-'+Math.random().toString(36).slice(2,8)));const row={...clean(e),eventId,status:e?.status||'open',revision:Number(e?.revision||1),createdAt:Date.now()};await fs.setDoc(fs.doc(col,eventId),{...row,updatedAt:fs.serverTimestamp()});return row},
+   async deleteEvent(id){window.EPCMode?.assertWrite();if(id)await fs.deleteDoc(fs.doc(col,String(id)))},
    async upsertDailyAccounting(row){
-    this.requireAccountingAccess();
+    window.EPCMode?.assertWrite();this.requireAccountingAccess();
     const date=String(row?.date||'').trim();if(!date)return;
     await fs.setDoc(fs.doc(accountingCol,date),{...clean(row),date,updatedAt:fs.serverTimestamp()},{merge:false});
    },
-   async deleteDailyAccounting(date){this.requireAccountingAccess();date=String(date||'').trim();if(date)await fs.deleteDoc(fs.doc(accountingCol,date))}
+   async deleteDailyAccounting(date){window.EPCMode?.assertWrite();this.requireAccountingAccess();date=String(date||'').trim();if(date)await fs.deleteDoc(fs.doc(accountingCol,date))}
   };
-  const paymentModule=await import('./player-payments-cloud.js?v=20261016-phone-payments1');
+  for(const name of ['upsertEvent','createEvent','deleteEvent','upsertDailyAccounting','deleteDailyAccounting']){const original=window.EPCFirestore[name];window.EPCFirestore[name]=async function(...args){return window.EPCMode?EPCMode.runWrite(()=>original.apply(this,args)):original.apply(this,args);};}
+  const paymentModule=await import('./player-payments-cloud.js?v=20261016-modes1');
   paymentModule.setupPlayerPayments({fs,db,col,accountingCol,bridge:window.EPCFirestore});
+  const eventIndex=new Map();
+
   fs.onSnapshot(col,snap=>{
-   const rows=[];snap.forEach(d=>{const x=d.data()||{};if(x.status!=='deleted')rows.push({...x,eventId:x.eventId||d.id})});
+   const changedIds=[];for(const change of snap.docChanges()){const d=change.doc,x=d.data()||{};changedIds.push(d.id);if(change.type==='removed'||x.status==='deleted')eventIndex.delete(d.id);else eventIndex.set(d.id,{...x,eventId:x.eventId||d.id});}
+   const rows=[...eventIndex.values()];
    window.EPC_FIRESTORE_LAST_EVENTS=rows;
    window.EPC_FIRESTORE_DIAG={state:'connected',projectId:cfg.projectId,count:rows.length,error:''};
-   window.dispatchEvent(new CustomEvent('epcFirestoreEvents',{detail:{events:rows}}));
+   window.dispatchEvent(new CustomEvent('epcFirestoreEvents',{detail:{events:rows,changedIds}}));
   },err=>{window.EPC_FIRESTORE_DIAG={state:'error',projectId:cfg.projectId,count:0,error:String(err?.message||err)};window.dispatchEvent(new CustomEvent('epcFirestoreError',{detail:{message:String(err?.message||err)}}))});
   // Keep the event bridge available even when Auth configuration is not ready yet.
   try{

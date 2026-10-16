@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="zh-Hant">
-<head>
+<head><script src="terminal-mode.js?v=20261016-modes1"></script><script src="event-patch-core.js?v=20261016-modes1"></script>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
 <title>EPC POKER MANAGEMENT V3.0</title>
@@ -3288,6 +3288,7 @@ async function refreshFormMembers(saveAfter=true){
  }catch(err){console.error('member refresh failed',err);return false;}
 }
 function scheduleCloudSave(){
+ if(window.EPCMode?.isView())return;
  if(EPC_V3_MODE)return;
  if(window.EPC_RECOVERY_READONLY){setCloudState('● 唯讀復原模式｜禁止資料庫寫入');return;}
  cloudPending=true;
@@ -3300,6 +3301,7 @@ function scheduleCloudSave(){
  cloudSaveTimer=setTimeout(saveCloudNow,900);
 }
 async function saveCloudNow(force=false){
+ if(window.EPCMode?.isView())return false;
  if(EPC_V3_MODE)return false;
  if(window.EPC_RECOVERY_READONLY){setCloudState('● 唯讀復原模式｜禁止資料庫寫入');return false;}
  const fieldConflict=!!window.epcFirebaseFieldConflict||(window.epcFieldChanges||[]).some(ch=>ch.conflict);
@@ -3780,9 +3782,10 @@ setTimeout(()=>{
 
 let epcFieldPublishTimer_=0;
 function epcScheduleFieldPublish_(){
+ if(window.EPCMode?.isView())return;
  clearTimeout(epcFieldPublishTimer_);
  epcFieldPublishTimer_=setTimeout(async function(){
-  if(typeof window.epcFirebasePublishFieldChanges!=='function')return;
+  if(window.EPCMode?.isView()||typeof window.epcFirebasePublishFieldChanges!=='function')return;
   try{
    const ok=await window.epcFirebasePublishFieldChanges(window.epcFieldChanges||[]);
    const unresolved=(window.epcFieldChanges||[]).some(ch=>!ch.publishedAt||ch.conflict);
@@ -3889,6 +3892,7 @@ function firestoreEventPayload_(e){
 }
 let EPC_FIRESTORE_EVENT_SAVE_TIMERS=new Map();
 function syncEventToFirestore_(e,immediate=false,options={}){
+ if(window.EPCMode?.isView())return Promise.resolve(false);
  if(!e?.id||!window.EPCFirestore?.ready)return Promise.resolve(false);
  const id=String(e.id),run=()=>window.EPCFirestore.upsertEvent(firestoreEventPayload_(e),options).then(()=>true);
  if(immediate){const old=EPC_FIRESTORE_EVENT_SAVE_TIMERS.get(id);if(old)clearTimeout(old);EPC_FIRESTORE_EVENT_SAVE_TIMERS.delete(id);return run();}
@@ -3897,6 +3901,9 @@ function syncEventToFirestore_(e,immediate=false,options={}){
  return Promise.resolve(true);
 }
 function persist(){
+ window.EPCMode?.assertWrite();
+ const previousEvent=epcLastPersistSnapshot_?.events?.find(e=>String(e.id)===String(currentEvent()?.id)),activeEvent=currentEvent();
+ if(previousEvent&&activeEvent)window.EPCEventPatch?.stage(activeEvent.id,firestoreEventPayload_(previousEvent),firestoreEventPayload_(activeEvent));
  const changes=epcCollectFieldChanges_(epcLastPersistSnapshot_,db);
  if(changes.length)window.epcFieldChanges.push(...changes);
  if(window.epcFieldChanges.length>10000)window.epcFieldChanges=window.epcFieldChanges.slice(-10000);
@@ -4001,6 +4008,7 @@ async function performDelMember(id){
 let editingMemberId=null;
 function editMember(id){
  let m=db.members.find(x=>x.id===id); if(!m)return;
+ window.epcModeMemberBases=window.epcModeMemberBases||{};window.epcModeMemberBases[String(m.memberKey||id)]=cloneCloud_(m);window.epcModeMemberBases[String(id)]=cloneCloud_(m);
  editingMemberId=id;
  $('mName').value=m.name||'';
  $('mNickname').value=m.nickname||'';
@@ -5290,6 +5298,7 @@ function setEventName_(id,value){
 function applyFirestoreEventsToLegacy_(rows){
  const previousById=new Map((db.events||[]).map(e=>[String(e.id),e]));
  const remote=(rows||[]).map(v=>{
+   if(!window.EPCMode?.isView()&&window.EPCEventPatch)v=EPCEventPatch.preview(v);
    const prev=previousById.get(String(v.eventId))||{};
    return ({
    id:v.eventId,date:v.businessDate||v.date,name:v.name||'',startTime:v.startTime||'',regCloseTime:v.regClose||'',endTime:v.endTime||'',
@@ -5312,18 +5321,24 @@ function applyFirestoreEventsToLegacy_(rows){
  const remoteIds=new Set(remote.map(x=>String(x.id)));
  // Firestore is authoritative: never re-introduce stale local/legacy event rows.
  db.events=remote;
+ epcLastPersistSnapshot_=cloneCloud_(db);
  if($('event')?.classList.contains('active')){
   const e=currentEvent(),prev=previousById.get(String(e?.id));
   const settings=x=>JSON.stringify(x&&Object.fromEntries(Object.entries(x).filter(([k])=>!['players','_eventUpdatedAt','hunterHeadHistory'].includes(k))));
-  if(!prev||settings(prev)!==settings(e))render();else renderEventFast_();
+  if(window.EPCMode?.isView()){renderEventFast_();window.epcModeRefreshEventFields_?.(e);}
+  else if(!prev||settings(prev)!==settings(e))render();else renderEventFast_();
  }else if($('settle')?.classList.contains('active'))render();
  else if($('events')?.classList.contains('active'))renderEventList();
+ else if($('eventreport')?.classList.contains('active'))renderEventReport();
+ else if($('dailysettle')?.classList.contains('active')){renderSettlementManager();if($('dailyDate')?.value)renderDailySettlement();}
  if($('members')?.classList.contains('active'))renderMemberRows();
  if($('dashboard')?.classList.contains('active'))renderDashboardSummary();
  if(db.currentAccountingDate && $('accountingDetailView')?.style.display!=='none')renderDailyAccountingDetail();
  if($('activities')?.classList.contains('active'))renderActivities();
  else if(typeof publishAllDisplays_==='function')publishAllDisplays_();
 }
+window.epcModeRefreshEventFields_=function(e){if(!e)return;const fields={eDate:'date',eName:'name',eStartTime:'startTime',eRegCloseTime:'regCloseTime',eLevel:'level',ePoolUnit:'poolUnit',eAdmin:'admin',ePricingMode:'pricingMode',eBuyinTotal:'buyinTotal',eBuyinAdmin:'buyinAdmin',eRebuyTotal:'rebuyTotal',eRebuyAdmin:'rebuyAdmin',eOverbuyThreshold:'overbuyThreshold',eEarlyBirdDiscount:'earlyBirdDiscount',eLateBirdDiscount:'lateBirdDiscount',eLadiesDiscount:'ladiesDiscount',eChips:'chips',eJP:'jp',eJPRound:'jpRound',ePayout:'payout'};for(const [id,key] of Object.entries(fields)){const el=$(id);if(el&&e[key]!=null)el.value=e[key];}};
+window.addEventListener('epcTerminalModeChanged',ev=>{if(ev.detail.mode==='view'){clearTimeout(cloudSaveTimer);clearTimeout(epcFieldPublishTimer_);for(const t of EPC_FIRESTORE_EVENT_SAVE_TIMERS.values())clearTimeout(t);EPC_FIRESTORE_EVENT_SAVE_TIMERS.clear();}if(Array.isArray(window.EPC_FIRESTORE_LAST_EVENTS))applyFirestoreEventsToLegacy_(window.EPC_FIRESTORE_LAST_EVENTS);});
 window.addEventListener('epcFirestoreEvents',ev=>{try{applyFirestoreEventsToLegacy_(ev.detail?.events||[])}catch(err){console.warn(err)}});
 function epcCheckoutDue_(p){return Math.max(0,Number(p.registrationUnpaidAmount)||0)+Math.max(0,Number(p.rebuyUnpaidAmount)||0)}
 function epcCheckoutName_(p){const m=(db.members||[]).find(x=>String(x.id)===String(p.memberId));return String(p.nickname||m?.nickname||m?.name||p.name||p.memberId||'玩家').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'}[c]))}
@@ -5868,7 +5883,7 @@ function renderEventFast_(){
  if(cg)cg.innerHTML=cols.map(x=>`<col style="width:${((baseWeights[x[0]]||1)/tw*100).toFixed(3)}%">`).join('');
  if($('eventPlayerHead'))$('eventPlayerHead').innerHTML=cols.map(x=>`<th>${x[1]}</th>`).join('');
  const rows=$('playerRows');
- if(rows&&!editing)rows.innerHTML=(ev.players||[]).map((p,i)=>{
+ if(rows&&!editing){const html=(ev.players||[]).map((p,i)=>{
    const m=(db.members||[]).find(x=>String(x.id)===String(p.memberId))||{},cc=calcPlayerForEvent(p,ev);
    const cell={
     seat:`<td><input value="${epcDisplayEscape_(p.seat||'')}" oninput="setP(${i},'seat',this.value)"></td>`,
@@ -5884,8 +5899,8 @@ function renderEventFast_(){
     totalDiscount:`<td>${money(cc.totalDiscount)}</td>`,paid:`<td>${window.PP?PP.amountCell(ev,p):money(cc.paid)}</td>`,
     settleGroup:`<td><input value="${epcDisplayEscape_(p.group||'')}" oninput="setP(${i},'group',this.value)"></td>`,
     action:`<td><button class="danger" onclick="delP(${i})">移除</button></td>`
-   };return '<tr>'+cols.map(x=>(cell[x[0]]||'<td></td>').replace('<td>',`<td class="col-${x[0]}">`)).join('')+'</tr>';
- }).join('');
+   };return '<tr data-player-id="'+epcDisplayEscape_(p.memberId)+'">'+cols.map(x=>(cell[x[0]]||'<td></td>').replace('<td>',`<td class="col-${x[0]}">`)).join('')+'</tr>';
+ }).join('');if(window.EPCMode?.isView())EPCMode.patchChildren(rows,html);else rows.innerHTML=html;}
  if(rows&&editing)(ev.players||[]).forEach((p,i)=>{
    const c=calcPlayerForEvent(p,ev),row=rows.children[i];if(!row)return;
    const values={groups:c.groups,rebuyDiscount:money(c.rebuyDiscount),overbuyDiscount:money(c.overbuyDiscount),totalDiscount:money(c.totalDiscount),paid:money(c.paid)};
@@ -5901,7 +5916,7 @@ function renderEventFast_(){
     totalDiscount:money(sums.totalDiscount),paid:money(sums.paid),settleGroup:'',action:''};
    totals.innerHTML=cols.map((x,idx)=>'<td>'+(idx===0?'本場總計｜參賽 '+(ev.players||[]).length+' 人':(totalCell[x[0]]||''))+'</td>').join('');
  }
- renderEventList();
+ if(!window.EPCMode?.isView()||$('events')?.classList.contains('active'))renderEventList();
 }
 function setPlayerColumnPreference(k,v){
  const visible=new Set(loadPlayerVisibleCols());
@@ -6699,7 +6714,7 @@ function render(){
    }};
  });
  renderEventUnpaidStatus_();
- $('playerRows').innerHTML=rowData.map(r=>`<tr>${cols.map(c=>`<td class="col-${c[0]}">${r.vals[c[0]]}</td>`).join('')}</tr>`).join('');
+ $('playerRows').innerHTML=rowData.map(r=>`<tr data-player-id="${epcDisplayEscape_(r.p.memberId)}">${cols.map(c=>`<td class="col-${c[0]}">${r.vals[c[0]]}</td>`).join('')}</tr>`).join('');
 
  const totals=rowData.reduce((a,r)=>{
    const c=r.c,custom=(currentEvent().pricingMode||'standard')==='custom';
@@ -7322,7 +7337,7 @@ let displayCloudPromise_;
 async function enableBuiltinDisplay_(){localStorage.setItem(DISPLAY_API_KEY,'firebase');$('displayApiUrl').value='firebase';await saveDisplayApi_()}
 async function displayFetch_(params={},post=false){
  const base=displayApi_();
- if(base==='firebase'){displayCloudPromise_=displayCloudPromise_||import('./display-cloud.js').then(m=>m.displayCloud()).catch(e=>{displayCloudPromise_=null;throw e});return (await displayCloudPromise_).request(params)}if(!base)throw new Error('請先設定 Display API URL');
+ if(base==='firebase'){displayCloudPromise_=displayCloudPromise_||import('./display-cloud.js?v=20261016-modes1').then(m=>m.displayCloud()).catch(e=>{displayCloudPromise_=null;throw e});return (await displayCloudPromise_).request(params)}if(!base)throw new Error('請先設定 Display API URL');
  if(post){
   const r=await fetch(base,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(params),redirect:'follow'});
   const t=await r.text();let j;try{j=JSON.parse(t)}catch(_){throw new Error('Display API 回傳格式錯誤')}
@@ -7453,6 +7468,7 @@ function displayPayload_(type){
  return {type,title:titles[type]||'EPC 活動',activityFrom:range.from,activityTo:range.to,rows:displayLeaderboard_(type)};
 }
 async function publishDisplay_(deviceId,silent=false){
+ if(window.EPCMode?.isView())return;
  const type=$('displayType_'+deviceId)?.value||(displayDevicesCache.find(x=>x.deviceId===deviceId)?.contentType)||'boss';
  const sec=Math.max(5,+($('displaySec_'+deviceId)?.value||15));
  const ui={kind:type,limit:Math.max(3,+($('displayLimit_'+deviceId)?.value||10)),layout:$('displayLayout_'+deviceId)?.value||'classic',showRank:$('displayShowRank_'+deviceId)?.checked!==false,showName:$('displayShowName_'+deviceId)?.checked!==false,showMemberId:!!$('displayShowMemberId_'+deviceId)?.checked,showScore:$('displayShowScore_'+deviceId)?.checked!==false,rankFontScale:Math.min(160,Math.max(80,+($('displayRankFontScale_'+deviceId)?.value||100)))};
@@ -7472,6 +7488,7 @@ async function publishDisplay_(deviceId,silent=false){
  catch(e){if(!silent)actionMsg('顯示器更新失敗：'+e.message,true)}
 }
 async function publishAllDisplays_(){
+ if(window.EPCMode?.isView())return;
  if(!displayApi_()||!displayDevicesCache.length)return;
  // Background activity refresh must never read transient/rebuilt form controls.
  // Republish each device from its last saved preference instead.
@@ -7636,8 +7653,8 @@ async function epcShowRecoveryAudit_(){
 </script>
 <script src="firebase-config.js?v=20261007-0780"></script>
 <script src="phone/stack-core.js?v=20261009-settlement-confirmed"></script>
-<script src="firebase-events.js?v=20261016-phone-payments1"></script>
+<script src="firebase-events.js?v=20261016-modes1"></script>
 <script src="sync-v3.js?v=20261007-0780"></script>
-<script src="app.js?v=20261009-identity-roles"></script><dialog id="ppDialog"><div class="toolbar" style="justify-content:space-between"><h2 id="ppDialogTitle">玩家帳務</h2><button onclick="document.getElementById('ppDialog').close()">關閉</button></div><div id="ppDialogBody"></div></dialog>
-<dialog id="ppRegistrationDialog"><div class="toolbar" style="justify-content:space-between"><h2 id="ppRegistrationTitle">加入本場</h2><button data-pp-action onclick="PP.cancelRegistration()">取消</button></div><div id="ppRegistrationBody"></div></dialog><script src="player-payments-core.js?v=20261016-phone-payments1"></script><script src="player-payments.js?v=20261016-phone-payments1"></script></body></html>
+<script src="app.js?v=20261016-modes1"></script><dialog id="ppDialog"><div class="toolbar" style="justify-content:space-between"><h2 id="ppDialogTitle">玩家帳務</h2><button onclick="document.getElementById('ppDialog').close()">關閉</button></div><div id="ppDialogBody"></div></dialog>
+<dialog id="ppRegistrationDialog"><div class="toolbar" style="justify-content:space-between"><h2 id="ppRegistrationTitle">加入本場</h2><button data-pp-action onclick="PP.cancelRegistration()">取消</button></div><div id="ppRegistrationBody"></div></dialog><script src="player-payments-core.js?v=20261016-modes1"></script><script src="player-payments.js?v=20261016-modes1"></script></body></html>
 

@@ -1,13 +1,14 @@
-import './player-payments-core.js?v=20261016-phone-payments1';
+import './player-payments-core.js?v=20261016-modes1';
 export function setupPlayerPayments({fs,db,col,accountingCol,bridge}){
  const Core=globalThis.EPCPlayerPaymentsCore;
  bridge.playerPaymentDocId=id=>'PLAYER_PAYMENTS_'+encodeURIComponent(String(id));
  bridge.playerPayment=async function(command){
-  bridge.requireAccountingAccess();
+  window.EPCMode?.assertWrite();bridge.requireAccountingAccess();
   const cmd=JSON.parse(JSON.stringify(command));
   if(!cmd.memberId||!cmd.id)throw Error('帳務指令不完整');
   const ledgerRef=fs.doc(accountingCol,bridge.playerPaymentDocId(cmd.memberId));
-  return fs.runTransaction(db,async tx=>{
+  const execute=()=>fs.runTransaction(db,async tx=>{
+   window.EPCMode?.assertWrite();
    const snap=await tx.get(ledgerRef),stored=snap.exists()?snap.data():Core.empty(cmd.memberId);
    // Request IDs survive retries, including a response lost after a committed write.
    if((stored.items||[]).some(x=>x.id===cmd.id))return {ledger:stored,replayed:true};
@@ -47,7 +48,7 @@ export function setupPlayerPayments({fs,db,col,accountingCol,bridge}){
      const current=p[cmd.field]??(['earlyBird','lateBird','ladies'].includes(cmd.field)?false:0);
      if(cmd.increment){if(cmd.field!=='rebuy')throw Error('僅重買支援加一');p.rebuy=Number(p.rebuy||0)+1;}
      else{
-      if(current!==cmd.baseline)throw Error('數量或優惠已被其他設備修改，請確認最新資料');
+      if(current!==cmd.baseline&&!cmd.lastSavedWins)throw Error('數量或優惠已被其他設備修改，請確認最新資料');
       const bool=['earlyBird','lateBird','ladies'].includes(cmd.field),v=bool?!!cmd.value:Number(cmd.value);
       if(!bool&&(!Number.isSafeInteger(v)||v<0))throw Error('數值須為非負整數');
       p[cmd.field]=v;if(['earlyBird','lateBird'].includes(cmd.field)&&v)p[cmd.field==='earlyBird'?'lateBird':'earlyBird']=false;
@@ -99,5 +100,6 @@ export function setupPlayerPayments({fs,db,col,accountingCol,bridge}){
    }
    return {ledger:result.state,event:changed};
   });
+  return window.EPCMode?window.EPCMode.runWrite(execute):execute();
  };
 }

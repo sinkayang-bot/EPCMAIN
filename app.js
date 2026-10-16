@@ -10,13 +10,16 @@ const pages={dashboard:'總覽',members:'會員資料',events:'賽事管理',set
 const pad=n=>String(n).padStart(2,'0'),money=n=>new Intl.NumberFormat('zh-TW').format(Number(n||0));
 function localISO(d){return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())}
 function businessDate(now=new Date(),start=CONFIG.businessStart,end=CONFIG.businessEnd){const [sh,sm]=start.split(':').map(Number),[eh,em]=end.split(':').map(Number),mins=now.getHours()*60+now.getMinutes(),s=sh*60+sm,e=eh*60+em,d=new Date(now);if(e<s&&mins<e)d.setDate(d.getDate()-1);return localISO(d)}
-async function api(action,payload={}){
+async function api(action,payload={},attempt=0){
+  window.EPCMode?.assertAction(action);
+  if(action==='member.update'&&attempt===0&&window.EPCMode&&!window.EPCMode.isView()){const row=MEMBER_ROWS.find(x=>String(x.memberKey)===String(payload.memberKey)),base=window.epcModeMemberBases?.[String(payload.memberKey)]||window.epcModeMemberBases?.[String(row?.memberId)];if(base)payload={...payload,patch:Object.fromEntries(Object.entries(payload.patch||{}).filter(([k,v])=>JSON.stringify(v)!==JSON.stringify(base[k]??'')))};}
   if(!CONFIG.apiUrl)throw new Error('尚未設定 API URL');
   const ctrl=new AbortController(),isRead=['ping','bootstrap','bootstrap','event.list','player.list','event.list'].includes(action),timeout=action==='bootstrap'?35000:(isRead?30000:20000),timer=setTimeout(()=>ctrl.abort(),timeout);
   try{
     const res=await fetch(CONFIG.apiUrl,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({action,...payload}),signal:ctrl.signal});
     const raw=await res.text();let data;
     try{data=JSON.parse(raw)}catch(_){throw new Error('後端連線失敗（HTTP '+res.status+'）')}
+    if(!data.ok&&data.error==='STALE_WRITE'&&action==='member.update'&&window.EPCMode&&!window.EPCMode.isView()&&attempt<3){const latest=await api('member.list'),row=(latest.members||[]).find(x=>String(x.memberKey)===String(payload.memberKey));if(!row)throw Error('MEMBER_NOT_FOUND');return api(action,{...payload,expectedRevision:row.revision},attempt+1);}
     if(!data.ok)throw new Error(data.error||'API error');return data
   }catch(err){if(err&&err.name==='AbortError')throw new Error('後端逾時，請重試');throw err}
   finally{clearTimeout(timer)}
@@ -100,7 +103,7 @@ function renderMembers(rows=MEMBER_ROWS){
  tb.innerHTML=filtered.map(m=>'<tr data-key="'+esc(m.memberKey)+'"><td>'+esc(m.memberId)+'</td><td>'+esc(window.epcMemberDisplayName_(m))+'</td><td>'+esc(window.epcNickname_(m))+'</td><td>'+esc(m.group)+'</td><td>'+money(m.eventCount)+'</td><td>'+money(m.totalEntries)+'</td><td class="'+pnlClass(m.pnl)+'">'+money(m.pnl)+'</td><td>'+esc(m.spendShare||'—')+'</td><td>'+esc(m.lastVisit||'—')+'</td></tr>').join('')||'<tr><td colspan="10" class="empty">目前沒有符合的會員資料</td></tr>';
 }
 function nextMemberId(){const used=new Set(MEMBER_ROWS.map(m=>String(m.memberId||'').trim().toUpperCase()));for(let i=0;i<100;i++){const id='A'+String(Math.floor(Math.random()*100000)).padStart(5,'0');if(!used.has(id))return id}return 'A'+String(Date.now()).slice(-5)}
-function openMemberModal(member=null){document.querySelector('#memberForm').reset();document.querySelector('#memberKey').value=member?.memberKey||'';document.querySelector('#memberId').value=member?.memberId||nextMemberId();document.querySelector('#memberName').value=member?.name||'';document.querySelector('#memberNickname').value=member?.nickname||'';document.querySelector('#memberGroup').value=member?.group||'';document.querySelector('#memberBirth').value=member?.birth||'';document.querySelector('#memberPhone').value=member?.phone||'';document.querySelector('#memberAddress').value=member?.address||'';document.querySelector('#memberModalTitle').textContent=member?'編輯會員':'新增會員';document.querySelector('#memberFormState').textContent='';document.querySelector('#memberFormState').className='form-state';document.querySelector('#memberModal').hidden=false}
+function openMemberModal(member=null){if(member){window.epcModeMemberBases=window.epcModeMemberBases||{};window.epcModeMemberBases[String(member.memberKey)]=JSON.parse(JSON.stringify(member));}document.querySelector('#memberForm').reset();document.querySelector('#memberKey').value=member?.memberKey||'';document.querySelector('#memberId').value=member?.memberId||nextMemberId();document.querySelector('#memberName').value=member?.name||'';document.querySelector('#memberNickname').value=member?.nickname||'';document.querySelector('#memberGroup').value=member?.group||'';document.querySelector('#memberBirth').value=member?.birth||'';document.querySelector('#memberPhone').value=member?.phone||'';document.querySelector('#memberAddress').value=member?.address||'';document.querySelector('#memberModalTitle').textContent=member?'編輯會員':'新增會員';document.querySelector('#memberFormState').textContent='';document.querySelector('#memberFormState').className='form-state';document.querySelector('#memberModal').hidden=false}
 function closeMemberModal(){document.querySelector('#memberModal').hidden=true}
 async function saveMember(e){e.preventDefault();const btn=document.querySelector('#memberSaveBtn'),state=document.querySelector('#memberFormState'),memberKey=document.querySelector('#memberKey').value;const data={memberId:document.querySelector('#memberId').value.trim(),name:document.querySelector('#memberName').value.trim(),nickname:document.querySelector('#memberNickname').value.trim(),group:document.querySelector('#memberGroup').value.trim(),birth:document.querySelector('#memberBirth').value.trim(),phone:document.querySelector('#memberPhone').value.trim(),address:document.querySelector('#memberAddress').value.trim()};if(memberKey){const original=MEMBER_ROWS.find(x=>x.memberKey===memberKey);['birth','phone','address'].forEach(k=>{if(original&&original[k]===undefined)delete data[k]})}if(!data.memberId||!data.name){state.textContent='POKER FANS ID 與姓名為必填';state.className='form-state bad';return}btn.disabled=true;state.textContent='儲存中…';try{let r;if(memberKey)r=await api('member.update',{memberKey,patch:data,expectedRevision:MEMBER_ROWS.find(x=>x.memberKey===memberKey)?.revision});else r=await api('member.create',{member:data});if(r.member){const i=MEMBER_ROWS.findIndex(x=>x.memberKey===r.member.memberKey);if(i>=0)MEMBER_ROWS[i]={...MEMBER_ROWS[i],...r.member};else MEMBER_ROWS.unshift(r.member);localStorage.setItem('eightMemberCache',JSON.stringify(MEMBER_ROWS));renderMembers();document.querySelector('#kMembers').textContent=money(MEMBER_ROWS.length)}state.textContent='儲存成功';state.className='form-state good';closeMemberModal()}catch(err){console.error(err);const msg={MEMBER_ID_ALREADY_EXISTS:'POKER FANS ID 已存在',MEMBER_ID_REQUIRED:'POKER FANS ID 為必填',MEMBER_NAME_REQUIRED:'姓名為必填',MEMBER_NOT_FOUND:'找不到此會員'}[err.message]||err.message;state.textContent='儲存失敗：'+msg;state.className='form-state bad'}finally{btn.disabled=false}}
 window.eightReloadMembers_=async function(){
@@ -183,7 +186,7 @@ window.addEventListener('epcFirestoreEvents',e=>{
 window.addEventListener('epcFirestoreError',e=>setSync('Firebase：連線失敗 '+String(e.detail?.message||''),true));
 // firebase-events.js can receive its first snapshot before app.js finishes loading.
 setTimeout(()=>{if(Array.isArray(window.EPC_FIRESTORE_LAST_EVENTS))window.dispatchEvent(new CustomEvent('epcFirestoreEvents',{detail:{events:window.EPC_FIRESTORE_LAST_EVENTS}}))},0);
-function mirrorEventToFirebase_(ev){try{if(window.EPCFirestore?.ready&&ev?.eventId)window.EPCFirestore.upsertEvent(ev).catch(console.warn)}catch(_){}}
+function mirrorEventToFirebase_(ev){if(window.EPCMode?.isView())return;try{if(window.EPCFirestore?.ready&&ev?.eventId)window.EPCFirestore.upsertEvent(ev).catch(console.warn)}catch(_){}}
 function deleteEventFromFirebase_(id){try{if(window.EPCFirestore?.ready&&id)window.EPCFirestore.deleteEvent(id).catch(console.warn)}catch(_){}}
 // Automatic Firestore seeding disabled: legacy event sources are partial and must not overwrite/migrate implicitly.
 function eventSummaryFromDoc_(x){
@@ -197,7 +200,7 @@ function eventSummaryFromDoc_(x){
  const raw=prizePool*(+x.jpRate||0)/100,unit=Math.max(1,+x.jpRound||1),jp=raw>0?Math.ceil(raw/unit)*unit:0;
  return {participants:ps.length,rebuyPeople,totalEntries,totalGross,prizePool,jp,totalDiscount};
 }
-function renderEvents(rows=[]){window.EIGHT_EVENTS=rows;if(window.EPCFirestore?.ready && typeof window.renderEventList==='function'){window.renderEventList();return}rows.forEach(x=>{x.summary={...(x.summary||{}),...eventSummaryFromDoc_(x)}});bridgeV3Activities_(rows);const el=document.querySelector('#eventList')||document.querySelector('#eventRows');if(!el)return;if(!rows.length){if(el.tagName==='TBODY'){el.innerHTML='<tr><td colspan="10" class="small" style="text-align:center">目前營業日尚無賽事</td></tr>'}else{el.className='empty';el.innerHTML='目前營業日尚無賽事'}return}if(el.tagName==='TBODY'){el.innerHTML=rows.map(x=>{const z=x.summary||{},settled=x.status==='settled';return '<tr data-event-id="'+esc(x.eventId)+'"><td>'+esc(x.businessDate||'')+'</td><td style="text-align:left"><b>'+esc(x.name||'未命名賽事')+'</b><div class="small">'+esc(x.startTime||'')+'</div></td><td>'+esc(x.level||'自訂')+'</td><td>'+esc(z.participants||0)+'</td><td>'+esc(z.rebuyPeople||0)+'</td><td>'+esc(z.totalEntries||0)+'</td><td>'+money(z.prizePool||0)+'</td><td>'+money(z.jp||0)+'</td><td>'+(settled?'已結算':'進行中')+'</td><td><button class="secondary enter-event" data-id="'+esc(x.eventId)+'">進入</button> '+(settled?'<button class="secondary report-event" data-id="'+esc(x.eventId)+'">列印報表</button> <button class="secondary unlock-event" data-id="'+esc(x.eventId)+'">解鎖編輯</button> ':'')+'<button class="danger delete-event" data-id="'+esc(x.eventId)+'">刪除</button></td></tr>'}).join('');return}el.className='event-list';const stat=(k,v,moneyFmt=false)=>'<div class="event-stat"><small>'+k+'</small><b>'+(moneyFmt?money(v):esc(v??0))+'</b></div>';el.innerHTML=rows.map(x=>{const z=x.summary||{};return '<div class="event-row event-row-rich" data-event-id="'+esc(x.eventId)+'"><div class="event-main"><div><b>'+esc(x.name||'未命名賽事')+'</b><small>'+esc(x.businessDate||'')+' · '+esc(x.startTime||'')+' · '+esc(x.level||'自訂')+' · '+(x.status==='settled'?'已結算':'進行中')+'</small></div><div class="event-actions"><button class="secondary enter-event" data-id="'+esc(x.eventId)+'">進入</button>'+(x.status==='settled'?'<button class="secondary unlock-event" data-id="'+esc(x.eventId)+'">解鎖編輯</button>':'')+'<button class="danger delete-event" data-id="'+esc(x.eventId)+'">刪除</button></div></div><div class="event-stats">'+stat('參賽人數',z.participants||0)+stat('重買人數',z.rebuyPeople||0)+stat('總組數',z.totalEntries||0)+stat('總買入',z.totalGross||0,true)+stat('早鳥',z.earlyDiscount||0,true)+stat('晚鳥',z.lateDiscount||0,true)+stat('重買優惠',z.rebuyDiscount||0,true)+stat('組數優惠',z.entryDiscount||0,true)+stat('其他優惠',z.otherDiscount||0,true)+stat('總獎金',z.prizePool||0,true)+stat('實收行政費',z.adminNet||0,true)+stat('JP',z.jp||0,true)+'</div></div>'}).join('')}
+function renderEvents(rows=[]){window.EIGHT_EVENTS=rows;if(window.EPCMode?.isView()&&!document.querySelector('#events')?.classList.contains('active'))return;if(window.EPCFirestore?.ready && typeof window.renderEventList==='function'){window.renderEventList();return}rows.forEach(x=>{x.summary={...(x.summary||{}),...eventSummaryFromDoc_(x)}});bridgeV3Activities_(rows);const el=document.querySelector('#eventList')||document.querySelector('#eventRows');if(!el)return;if(!rows.length){if(el.tagName==='TBODY'){el.innerHTML='<tr><td colspan="10" class="small" style="text-align:center">目前營業日尚無賽事</td></tr>'}else{el.className='empty';el.innerHTML='目前營業日尚無賽事'}return}if(el.tagName==='TBODY'){el.innerHTML=rows.map(x=>{const z=x.summary||{},settled=x.status==='settled';return '<tr data-event-id="'+esc(x.eventId)+'"><td>'+esc(x.businessDate||'')+'</td><td style="text-align:left"><b>'+esc(x.name||'未命名賽事')+'</b><div class="small">'+esc(x.startTime||'')+'</div></td><td>'+esc(x.level||'自訂')+'</td><td>'+esc(z.participants||0)+'</td><td>'+esc(z.rebuyPeople||0)+'</td><td>'+esc(z.totalEntries||0)+'</td><td>'+money(z.prizePool||0)+'</td><td>'+money(z.jp||0)+'</td><td>'+(settled?'已結算':'進行中')+'</td><td><button class="secondary enter-event" data-id="'+esc(x.eventId)+'">進入</button> '+(settled?'<button class="secondary report-event" data-id="'+esc(x.eventId)+'">列印報表</button> <button class="secondary unlock-event" data-id="'+esc(x.eventId)+'">解鎖編輯</button> ':'')+'<button class="danger delete-event" data-id="'+esc(x.eventId)+'">刪除</button></td></tr>'}).join('');return}el.className='event-list';const stat=(k,v,moneyFmt=false)=>'<div class="event-stat"><small>'+k+'</small><b>'+(moneyFmt?money(v):esc(v??0))+'</b></div>';el.innerHTML=rows.map(x=>{const z=x.summary||{};return '<div class="event-row event-row-rich" data-event-id="'+esc(x.eventId)+'"><div class="event-main"><div><b>'+esc(x.name||'未命名賽事')+'</b><small>'+esc(x.businessDate||'')+' · '+esc(x.startTime||'')+' · '+esc(x.level||'自訂')+' · '+(x.status==='settled'?'已結算':'進行中')+'</small></div><div class="event-actions"><button class="secondary enter-event" data-id="'+esc(x.eventId)+'">進入</button>'+(x.status==='settled'?'<button class="secondary unlock-event" data-id="'+esc(x.eventId)+'">解鎖編輯</button>':'')+'<button class="danger delete-event" data-id="'+esc(x.eventId)+'">刪除</button></div></div><div class="event-stats">'+stat('參賽人數',z.participants||0)+stat('重買人數',z.rebuyPeople||0)+stat('總組數',z.totalEntries||0)+stat('總買入',z.totalGross||0,true)+stat('早鳥',z.earlyDiscount||0,true)+stat('晚鳥',z.lateDiscount||0,true)+stat('重買優惠',z.rebuyDiscount||0,true)+stat('組數優惠',z.entryDiscount||0,true)+stat('其他優惠',z.otherDiscount||0,true)+stat('總獎金',z.prizePool||0,true)+stat('實收行政費',z.adminNet||0,true)+stat('JP',z.jp||0,true)+'</div></div>'}).join('')}
 let EVENTS_CACHE_DATE='',EVENTS_LAST_SYNC=0;
 function showCachedEvents(){
  const date=document.querySelector('#eventDate').value||businessDate(),cacheKey='eightEvents:'+date;
@@ -466,9 +469,10 @@ window.renderSettlementManager=renderSettlementManagerV3;
 window.openSettlementDayV3=openSettlementDayV3;
 
 let EPC_ACTIVITY_SAVE_TIMER=null,EPC_ACTIVITY_SAVING=false,EPC_ACTIVITY_READING=false;
-let EPC_ACTIVITY_PENDING=null,EPC_ACTIVITY_SEQUENCE=0;
+let EPC_ACTIVITY_PENDING=null,EPC_ACTIVITY_SEQUENCE=0,EPC_ACTIVITY_BASE=null;
 const ACTIVITY_PENDING_KEY='epcActivityPendingV1';
 try{EPC_ACTIVITY_PENDING=JSON.parse(localStorage.getItem(ACTIVITY_PENDING_KEY)||'null');EPC_ACTIVITY_SEQUENCE=Number(EPC_ACTIVITY_PENDING?.sequence||0)}catch(_){}
+if(window.EPCMode?.isView()&&EPC_ACTIVITY_PENDING){localStorage.setItem('epcActivityPausedInViewV1',JSON.stringify(EPC_ACTIVITY_PENDING));EPC_ACTIVITY_PENDING=null;localStorage.removeItem(ACTIVITY_PENDING_KEY);}
 function activitySyncState_(text,bad=false){const el=document.getElementById('activitySyncState');if(el){el.textContent=text;el.style.color=bad?'var(--bad)':''}}
 function activityCache_(){const ldb=legacyDb_();if(ldb)try{localStorage.setItem('epcV1',JSON.stringify(ldb))}catch(_){} }
 function meaningfulActivity_(a){
@@ -489,6 +493,7 @@ function applyActivitySnapshot_(data,revision){
  if(EPC_ACTIVITY_SAVE_TIMER||EPC_ACTIVITY_SAVING||EPC_ACTIVITY_PENDING)return false;
  const current=Number(window.EPC_ACTIVITY_REVISION||0),incoming=Number(revision||0);
  if(incoming<current||(incoming===current&&window.EPC_ACTIVITY_LOADED))return false;
+ EPC_ACTIVITY_BASE=JSON.parse(JSON.stringify(data));
  ldb.activityManagement=JSON.parse(JSON.stringify(data));window.EPC_ACTIVITY_REVISION=incoming;window.EPC_ACTIVITY_LOADED=true;
  activityCache_();activitySyncState_('活動資料已同步｜版本 '+incoming);
  if(typeof window.renderActivities==='function')window.renderActivities();
@@ -500,7 +505,7 @@ async function refreshActivityCloudV3_(){
  try{
   const r=await api('activity.get',{}),ldb=legacyDb_();
   if(!Number(r.revision)&&!Object.keys(r.data||{}).length){
-   window.EPC_ACTIVITY_REVISION=0;window.EPC_ACTIVITY_LOADED=true;
+   EPC_ACTIVITY_BASE={};window.EPC_ACTIVITY_REVISION=0;window.EPC_ACTIVITY_LOADED=true;
    activitySyncState_(meaningfulActivity_(ldb?.activityManagement)?'雲端尚無活動資料；請在這台按「上傳本機活動資料」':'雲端尚無活動資料；請由有完整資料的電腦上傳');
   }else applyActivitySnapshot_(r.data,r.revision);
 
@@ -508,26 +513,36 @@ async function refreshActivityCloudV3_(){
  finally{EPC_ACTIVITY_READING=false}
 }
 async function flushActivityCloudV3_(){
+ if(window.EPCMode?.isView())return;
  EPC_ACTIVITY_SAVE_TIMER=null;
  if(EPC_ACTIVITY_SAVING||!EPC_ACTIVITY_PENDING)return;
  const job=EPC_ACTIVITY_PENDING;EPC_ACTIVITY_SAVING=true;activitySyncState_('活動資料儲存中…');
  try{
-  const r=await api('activity.update',{data:job.data,expectedRevision:job.revision});
+  let r;
+  for(let attempt=0;attempt<4;attempt++){
+   window.EPCMode?.assertWrite();
+   const latest=await api('activity.get',{});
+   const merged=job.replace?job.data:(window.EPCEventPatch?.mergeRecords(job.base||{},job.data,latest.data||{})||job.data);
+   try{r=await api('activity.update',{data:merged,expectedRevision:Number(latest.revision||0)});EPC_ACTIVITY_BASE=JSON.parse(JSON.stringify(merged));break;}catch(err){if(err.message!=='STALE_WRITE'||attempt===3)throw err;}
+  }
+  const local=legacyDb_();if(local&&EPC_ACTIVITY_BASE)local.activityManagement=window.EPCEventPatch?.mergeRecords(job.data,local.activityManagement,EPC_ACTIVITY_BASE)||local.activityManagement;
   window.EPC_ACTIVITY_REVISION=Number(r.revision||0);window.EPC_ACTIVITY_LOADED=true;
   if(EPC_ACTIVITY_PENDING?.sequence===job.sequence){EPC_ACTIVITY_PENDING=null;localStorage.removeItem(ACTIVITY_PENDING_KEY);activitySyncState_('活動資料已同步｜版本 '+r.revision)}
-  else if(EPC_ACTIVITY_PENDING){EPC_ACTIVITY_PENDING.revision=Number(r.revision||0);localStorage.setItem(ACTIVITY_PENDING_KEY,JSON.stringify(EPC_ACTIVITY_PENDING));EPC_ACTIVITY_SAVE_TIMER=setTimeout(flushActivityCloudV3_,250)}
+  else if(EPC_ACTIVITY_PENDING){EPC_ACTIVITY_PENDING.base=JSON.parse(JSON.stringify(EPC_ACTIVITY_BASE));EPC_ACTIVITY_PENDING.data=JSON.parse(JSON.stringify(legacyDb_().activityManagement));EPC_ACTIVITY_PENDING.revision=Number(r.revision||0);localStorage.setItem(ACTIVITY_PENDING_KEY,JSON.stringify(EPC_ACTIVITY_PENDING));EPC_ACTIVITY_SAVE_TIMER=setTimeout(flushActivityCloudV3_,250)}
   activityCache_();
  }catch(e){activitySyncState_((e.message==='STALE_WRITE'?'另一台裝置已更新活動，本機修改已保留，請先核對資料':'活動尚未同步：'+e.message+'；本機資料已保留，可按重試'),true);console.error('activity cloud save',e)}
  finally{EPC_ACTIVITY_SAVING=false;if(!EPC_ACTIVITY_PENDING)refreshActivityCloudV3_()}
 }
 window.saveActivityCloudV3=function(){
+ window.EPCMode?.assertWrite();
  const ldb=legacyDb_();if(!ldb?.activityManagement)return;
  clearTimeout(EPC_ACTIVITY_SAVE_TIMER);
- EPC_ACTIVITY_PENDING={data:JSON.parse(JSON.stringify(ldb.activityManagement)),revision:Number(window.EPC_ACTIVITY_REVISION||0),sequence:++EPC_ACTIVITY_SEQUENCE};
+ EPC_ACTIVITY_PENDING={base:EPC_ACTIVITY_PENDING?.base||JSON.parse(JSON.stringify(EPC_ACTIVITY_BASE||{})),data:JSON.parse(JSON.stringify(ldb.activityManagement)),revision:Number(window.EPC_ACTIVITY_REVISION||0),sequence:++EPC_ACTIVITY_SEQUENCE};
  localStorage.setItem(ACTIVITY_PENDING_KEY,JSON.stringify(EPC_ACTIVITY_PENDING));activitySyncState_('活動資料等待同步…');
  EPC_ACTIVITY_SAVE_TIMER=setTimeout(flushActivityCloudV3_,250);
 };
 window.uploadLocalActivityV3=async function(){
+ window.EPCMode?.assertWrite();
  if(EPC_ACTIVITY_SAVING||EPC_ACTIVITY_READING){activitySyncState_('正在同步，請稍後再試');return}
  const data=legacyDb_()?.activityManagement;if(!meaningfulActivity_(data)){activitySyncState_('這台沒有完整活動紀錄，請在原本有資料的電腦操作',true);return}
  const candidate=JSON.parse(JSON.stringify(data));EPC_ACTIVITY_READING=true;
@@ -538,13 +553,14 @@ window.uploadLocalActivityV3=async function(){
    if(!window.confirm('雲端已有活動資料。確定以這台電腦目前的活動設定與紀錄取代嗎？其他裝置會收到這份資料。'))return;
   }
   clearTimeout(EPC_ACTIVITY_SAVE_TIMER);EPC_ACTIVITY_SAVE_TIMER=null;
-  EPC_ACTIVITY_PENDING={data:candidate,revision:Number(remote.revision||0),sequence:++EPC_ACTIVITY_SEQUENCE};
+  EPC_ACTIVITY_PENDING={replace:true,data:candidate,revision:Number(remote.revision||0),sequence:++EPC_ACTIVITY_SEQUENCE};
   localStorage.setItem(ACTIVITY_PENDING_KEY,JSON.stringify(EPC_ACTIVITY_PENDING));
   await flushActivityCloudV3_();
  }catch(e){activitySyncState_('上傳失敗：'+e.message+'；本機資料已保留',true)}
  finally{EPC_ACTIVITY_READING=false}
 };
-window.retryActivityCloudV3=()=>EPC_ACTIVITY_PENDING?flushActivityCloudV3_():refreshActivityCloudV3_();
+window.retryActivityCloudV3=()=>!window.EPCMode?.isView()&&EPC_ACTIVITY_PENDING?flushActivityCloudV3_():refreshActivityCloudV3_();
+window.addEventListener('epcTerminalModeChanged',ev=>{if(ev.detail.mode==='view'){clearTimeout(EPC_ACTIVITY_SAVE_TIMER);EPC_ACTIVITY_SAVE_TIMER=null;if(EPC_ACTIVITY_PENDING){localStorage.setItem('epcActivityPausedInViewV1',JSON.stringify(EPC_ACTIVITY_PENDING));EPC_ACTIVITY_PENDING=null;localStorage.removeItem(ACTIVITY_PENDING_KEY);}}refreshActivityCloudV3_();});
 if(EPC_ACTIVITY_PENDING){window.EPC_ACTIVITY_REVISION=Number(EPC_ACTIVITY_PENDING.revision||0);const ldb=legacyDb_();if(ldb)ldb.activityManagement=JSON.parse(JSON.stringify(EPC_ACTIVITY_PENDING.data));setTimeout(flushActivityCloudV3_,0)}
 else setTimeout(refreshActivityCloudV3_,0);
 setInterval(()=>{if(document.visibilityState!=='hidden')refreshActivityCloudV3_()},5000);
@@ -640,3 +656,4 @@ window.performDelMember=async function(id){
 };
 
 })();
+

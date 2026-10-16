@@ -18,8 +18,8 @@ ctx.filterAddPlayerMembers('2');assert.equal(nodes.addPlayerMember.value,'2');
 assert(html.lastIndexOf('id="ppRegistrationDialog"')<html.lastIndexOf('<script src="player-payments.js'));
 console.log('PASS: ladies defaults/custom price/once-only/pool protection; compact keyword search and registration DOM order.');
 // Realtime player updates render the current event instead of hidden dashboards and reports.
-const calls={full:0,fast:0,members:0,dashboard:0};ctx.db={events:[]};ctx.$=id=>({classList:{contains:()=>id==='event'},style:{display:'none'}});ctx.currentEvent=()=>ctx.db.events[0];ctx.render=()=>calls.full++;ctx.renderEventFast_=()=>calls.fast++;ctx.renderMemberRows=()=>calls.members++;ctx.renderDashboardSummary=()=>calls.dashboard++;ctx.renderEventList=()=>{};ctx.renderActivities=()=>{};
-vm.runInContext(html.slice(html.indexOf('function applyFirestoreEventsToLegacy_('),html.indexOf("window.addEventListener('epcFirestoreEvents'")),ctx);
+const calls={full:0,fast:0,members:0,dashboard:0};ctx.window=ctx;ctx.cloneCloud_=x=>JSON.parse(JSON.stringify(x));ctx.db={events:[]};ctx.$=id=>({classList:{contains:()=>id==='event'},style:{display:'none'}});ctx.currentEvent=()=>ctx.db.events[0];ctx.render=()=>calls.full++;ctx.renderEventFast_=()=>calls.fast++;ctx.renderMemberRows=()=>calls.members++;ctx.renderDashboardSummary=()=>calls.dashboard++;ctx.renderEventList=()=>{};ctx.renderActivities=()=>{};
+vm.runInContext(html.slice(html.indexOf('function applyFirestoreEventsToLegacy_('),html.indexOf('\nwindow.epcModeRefreshEventFields_=')),ctx);
 const raw={eventId:'A',businessDate:'2026-10-16',createdAt:1,status:'open',players:[]};ctx.applyFirestoreEventsToLegacy_([raw]);ctx.applyFirestoreEventsToLegacy_([{...raw,players:[{memberId:'2',buyin:1}]}]);assert.equal(calls.full,1);assert.equal(calls.fast,1);assert.equal(calls.members,0);assert.equal(calls.dashboard,0);
 ctx.applyFirestoreEventsToLegacy_([{...raw,fee:600}]);assert.equal(calls.full,2);
 console.log('PASS: player-only snapshots use scoped event rendering; configuration changes still refresh settings.');

@@ -24,6 +24,7 @@
   if(selection&&el('ppDialog')?.open&&!busy)renderDialog();
  }
  function ensure(){
+  window.EPCMode?.assertWrite();
   if(!loaded||!window.EPCFirestore?.accountingReady)throw Error('請先到「EPC帳務」完成 Google 管理員登入，確認帳務已連線');
   if(!window.EPCFirestore?.playerPayment)throw Error('玩家帳務服務尚未載入，請重新整理');
  }
@@ -31,7 +32,7 @@
   if(busy)return;ensure();const commandKey=JSON.stringify(command),previous=attempts.get(commandKey);
   if(uncertain&&commandKey!==uncertain.key)throw Error('上一筆款項尚未確認，請先按「確認上一筆儲存結果」，避免重複收款');
   busy=true;
-  const cmd=previous||{...command,id:'PP_'+Date.now()+'_'+crypto.randomUUID(),memberId:String(command.memberId),expectedRevision:ledger(command.memberId).revision};
+  const cmd=previous||{...command,lastSavedWins:command.kind==='change'&&!!window.EPCMode&&!window.EPCMode.isView(),id:'PP_'+Date.now()+'_'+crypto.randomUUID(),memberId:String(command.memberId),expectedRevision:ledger(command.memberId).revision};
   attempts.set(commandKey,cmd);setStatus('儲存中，請稍候…');
   document.querySelectorAll('[data-pp-action]').forEach(x=>x.disabled=true);
   try{
@@ -186,7 +187,7 @@
  }
  const autoSeen=new Map();
  function scheduleAuto(){clearTimeout(autoTimer);autoTimer=setTimeout(async()=>{
-  if(!loaded||busy||uncertain||!window.EPCFirestore?.accountingReady)return;
+  if(window.EPCMode?.isView()||!loaded||busy||uncertain||!window.EPCFirestore?.accountingReady)return;
   for(const e of events())for(const p of e.players||[]){
    const s=ledger(p.memberId),v=info(e,p),key=String(e.id)+'|'+String(p.memberId),sig=[s.revision,v.charge,v.due,s.wallet].join(':');
    if(!v.due||(!s.accounts[String(e.id)]&&!legacyDue(p))||autoSeen.get(key)===sig)continue;

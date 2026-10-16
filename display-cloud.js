@@ -4,8 +4,9 @@ export async function displayCloud(){
  const app=am.getApps().find(a=>a.name==='epc-display')||am.initializeApp(window.EPC_FIREBASE_CONFIG,'epc-display');
  const db=fs.getFirestore(app),devices=fs.collection(db,'epc_events','_epc_display','devices'),codes=fs.collection(db,'epc_events','_epc_display','codes');
  const device=id=>fs.doc(devices,String(id));
- return {fs,device,
+ const service={fs,device,
   async request(p){
+   if(!['ping','devices'].includes(p.action))window.EPCMode?.assertWrite();
    if(p.action==='ping'){await fs.getDocs(fs.query(devices,fs.limit(1)));return {ok:true,version:'Firebase 顯示連線'}}
    if(p.action==='devices'){const snap=await fs.getDocs(devices);return {ok:true,devices:snap.docs.map(d=>({...d.data(),deviceId:d.id})).filter(d=>d.paired)}}
    if(p.action==='pair'){
@@ -25,4 +26,6 @@ export async function displayCloud(){
   heartbeat:async id=>{await fs.updateDoc(device(id),{lastSeen:Date.now()})},
   subscribe:(id,fn,error)=>fs.onSnapshot(device(id),snap=>fn(snap.exists()?snap.data():null),error)
  };
+ const request=service.request;service.request=async function(p){return window.EPCMode&&!['ping','devices'].includes(p.action)?EPCMode.runWrite(()=>request.call(service,p)):request.call(service,p);};return service;
 }
+

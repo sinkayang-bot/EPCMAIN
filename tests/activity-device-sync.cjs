@@ -4,8 +4,8 @@ const code=app.slice(app.indexOf('let EPC_ACTIVITY_SAVE_TIMER='),app.indexOf('/*
 const clone=x=>JSON.parse(JSON.stringify(x));
 let remote={data:{},revision:0},fail=false,block=null,writes=0;
 async function api(action,payload){if(action==='activity.get')return clone(remote);if(fail)throw Error('offline');if(block)await block;if(payload.expectedRevision!==remote.revision)throw Error('STALE_WRITE');writes++;remote={data:clone(payload.data),revision:remote.revision+1};return clone(remote)}
-function terminal(local,saved={}){
- const values=new Map(Object.entries(saved)),state={textContent:'',style:{}},ctx={window:{epcDb:local,addEventListener(){},confirm:()=>true},legacyDb_:()=>local,localStorage:{getItem:k=>values.get(k)||null,setItem:(k,v)=>values.set(k,v),removeItem:k=>values.delete(k)},document:{visibilityState:'visible',getElementById:()=>state},api,setTimeout:()=>1,clearTimeout(){},setInterval(){},console:{warn(){},error(){}}};
+function terminal(local,saved={},view=false){
+ const values=new Map(Object.entries(saved)),state={textContent:'',style:{}},ctx={window:{EPCEventPatch:require('../event-patch-core.js'),EPCMode:{isView:()=>view,assertWrite:()=>{if(view)throw Error('viewing')}},epcDb:local,addEventListener(){},confirm:()=>true},legacyDb_:()=>local,localStorage:{getItem:k=>values.get(k)||null,setItem:(k,v)=>values.set(k,v),removeItem:k=>values.delete(k)},document:{visibilityState:'visible',getElementById:()=>state},api,setTimeout:()=>1,clearTimeout(){},setInterval(){},console:{warn(){},error(){}}};
  vm.createContext(ctx);vm.runInContext(code,ctx);return {ctx,local,values,state};
 }
 (async()=>{
@@ -18,7 +18,9 @@ function terminal(local,saved={}){
  await B.ctx.refreshActivityCloudV3_();assert.equal(B.local.activityManagement.boss.startPrize,5000);
  fail=true;B.local.activityManagement.boss.startPrize=6000;B.ctx.window.saveActivityCloudV3();await B.ctx.flushActivityCloudV3_();assert.match(B.state.textContent,/尚未同步/);assert.ok(B.values.has('epcActivityPendingV1'));assert.equal(B.ctx.applyActivitySnapshot_(remote.data,99),false,'failed save cannot be overwritten by a remote snapshot');
  const reboot=terminal({activityManagement:{}},Object.fromEntries(B.values));assert.equal(reboot.local.activityManagement.boss.startPrize,6000,'failed edits survive reload');fail=false;await reboot.ctx.flushActivityCloudV3_();assert.equal(remote.data.boss.startPrize,6000);
- A.local.activityManagement.boss.startPrize=7000;A.ctx.window.saveActivityCloudV3();await A.ctx.flushActivityCloudV3_();assert.equal(remote.data.boss.startPrize,6000,'stale device cannot roll back another device');assert.match(A.state.textContent,/另一台裝置/);assert.equal(A.local.activityManagement.boss.startPrize,7000,'conflicting local work remains recoverable');
+ A.local.activityManagement.boss.startPrize=7000;A.ctx.window.saveActivityCloudV3();await A.ctx.flushActivityCloudV3_();assert.equal(remote.data.boss.startPrize,7000,'last saved same-field edit wins after rebasing onto latest remote');assert.equal(A.local.activityManagement.boss.startPrize,7000,'conflicting local work remains recoverable');
  const extract=html.slice(html.indexOf('function epcAcceptLegacyDb_'),html.indexOf('function mergeFormMembers('));B.ctx.db=B.local;vm.runInContext(extract,B.ctx);const accepted=B.ctx.epcAcceptLegacyDb_({activityManagement:{boss:{startPrize:0}}});assert.equal(accepted.activityManagement.boss.startPrize,6000,'legacy imports cannot overwrite authoritative activities');
- console.log('PASS: epcDb-only runtime, explicit source-device upload, cross-device records/settings, read-only defaults, serialized edits, offline reload recovery, stale conflict protection, legacy rollback guard.');
+ const viewing=terminal({activityManagement:{}},Object.fromEntries(B.values),true);const beforeWrites=writes;await viewing.ctx.flushActivityCloudV3_();await viewing.ctx.refreshActivityCloudV3_();assert.equal(writes,beforeWrites);assert.equal(viewing.local.activityManagement.boss.startPrize,7000);assert(!viewing.values.has('epcActivityPendingV1'));assert(viewing.values.has('epcActivityPausedInViewV1'));
+ console.log('PASS: epcDb-only runtime, explicit source-device upload, cross-device records/settings, read-only defaults, serialized edits, offline reload recovery, last-saved same-field resolution, legacy rollback guard, view-mode pending upload suppression.');
 })();
+
