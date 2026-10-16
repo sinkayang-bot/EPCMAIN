@@ -1,7 +1,7 @@
 (function(){
  'use strict';
  const Core=window.EPCPlayerPaymentsCore,el=id=>document.getElementById(id),esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
- const cash=n=>'$'+Number(n||0).toLocaleString(),state=new Map(),attempts=new Map();let loaded=false,busy=false,selection=null,autoTimer=null,uncertain=null,registration=null,registrationSaving=false,removal=null;
+ const cash=n=>'$'+Number(n||0).toLocaleString(),state=new Map(),attempts=new Map();let loaded=false,busy=false,selection=null,autoTimer=null,uncertain=null,registration=null,registrationSaving=false,removal=null,rebuy=null,rebuySaving=false;
  const events=()=>window.epcDb?.events||db.events||[],members=()=>window.epcDb?.members||db.members||[];
  const findEvent=id=>events().find(e=>String(e.id)===String(id));
  const player=(e,id)=>(e?.players||[]).find(p=>String(p.memberId)===String(id));
@@ -83,7 +83,7 @@
   <div class="toolbar"><button class="primary" data-pp-action onclick="PP.submit()">確認登記</button><button data-pp-action data-m="${esc(memberId)}" onclick="PP.clearAll('',this.dataset.m)">結清剩餘帳款</button></div><div id="ppStatus" class="small"></div>
   <h3>未結帳場次</h3><div class="pp-pending">${rows.map(r=>button(esc(businessDateForEvent(r.e))+'｜'+esc(eventDisplayName_(r.e))+'｜欠 '+cash(r.due),r.e.id,memberId)).join('')||'無未結帳紀錄'}</div>
   <details style="margin-top:14px"><summary>盈餘抵扣／領取餘額</summary>${Object.entries(s.profits||{}).map(([id,x])=>'<p>'+esc(x.date)+'｜'+esc(x.name)+'：盈餘 '+cash(x.limit)+'；已抵扣 '+cash(x.used)+'；已領現金 '+cash(x.cash)+'；剩餘 '+cash(x.limit-x.used-x.cash)+'</p>').join('')||'<p>尚無已確認的盈餘來源</p>'}</details>
-  <details style="margin-top:14px"><summary>付款與異動紀錄（${s.items.length} 筆）</summary><div class="tablewrap"><table><thead><tr><th>時間</th><th>項目</th><th>金額／異動</th><th>備註</th><th>操作</th></tr></thead><tbody>${s.items.slice().reverse().map(x=>`<tr><td>${esc(new Date(x.at).toLocaleString('zh-TW'))}</td><td>${esc(({add:'報名',rebuy:'手機重買',change:'買入／優惠調整',reconcile:'寄存自動抵扣／欠款登記',walletPay:'寄存抵扣',cash:'現金補帳',transfer:'轉帳收款',deposit:'存入寄存',withdraw:'領回寄存',profit:'盈餘抵扣',profitCash:'盈餘已領現金',creditExcess:'溢付轉寄存',settleAll:'跨場結清',archive:'刪除帳務名單',cancelRegistration:'取消本場報名',void:'撤銷'})[x.kind]||x.kind)}${x.eventId?'<br>'+esc(s.accounts[x.eventId]?.date||'')+'｜'+esc(s.accounts[x.eventId]?.name||''):''}</td><td>${x.amount?cash(x.amount):''}${['add','rebuy','settleAll'].includes(x.kind)&&x.cashAmount?'<br>現金收款 '+cash(x.cashAmount):''}${x.effects?.wallet?'<br>寄存 '+(x.effects.wallet>0?'+':'')+cash(x.effects.wallet):''}${Object.entries(x.effects?.paid||{}).map(([id,n])=>'<br>付款 '+(n>0?'+':'')+cash(n)).join('')}</td><td>${esc(x.note||'')}${x.voidedBy?'（已撤銷）':''}</td><td>${!x.voidedBy&&!['change','reconcile','void','archive','cancelRegistration'].includes(x.kind)&&(!['add','rebuy'].includes(x.kind)||x.cashAmount>0)?`<button data-pp-action data-id="${esc(x.id)}" onclick="PP.undo(this.dataset.id)">撤銷</button>`:'—'}</td></tr>`).join('')}</tbody></table></div></details>`;
+  <details style="margin-top:14px"><summary>付款與異動紀錄（${s.items.length} 筆）</summary><div class="tablewrap"><table><thead><tr><th>時間</th><th>項目</th><th>金額／異動</th><th>備註</th><th>操作</th></tr></thead><tbody>${s.items.slice().reverse().map(x=>`<tr><td>${esc(new Date(x.at).toLocaleString('zh-TW'))}</td><td>${esc(({add:'報名',rebuy:'重買',change:'買入／優惠調整',reconcile:'寄存自動抵扣／欠款登記',walletPay:'寄存抵扣',cash:'現金補帳',transfer:'轉帳收款',deposit:'存入寄存',withdraw:'領回寄存',profit:'盈餘抵扣',profitCash:'盈餘已領現金',creditExcess:'溢付轉寄存',settleAll:'跨場結清',archive:'刪除帳務名單',cancelRegistration:'取消本場報名',void:'撤銷'})[x.kind]||x.kind)}${x.eventId?'<br>'+esc(s.accounts[x.eventId]?.date||'')+'｜'+esc(s.accounts[x.eventId]?.name||''):''}</td><td>${x.amount?cash(x.amount):''}${['add','rebuy','settleAll'].includes(x.kind)&&x.cashAmount?'<br>現金收款 '+cash(x.cashAmount):''}${x.effects?.wallet?'<br>寄存 '+(x.effects.wallet>0?'+':'')+cash(x.effects.wallet):''}${Object.entries(x.effects?.paid||{}).map(([id,n])=>'<br>付款 '+(n>0?'+':'')+cash(n)).join('')}</td><td>${esc(x.note||'')}${x.voidedBy?'（已撤銷）':''}</td><td>${!x.voidedBy&&!['change','reconcile','void','archive','cancelRegistration'].includes(x.kind)&&(!['add','rebuy'].includes(x.kind)||x.cashAmount>0)?`<button data-pp-action data-id="${esc(x.id)}" onclick="PP.undo(this.dataset.id)">撤銷</button>`:'—'}</td></tr>`).join('')}</tbody></table></div></details>`;
  }
  function methodChanged(){el('ppProfitArea').hidden=!['profit','profitCash'].includes(el('ppMethod').value);}
  async function submit(){
@@ -164,7 +164,7 @@
   try{
    const {c}=registrationPrice(),wallet=ledger(registration.memberId).wallet,used=Math.min(wallet,c.paid),cashDue=c.paid-used;
    el('ppRegTotal').textContent=cash(c.paid);
-   el('ppRegBreakdown').textContent='優惠合計 '+cash(c.totalDiscount)+'｜寄存金抵扣 '+cash(used)+'｜'+(el('ppRegistrationPaid').checked?'本次收款 ':'尚待收款 ')+cash(cashDue);
+   el('ppRegBreakdown').textContent='優惠合計 '+cash(c.totalDiscount)+'｜寄存金抵扣 '+cash(used)+'｜'+(!el('ppRegistrationUnpaid').checked?'本次收款 ':'尚待收款 ')+cash(cashDue);
    el('ppRegStatus').textContent='';el('ppRegConfirm').disabled=registrationSaving||busy;
   }catch(err){el('ppRegStatus').textContent=err.message;el('ppRegConfirm').disabled=true;}
  }
@@ -180,7 +180,7 @@
    const base=calcPlayerForEvent({buyin:1,rebuy:0,addon:0,manualDiscount:0},e).paid;
    const ladies=e.ladiesDiscount??Math.floor(Number((e.pricingMode==='custom'?e.buyinAdmin:e.admin)||0)/2);
    el('ppRegistrationTitle').textContent=name(id)+'｜加入本場';
-   el('ppRegistrationBody').innerHTML=`<p>${esc(businessDateForEvent(e))}｜${esc(eventDisplayName_(e))}</p><label>應付金額（本場買入）</label><input aria-label="應付金額" readonly value="${cash(base)}"><div class="pp-reg-discounts"><label><input type="checkbox" id="ppRegEarly" onchange="PP.registrationPreview('early')">早鳥 −${cash(e.earlyBirdDiscount)}</label><label><input type="checkbox" id="ppRegLate" onchange="PP.registrationPreview('late')">晚鳥 −${cash(e.lateBirdDiscount)}</label><label><input type="checkbox" id="ppRegLadies" onchange="PP.registrationPreview('ladies')">女士 −${cash(ladies)}</label></div><p class="small">早鳥、晚鳥擇一；女士與手動優惠另計。各優惠每場折一次。</p><div class="formgrid" style="grid-template-columns:1fr 1fr"><div><label>手動優惠</label><input id="ppRegManual" type="number" min="0" step="1" value="0" oninput="PP.registrationPreview()"></div><div><label>本場結帳群組</label><input id="addPlayerGroup" value="${esc(m.group||'')}" placeholder="可留白"></div></div><label style="margin-top:16px">實際支付金額</label><div class="pp-reg-total" id="ppRegTotal"></div><p id="ppRegBreakdown" class="small"></p><label style="display:flex;align-items:center;gap:8px"><input id="ppRegistrationPaid" type="checkbox" onchange="PP.registrationPreview()">已收到本次應收款（寄存金會優先抵扣）</label><div class="toolbar"><button class="primary" id="ppRegConfirm" data-pp-action onclick="PP.confirmRegistration()">確認加入本場</button></div><div id="ppRegStatus" class="pp-reg-feedback" role="status"></div>`;
+   el('ppRegistrationBody').innerHTML=`<p>${esc(businessDateForEvent(e))}｜${esc(eventDisplayName_(e))}</p><label>應付金額（本場買入）</label><input aria-label="應付金額" readonly value="${cash(base)}"><div class="pp-reg-discounts"><label><input type="checkbox" id="ppRegEarly" onchange="PP.registrationPreview('early')">早鳥 −${cash(e.earlyBirdDiscount)}</label><label><input type="checkbox" id="ppRegLate" onchange="PP.registrationPreview('late')">晚鳥 −${cash(e.lateBirdDiscount)}</label><label><input type="checkbox" id="ppRegLadies" onchange="PP.registrationPreview('ladies')">女士 −${cash(ladies)}</label></div><p class="small">早鳥、晚鳥擇一；女士與手動優惠另計。各優惠每場折一次。</p><div class="formgrid" style="grid-template-columns:1fr 1fr"><div><label>手動優惠</label><input id="ppRegManual" type="number" min="0" step="1" value="0" oninput="PP.registrationPreview()"></div><div><label>本場結帳群組</label><input id="addPlayerGroup" value="${esc(m.group||'')}" placeholder="可留白"></div></div><label style="margin-top:16px">實際支付金額</label><div class="pp-reg-total" id="ppRegTotal"></div><p id="ppRegBreakdown" class="small"></p><label style="display:flex;align-items:center;gap:8px"><input id="ppRegistrationUnpaid" type="checkbox" onchange="PP.registrationPreview()">本次未付款（預設已付款；寄存金會優先抵扣）</label><div class="toolbar"><button class="primary" id="ppRegConfirm" data-pp-action onclick="PP.confirmRegistration()">確認加入本場</button></div><div id="ppRegStatus" class="pp-reg-feedback" role="status"></div>`;
    el('addPlayerMember').hidden=true;registrationPreview();el('ppRegistrationDialog').showModal();
   }catch(err){actionMsg(err.message||String(err),true);}
  }
@@ -188,7 +188,7 @@
   if(!registration||busy||registrationSaving)return;
   let saved=false;
   try{
-   ensure();const {e,p,c}=registrationPrice(),id=registration.memberId,m=members().find(x=>String(x.id)===id),wasPaid=el('ppRegistrationPaid').checked;
+   ensure();const {e,p,c}=registrationPrice(),id=registration.memberId,m=members().find(x=>String(x.id)===id),wasPaid=!el('ppRegistrationUnpaid').checked;
    if(!m)throw Error('找不到會員');
    const group=el('addPlayerGroup').value.trim()||m.group||'';
    registrationSaving=true;el('ppRegConfirm').disabled=true;el('ppRegConfirm').textContent='加入中…';el('ppRegStatus').textContent='正在儲存報名與付款，請稍候…';
@@ -206,6 +206,57 @@
    if(!saved&&el('ppRegConfirm')){el('ppRegConfirm').disabled=false;el('ppRegConfirm').textContent='確認加入本場';}
    if(saved)el('addPlayerSearch')?.focus();
   }
+ }
+ function rebuyPrice(){
+  if(!rebuy)return null;const e=findEvent(rebuy.eventId),p=player(e,rebuy.memberId);if(!e||!p)throw Error('這位玩家已不在本場');
+  if(['settled','已結算'].includes(e.status))throw Error('已結算賽事不能重買');
+  const groups=Number(el('ppRebuyGroups').value),discount=Number(el('ppRebuyManual').value||0);
+  if(!Number.isSafeInteger(groups)||groups<1||groups>100)throw Error('重買組數須為 1～100 組');
+  if(!Number.isSafeInteger(discount)||discount<0)throw Error('手動優惠須為非負整數');
+  const ladies=!!p.ladies||el('ppRebuyLadies').checked;
+  const before=Number(calcPlayerForEvent(p,e).paid),after=Number(calcPlayerForEvent({...p,rebuy:Number(p.rebuy||0)+groups,manualDiscount:Number(p.manualDiscount||0)+discount,ladies},e).paid),amount=after-before;
+  if(!Number.isSafeInteger(amount)||amount<0)throw Error('本次優惠不能超過重買金額');
+  return {e,p,groups,discount,ladies,amount};
+ }
+ function rebuyPreview(){
+  if(!rebuy)return;
+  try{
+   const cost=rebuyPrice(),v=info(cost.e,cost.p),wallet=ledger(rebuy.memberId).wallet,used=Math.min(wallet,v.due+cost.amount),cashDue=Math.max(0,cost.amount-Math.max(0,used-v.due));
+   el('ppRebuyTotal').textContent=cash(cost.amount);
+   el('ppRebuyBreakdown').textContent='原欠 '+cash(v.due)+'｜寄存金抵扣 '+cash(used)+'｜'+(el('ppRebuyUnpaid').checked?'本次待收 ':'本次收款 ')+cash(cashDue)+'（不含原欠款）';
+   el('ppRebuyStatus').textContent='';el('ppRebuyConfirm').disabled=busy||rebuySaving;
+  }catch(err){el('ppRebuyStatus').textContent=err.message||String(err);el('ppRebuyConfirm').disabled=true;}
+ }
+ function closeRebuy(){if(busy||rebuySaving)return;rebuy=null;el('ppRebuyDialog')?.close();}
+ async function openRebuy(eventId,memberId){
+  if(busy||rebuySaving)return actionMsg('帳務儲存中，請稍候再操作',true);
+  try{
+   ensure();const e=findEvent(eventId),p=player(e,memberId);if(!e||!p)throw Error('找不到本場玩家');
+   if(['settled','已結算'].includes(e.status))throw Error('已結算賽事不能重買');
+   if(!el('ppRebuyDialog')){
+    const d=document.createElement('dialog');d.id='ppRebuyDialog';document.body.appendChild(d);
+    d.addEventListener('cancel',ev=>{if(busy||rebuySaving)ev.preventDefault();else rebuy=null;});
+   }
+   rebuy={eventId:String(eventId),memberId:String(memberId)};
+   const ladies=e.ladiesDiscount??Math.floor(Number((e.pricingMode==='custom'?e.buyinAdmin:e.admin)||0)/2);
+   el('ppRebuyDialog').innerHTML=`<h2>${esc(name(memberId))}｜重買</h2><p>${esc(businessDateForEvent(e))}｜${esc(eventDisplayName_(e))}</p><div class="formgrid" style="grid-template-columns:1fr 1fr"><div><label>新增重買組數</label><input id="ppRebuyGroups" type="number" min="1" max="100" step="1" value="1" oninput="PP.rebuyPreview()"></div><div><label>本次手動優惠</label><input id="ppRebuyManual" type="number" min="0" step="1" value="0" oninput="PP.rebuyPreview()"></div></div><label style="display:flex;align-items:center;gap:8px;margin-top:14px"><input id="ppRebuyLadies" type="checkbox" style="width:auto" ${p.ladies?'checked disabled':''} onchange="PP.rebuyPreview()">女士優惠 −${cash(ladies)}（每場一次${p.ladies?'，本場已使用':''}）</label><label style="margin-top:16px">本次應付金額</label><div class="pp-reg-total" id="ppRebuyTotal"></div><p class="small" id="ppRebuyBreakdown"></p><label style="display:flex;align-items:center;gap:8px"><input id="ppRebuyUnpaid" type="checkbox" style="width:auto" onchange="PP.rebuyPreview()">本次未付款（預設已付款；寄存金優先抵扣）</label><div class="toolbar"><button id="ppRebuyConfirm" class="primary" type="button" data-pp-action onclick="PP.confirmRebuy()">確認重買</button><button type="button" data-pp-action onclick="PP.closeRebuy()">取消</button></div><div id="ppRebuyStatus" class="pp-reg-feedback" role="status"></div><button id="ppRebuyRetry" type="button" data-pp-action hidden onclick="PP.retryPending()">確認上一筆重買結果</button>`;
+   rebuyPreview();el('ppRebuyDialog').showModal();
+  }catch(err){actionMsg(err.message||String(err),true);}
+ }
+ async function confirmRebuy(){
+  if(!rebuy||busy||rebuySaving)return;
+  let saved=false;
+  try{
+   ensure();const cost=rebuyPrice(),paidNow=!el('ppRebuyUnpaid').checked,memberId=rebuy.memberId,eventId=rebuy.eventId;
+   rebuySaving=true;el('ppRebuyConfirm').disabled=true;el('ppRebuyStatus').textContent='正在儲存重買與付款…';
+   if(typeof EPC_FIRESTORE_EVENT_SAVE_TIMERS!=='undefined'){
+    const t=EPC_FIRESTORE_EVENT_SAVE_TIMERS.get(eventId);if(t){clearTimeout(t);EPC_FIRESTORE_EVENT_SAVE_TIMERS.delete(eventId);await syncEventToFirestore_(cost.e,true);}
+   }
+   const result=await run({kind:'rebuy',eventId,memberId,groups:cost.groups,manualDiscount:cost.discount,ladies:cost.ladies,paidNow,expectedDelta:cost.amount,note:'電腦重買｜'+(paidNow?'本次已收款':'本次待收')});
+   if(!result)return;
+   saved=true;rebuy=null;el('ppRebuyDialog').close();actionMsg('已新增 '+cost.groups+' 組重買，'+(paidNow?'本次款項已結帳':'本次未付款已記入欠款'));
+  }catch(err){el('ppRebuyStatus').textContent=err.message||String(err);}
+  finally{rebuySaving=false;if(!saved&&el('ppRebuyConfirm'))el('ppRebuyConfirm').disabled=false;if(el('ppRebuyRetry'))el('ppRebuyRetry').hidden=!uncertain;}
  }
  async function edit(e,id,field,value,increment=false){
   if(busy){actionMsg('帳務儲存中，請稍候再操作',true);refresh();return;}
@@ -228,9 +279,9 @@
    return;
   }
  },250);}
- window.PP={removePlayer,confirmRemoval,closeRemoval,registrationPreview,confirmRegistration,cancelRegistration,open,clearAll,removeAccount,undo,submit,methodChanged,nameCell,amountCell,rebuyCell,renderPage,refresh,pending,info,renderPending,
-  retryPending:async()=>{if(!uncertain||busy)return;try{await run(uncertain.command);}catch(err){setStatus(err.message,true);}},
-  increment:(e,id)=>edit(findEvent(e),id,'rebuy',0,true),
+ window.PP={openRebuy,rebuyPreview,confirmRebuy,closeRebuy,removePlayer,confirmRemoval,closeRemoval,registrationPreview,confirmRegistration,cancelRegistration,open,clearAll,removeAccount,undo,submit,methodChanged,nameCell,amountCell,rebuyCell,renderPage,refresh,pending,info,renderPending,
+  retryPending:async()=>{if(!uncertain||busy)return;const command=uncertain.command;try{const result=await run(command);if(result&&command.kind==='rebuy'&&rebuy?.eventId===command.eventId&&rebuy?.memberId===command.memberId){rebuy=null;el('ppRebuyDialog')?.close();actionMsg('已確認重買儲存結果，未重複加組或收款');}}catch(err){setStatus(err.message,true);}},
+  increment:(e,id)=>openRebuy(e,id),
   openMember:()=>{const id=actResolveMember_('ppMember');if(!members().some(m=>String(m.id)===String(id)))return actionMsg('請選擇會員',true);open('',id);}
  };
  // The existing table retains editable numeric inputs; only money-related changes use transactions.

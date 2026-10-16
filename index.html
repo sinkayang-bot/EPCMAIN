@@ -1994,7 +1994,7 @@ button.epc-clicked-now,.btn.epc-clicked-now{transform:scale(.985);filter:brightn
 </style><style>
 
 .pp-add-card{padding:16px!important}.pp-add-row{display:flex;align-items:center;gap:12px;flex-wrap:wrap}.pp-add-row>label{font-size:17px;font-weight:700;margin:0}.pp-search-box{position:relative;flex:0 1 430px;min-width:220px}.pp-search-box input{width:100%}.pp-search-box select{position:absolute;top:100%;left:0;width:100%;z-index:30;margin-top:4px;box-shadow:0 12px 30px #0009}.pp-search-box select[hidden]{display:none}
-#ppRemovalDialog,#ppRegistrationDialog{width:min(580px,94vw);max-height:90vh;overflow:auto;background:var(--bg);color:var(--text);border:1px solid var(--accent);border-radius:14px;padding:22px}#ppRemovalDialog::backdrop,#ppRegistrationDialog::backdrop{background:#000a}.pp-reg-discounts{display:flex;gap:12px;flex-wrap:wrap;margin:14px 0}.pp-reg-discounts label{display:flex;align-items:center;gap:5px;padding:9px;border:1px solid var(--line);border-radius:8px}#ppRegistrationDialog input[type=checkbox]{width:auto}.pp-reg-total{font-size:30px;font-weight:900;color:var(--accent);margin:14px 0}.pp-reg-feedback{min-height:24px;margin-top:10px}
+#ppRebuyDialog,#ppRemovalDialog,#ppRegistrationDialog{width:min(580px,94vw);max-height:90vh;overflow:auto;background:var(--bg);color:var(--text);border:1px solid var(--accent);border-radius:14px;padding:22px}#ppRebuyDialog::backdrop,#ppRemovalDialog::backdrop,#ppRegistrationDialog::backdrop{background:#000a}.pp-reg-discounts{display:flex;gap:12px;flex-wrap:wrap;margin:14px 0}.pp-reg-discounts label{display:flex;align-items:center;gap:5px;padding:9px;border:1px solid var(--line);border-radius:8px}#ppRegistrationDialog input[type=checkbox]{width:auto}.pp-reg-total{font-size:30px;font-weight:900;color:var(--accent);margin:14px 0}.pp-reg-feedback{min-height:24px;margin-top:10px}
 #ppDialog{width:min(900px,94vw);max-height:88vh;overflow:auto;background:var(--bg);color:var(--text);border:1px solid var(--accent);border-radius:14px;padding:20px}
 #ppDialog::backdrop{background:#000a}#ppDialog h3{margin-top:16px}#ppDialog .tablewrap{margin-top:12px}
 .pp-player-link{padding:4px 7px;border-radius:6px;white-space:nowrap;background:transparent;border:0;text-align:inherit;cursor:pointer}.pp-player-link small{display:block;font-size:11px}
@@ -7653,8 +7653,8 @@ async function epcShowRecoveryAudit_(){
 </script>
 <script src="firebase-config.js?v=20261007-0780"></script>
 <script src="phone/stack-core.js?v=20261009-settlement-confirmed"></script>
-<script src="firebase-events.js?v=20261017-remove1"></script>
+<script src="firebase-events.js?v=20261017-rebuy1"></script>
 <script src="sync-v3.js?v=20261007-0780"></script>
 <script src="app.js?v=20261016-modes1"></script><dialog id="ppDialog"><div class="toolbar" style="justify-content:space-between"><h2 id="ppDialogTitle">玩家帳務</h2><button onclick="document.getElementById('ppDialog').close()">關閉</button></div><div id="ppDialogBody"></div></dialog>
-<dialog id="ppRegistrationDialog"><div class="toolbar" style="justify-content:space-between"><h2 id="ppRegistrationTitle">加入本場</h2><button data-pp-action onclick="PP.cancelRegistration()">取消</button></div><div id="ppRegistrationBody"></div></dialog><script src="player-payments-core.js?v=20261017-remove1"></script><script src="player-payments.js?v=20261017-remove1"></script></body></html>
+<dialog id="ppRegistrationDialog"><div class="toolbar" style="justify-content:space-between"><h2 id="ppRegistrationTitle">加入本場</h2><button data-pp-action onclick="PP.cancelRegistration()">取消</button></div><div id="ppRegistrationBody"></div></dialog><script src="player-payments-core.js?v=20261017-remove1"></script><script src="player-payments.js?v=20261017-rebuy1"></script></body></html>
 

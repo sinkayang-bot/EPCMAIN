@@ -11,7 +11,10 @@ export function setupPlayerPayments({fs,db,col,accountingCol,bridge}){
    window.EPCMode?.assertWrite();
    const snap=await tx.get(ledgerRef),stored=snap.exists()?snap.data():Core.empty(cmd.memberId);
    // Request IDs survive retries, including a response lost after a committed write.
-   if((stored.items||[]).some(x=>x.id===cmd.id))return {ledger:stored,replayed:true};
+   if((stored.items||[]).some(x=>x.id===cmd.id)){
+    const eventSnap=cmd.eventId?await tx.get(fs.doc(col,String(cmd.eventId))):null;
+    return {ledger:stored,replayed:true,event:eventSnap?.exists()?{...eventSnap.data(),eventId:String(cmd.eventId)}:null};
+   }
    const ids=[...new Set([...Object.keys(stored.accounts||{}),...(cmd.eventIds||[]),cmd.eventId,cmd.sourceEventId].filter(Boolean).map(String))];
    const snapshots=await Promise.all(ids.map(id=>tx.get(fs.doc(col,id))));
    const raws=new Map();snapshots.forEach((x,i)=>{if(x.exists())raws.set(ids[i],{...x.data(),eventId:ids[i]});});

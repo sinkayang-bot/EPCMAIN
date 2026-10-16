@@ -3,7 +3,7 @@ import {getFirestore,collection,doc,onSnapshot,runTransaction,serverTimestamp} f
 import * as fs from 'https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js';
 import * as authMod from 'https://www.gstatic.com/firebasejs/12.4.0/firebase-auth.js';
 import {setupAccountingAuth} from '../firebase-accounting-auth.js?v=20261016-phone-payments1';
-import {setupPlayerPayments} from '../player-payments-cloud.js?v=20261016-phone-payments1';
+import {setupPlayerPayments} from '../player-payments-cloud.js?v=20261017-rebuy1';
 import {pricePlayer,registrationPrice,rebuyPrice} from '../player-pricing.js?v=20261016-phone-payments1';
 const $=id=>document.getElementById(id),esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const app=initializeApp(window.EPC_FIREBASE_CONFIG,'epc-phone'),store=getFirestore(app),col=collection(store,'epc_events');
@@ -143,10 +143,10 @@ function renderRebuy(){
  const e=events.find(x=>x.eventId===selected),sel=$('rebuyPlayer');if(!sel)return;
  const old=sel.value;sel.innerHTML=(e?.players||[]).map(p=>'<option value="'+esc(p.memberId)+'">'+esc(seatLabel(p))+'｜已重買 '+num(p.rebuy)+' 組'+(playerDue(e,p)?'｜未結帳 $'+num(playerDue(e,p)):'｜已結帳')+'</option>').join('');
  if((e?.players||[]).some(p=>String(p.memberId)===old))sel.value=old;
- const p=(e?.players||[]).find(p=>String(p.memberId)===sel.value),ladies=$('rebuyLadies');
- if(p?.ladies){ladies.checked=true;ladies.disabled=true;ladies.dataset.player=sel.value;}else{if(ladies.dataset.player!==sel.value){ladies.checked=false;ladies.dataset.player=sel.value;}ladies.disabled=false;}
+ const p=(e?.players||[]).find(p=>String(p.memberId)===sel.value),ladies=$('rebuyDiscountType');
+ if(p?.ladies){ladies.value='ladies';ladies.disabled=true;ladies.dataset.player=sel.value;}else{if(ladies.dataset.player!==sel.value){ladies.value='none';ladies.dataset.player=sel.value;}ladies.disabled=false;}
  try{
-  const cost=rebuyPrice(e,p,Number($('rebuyGroups').value),Number($('rebuyManualDiscount').value||0),ladies.checked),due=playerDue(e,p),wallet=paymentRows.get(String(p.memberId))?.wallet||0;
+  const cost=rebuyPrice(e,p,Number($('rebuyGroups').value),Number($('rebuyManualDiscount').value||0),ladies.value==='ladies'),due=playerDue(e,p),wallet=paymentRows.get(String(p.memberId))?.wallet||0;
   const used=Math.min(wallet,due+cost.amount),cashDue=Math.max(0,cost.amount-Math.max(0,used-due));
   $('rebuyPriceNote').textContent='本次新增 '+$('rebuyGroups').value+' 組｜應付 '+num(cost.amount)+' 元｜原欠 '+num(due)+' 元｜寄存抵扣 '+num(used)+' 元｜本次另收 '+num(cashDue)+' 元（不含原欠款）';
  }catch(err){$('rebuyPriceNote').textContent=err.message;}
@@ -155,16 +155,16 @@ $('overviewPlayers').addEventListener('click',ev=>{const b=ev.target.closest('[d
 $('rebuyPlayer').addEventListener('change',renderRebuy);
 $('rebuyGroups').addEventListener('input',renderRebuy);
 $('rebuyManualDiscount').addEventListener('input',renderRebuy);
-$('rebuyLadies').addEventListener('change',renderRebuy);
+$('rebuyDiscountType').addEventListener('change',renderRebuy);
 $('rebuySaveBtn').addEventListener('click',async()=>{
  const e=events.find(x=>x.eventId===selected),id=$('rebuyPlayer').value,groups=Number($('rebuyGroups').value),discount=Number($('rebuyManualDiscount').value||0),msg=$('rebuyMessage'),btn=$('rebuySaveBtn');
  if(btn.disabled||mobilePaymentBusy)return;
  try{
-  const p=e?.players?.find(p=>String(p.memberId)===id),cost=rebuyPrice(e,p,groups,discount,$('rebuyLadies').checked),unpaid=$('rebuyUnpaid').checked;
+  const p=e?.players?.find(p=>String(p.memberId)===id),cost=rebuyPrice(e,p,groups,discount,$('rebuyDiscountType').value==='ladies'),unpaid=$('rebuyUnpaid').checked;
   if(!confirm('新增 '+groups+' 組重買｜本次應付 '+num(cost.amount)+' 元｜'+(unpaid?'尚未付款':'確認已收本次款項')+'（寄存金優先抵扣）'))return;
   btn.disabled=true;msg.textContent='正在儲存重買與付款…';msg.className='message';
-  await mobilePayment({kind:'rebuy',eventId:e.eventId,memberId:id,groups,manualDiscount:discount,ladies:$('rebuyLadies').checked,paidNow:!unpaid,expectedDelta:cost.amount,note:'手機重買｜'+(unpaid?'本次待收':'本次已收款')});
-  msg.textContent='重買成功，新增 '+groups+' 組｜款項已同步玩家帳務';msg.className='message good';$('rebuyGroups').value='1';$('rebuyManualDiscount').value='0';$('rebuyUnpaid').checked=true;
+  await mobilePayment({kind:'rebuy',eventId:e.eventId,memberId:id,groups,manualDiscount:discount,ladies:$('rebuyDiscountType').value==='ladies',paidNow:!unpaid,expectedDelta:cost.amount,note:'手機重買｜'+(unpaid?'本次待收':'本次已收款')});
+  msg.textContent='重買成功，新增 '+groups+' 組｜款項已同步玩家帳務';msg.className='message good';$('rebuyGroups').value='1';$('rebuyManualDiscount').value='0';$('rebuyUnpaid').checked=false;
  }catch(err){msg.textContent='重買失敗：'+err.message;msg.className='message error';}
  finally{btn.disabled=false;renderRebuy();}
 });
@@ -252,27 +252,26 @@ $('memberResults').addEventListener('click',e=>{
 function selectedEvent(){return events.find(x=>x.eventId===selected)}
 function calculateRegistrationPrice(){
  const e=selectedEvent();if(!e)return;
- $('registrationLadiesAmount').textContent='−'+num(e.ladiesDiscount??Math.floor(Number(e.pricingMode==='custom'?e.buyinAdmin:e.fee||0)/2))+' 元／場';
+ $('birdType').querySelector('[value=ladies]').textContent='女士優惠 −'+num(e.ladiesDiscount??Math.floor(Number(e.pricingMode==='custom'?e.buyinAdmin:e.fee||0)/2))+' 元／場';
  try{
-  const cost=registrationPrice(e,Number($('buyinGroups').value),$('birdType').value,$('registrationLadies').checked,Number($('manualDiscount').value||0));
+  const cost=registrationPrice(e,Number($('buyinGroups').value),$('birdType').value,($('birdType').value==='ladies'),Number($('manualDiscount').value||0));
   const m=memberRows.find(x=>memberKeyOf(x)===$('memberSelect').value),wallet=paymentRows.get(String(m?.memberId))?.wallet||0;
   $('amountPaid').value=cost.paid;$('priceNote').textContent='應付 '+num(cost.paid)+' 元｜優惠合計 '+num(cost.totalDiscount)+' 元｜寄存抵扣 '+num(Math.min(wallet,cost.paid))+' 元｜本次另收 '+num(Math.max(0,cost.paid-wallet))+' 元';
  }catch(err){$('amountPaid').value='';$('priceNote').textContent=err.message;}
 }
 $('buyinGroups').addEventListener('input',calculateRegistrationPrice);
 $('birdType').addEventListener('change',calculateRegistrationPrice);
-$('registrationLadies').addEventListener('change',calculateRegistrationPrice);
 $('manualDiscount').addEventListener('input',calculateRegistrationPrice);
 $('registerBtn').addEventListener('click',async()=>{
  const e=selectedEvent(),memberKey=$('memberSelect').value,m=memberRows.find(x=>memberKeyOf(x)===memberKey),msg=$('registerMessage'),btn=$('registerBtn');
  if(btn.disabled||mobilePaymentBusy)return;
  try{
   if(!e||!m)throw Error('請先選擇賽事及會員');
-  const cost=registrationPrice(e,Number($('buyinGroups').value),$('birdType').value,$('registrationLadies').checked,Number($('manualDiscount').value||0)),unpaid=$('registrationUnpaid').checked;
+  const cost=registrationPrice(e,Number($('buyinGroups').value),$('birdType').value,($('birdType').value==='ladies'),Number($('manualDiscount').value||0)),unpaid=$('registrationUnpaid').checked;
   btn.disabled=true;msg.textContent='正在儲存報名與付款…';msg.className='message';
   await mobilePayment({kind:'add',eventId:e.eventId,memberId:String(m.memberId),paidNow:!unpaid,expectedCharge:cost.paid,player:{...cost.p,memberKey:memberKeyOf(m),name:m.name||'',nickname:m.nickname||'',group:m.group||'',stack:null},note:'手機報名｜'+(unpaid?'待收':'已收款')});
   msg.textContent='報名成功｜'+cost.p.buyin+' 組｜應付 '+num(cost.paid)+' 元｜已同步玩家帳務';msg.className='message good';
-  $('memberSearch').value='';$('memberSelect').innerHTML='<option value="">尚未選擇</option>';$('memberChosen').textContent='尚未選擇會員';$('memberResults').innerHTML='';$('registrationUnpaid').checked=true;$('registrationLadies').checked=false;$('birdType').value='none';$('manualDiscount').value='0';$('buyinGroups').value='1';calculateRegistrationPrice();
+  $('memberSearch').value='';$('memberSelect').innerHTML='<option value="">尚未選擇</option>';$('memberChosen').textContent='尚未選擇會員';$('memberResults').innerHTML='';$('registrationUnpaid').checked=false;$('birdType').value='none';$('manualDiscount').value='0';$('buyinGroups').value='1';calculateRegistrationPrice();
  }catch(err){msg.textContent='報名失敗：'+err.message;msg.className='message error';}
  finally{btn.disabled=false;}
 });

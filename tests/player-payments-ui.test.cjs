@@ -30,17 +30,19 @@ const api={doc:(col,id)=>col+'/'+id,serverTimestamp:()=>0,runTransaction(db,call
 setupPlayerPayments({fs:api,db:{},col:'events',accountingCol:'accounting',bridge});w.EPCFirestore=bridge;
 w.eval(fs.readFileSync(require.resolve('../player-payments-core.js'),'utf8'));w.eval(fs.readFileSync(require.resolve('../player-payments.js'),'utf8'));
 const $=id=>w.document.getElementById(id);
+async function unpaidRebuy(){const before=w.currentEvent().players.find(p=>p.memberId==='42').rebuy;await w.PP.increment('B','42');assert($('ppRebuyDialog').open);assert.equal(w.currentEvent().players.find(p=>p.memberId==='42').rebuy,before);assert.equal($('ppRebuyUnpaid').checked,false);$('ppRebuyUnpaid').checked=true;await w.PP.confirmRebuy();}
+
 assert($('playerpayments'));assert($('ppRegistrationDialog'));assert(w.document.querySelector('#nav [data-page="playerpayments"]'));
 w.PP.open('A','42');assert($('ppDialog').open);assert($('ppDialogBody').textContent.includes('尚欠 $0'));
 $('ppMethod').value='deposit';$('ppAmount').value='5000';await w.PP.submit();assert.equal(data.get('accounting/PLAYER_PAYMENTS_42').wallet,5000);
 selected='B';$('addPlayerMember').innerHTML='<option value="42" selected>甲</option>';
-await w.addPlayer();assert($('ppRegistrationDialog').open);assert.equal(w.currentEvent().players.length,0);$('ppRegistrationPaid').checked=false;await w.PP.confirmRegistration();let p=w.currentEvent().players[0];assert(p);assert.equal(w.PP.info(w.currentEvent(),p).due,0);assert.equal(data.get('accounting/PLAYER_PAYMENTS_42').wallet,1600);
+await w.addPlayer();assert($('ppRegistrationDialog').open);assert.equal(w.currentEvent().players.length,0);$('ppRegistrationUnpaid').checked=true;await w.PP.confirmRegistration();let p=w.currentEvent().players[0];assert(p);assert.equal(w.PP.info(w.currentEvent(),p).due,0);assert.equal(data.get('accounting/PLAYER_PAYMENTS_42').wallet,1600);
 assert(w.PP.rebuyCell(w.currentEvent(),p,0).includes('＋'));
-await w.PP.increment('B','42');p=w.currentEvent().players[0];assert.equal(p.rebuy,1);assert.equal(w.PP.info(w.currentEvent(),p).due,1600);assert(w.PP.nameCell(w.currentEvent(),p,'甲').includes('pp-unpaid'));
+await unpaidRebuy();p=w.currentEvent().players[0];assert.equal(p.rebuy,1);assert.equal(w.PP.info(w.currentEvent(),p).due,1600);assert(w.PP.nameCell(w.currentEvent(),p,'甲').includes('pp-unpaid'));
 w.PP.open('B','42');$('ppAmount').value='600';$('ppMethod').value='cash';await w.PP.submit();assert.equal(w.PP.info(w.currentEvent(),w.currentEvent().players[0]).due,1000);
 $('ppMethod').value='profit';w.PP.methodChanged();assert(!$('ppProfitArea').hidden);$('ppSource').value='A';$('ppProfitConfirmed').checked=true;$('ppAmount').value='1000';await w.PP.submit();
 assert.equal(w.PP.info(w.currentEvent(),w.currentEvent().players[0]).due,0);assert.equal(data.get('accounting/PLAYER_PAYMENTS_42').profits.A.used,1000);assert(w.PP.nameCell(w.currentEvent(),w.currentEvent().players[0],'甲').includes('pp-clear'));
-await w.PP.increment('B','42');assert(w.PP.pending('42').length===1);w.PP.renderPending();assert($('epcUnpaidPlayers').textContent.includes('小甲'));
+await unpaidRebuy();assert(w.PP.pending('42').length===1);w.PP.renderPending();assert($('epcUnpaidPlayers').textContent.includes('小甲'));
 w.PP.renderPage();assert($('ppPageBody').textContent.includes('小甲'));assert($('ppPageBody').textContent.includes('刪除'));
 await w.PP.clearAll('','42');assert.equal(w.PP.pending('42').length,0);
 w.PP.renderPage();assert(!$('ppPageBody').textContent.includes('小甲'));assert($('ppPageBody').textContent.includes('目前沒有寄存金或未結帳款'));
@@ -50,20 +52,29 @@ w.PP.open('B','42');$('ppMethod').value='profitCash';w.PP.methodChanged();$('ppS
 const beforeDelete=data.get('accounting/PLAYER_PAYMENTS_42').items.length;
 await w.PP.removeAccount('','42');assert.equal(data.get('accounting/PLAYER_PAYMENTS_42').archived,true);assert.equal(data.get('accounting/PLAYER_PAYMENTS_42').items.length,beforeDelete+1);assert(!$('ppPageBody').textContent.includes('小甲'));
 w.PP.open('','42');$('ppMethod').value='deposit';$('ppAmount').value='100';await w.PP.submit();w.PP.renderPage();assert($('ppPageBody').textContent.includes('小甲'));assert.equal(data.get('accounting/PLAYER_PAYMENTS_42').archived,false);
-await w.PP.increment('B','42');w.PP.renderPage();assert($('ppPageBody').textContent.includes('小甲'));console.log('PASS: wallet holders remain visible without debts, zero balances disappear, history remains accessible, new debt restores the row.');
+await unpaidRebuy();w.PP.renderPage();assert($('ppPageBody').textContent.includes('小甲'));console.log('PASS: wallet holders remain visible without debts, zero balances disappear, history remains accessible, new debt restores the row.');
 // Registration prices discounts before collecting cash, avoiding false overpayment.
 w.db.members.push({id:'43',name:'乙'});
 Object.assign(w.currentEvent(),{earlyBirdDiscount:100,lateBirdDiscount:200,ladiesDiscount:200});
 Object.assign(data.get('events/B'),{earlyBirdDiscount:100,lateBirdDiscount:200,ladiesDiscount:200});
 $('addPlayerMember').innerHTML='<option value="43" selected>乙</option>';
-w.addPlayer();assert($('ppRegistrationDialog').open);assert.equal(w.currentEvent().players.length,1);
+w.addPlayer();assert($('ppRegistrationDialog').open);assert.equal($('ppRegistrationUnpaid').checked,false);assert.equal(w.currentEvent().players.length,1);
 $('ppRegEarly').checked=true;w.PP.registrationPreview('early');assert.equal($('ppRegTotal').textContent,'$3,300');
 $('ppRegLate').checked=true;w.PP.registrationPreview('late');assert.equal($('ppRegEarly').checked,false);
 $('ppRegLadies').checked=true;$('ppRegManual').value='50';w.PP.registrationPreview();assert.equal($('ppRegTotal').textContent,'$2,950');
 $('ppRegManual').value='9999';w.PP.registrationPreview();assert($('ppRegConfirm').disabled);$('ppRegManual').value='50';
-$('ppRegistrationPaid').checked=true;w.PP.registrationPreview();assert.equal($('ppRegConfirm').disabled,false);
+$('ppRegistrationUnpaid').checked=false;w.PP.registrationPreview();assert.equal($('ppRegConfirm').disabled,false);
 await w.PP.confirmRegistration();const lady=w.currentEvent().players.find(x=>x.memberId==='43'),ladyInfo=w.PP.info(w.currentEvent(),lady);assert(lady.ladies);assert(lady.lateBird);assert(!lady.earlyBird);assert.equal(ladyInfo.charge,2950);assert.equal(ladyInfo.paid,2950);assert.equal(ladyInfo.excess,0);assert.equal(ladyInfo.due,0);
 console.log('PASS: registration confirmation dialog, live discounts, early/late exclusion, ladies and manual discounts, paid-at-final-price with no false overpayment.');
+const qtyBefore=lady.rebuy;await w.PP.increment('B','43');assert($('ppRebuyDialog').open);assert.equal(w.currentEvent().players.find(p=>p.memberId==='43').rebuy,qtyBefore);assert($('ppRebuyLadies').checked);assert($('ppRebuyLadies').disabled);assert.equal($('ppRebuyUnpaid').checked,false);
+$('ppRebuyGroups').value='0';w.PP.rebuyPreview();assert($('ppRebuyConfirm').disabled);$('ppRebuyGroups').value='2';$('ppRebuyManual').value='50';w.PP.rebuyPreview();assert.equal($('ppRebuyTotal').textContent,'$6,350');
+await Promise.all([w.PP.confirmRebuy(),w.PP.confirmRebuy()]);assert(!$('ppRebuyDialog').open);let r=w.currentEvent().players.find(p=>p.memberId==='43');assert.equal(r.rebuy,2);assert.equal(w.PP.info(w.currentEvent(),r).due,0);
+await w.PP.increment('B','43');assert.equal($('ppRebuyGroups').value,'1');assert.equal($('ppRebuyUnpaid').checked,false);$('ppRebuyUnpaid').checked=true;await w.PP.confirmRebuy();r=w.currentEvent().players.find(p=>p.memberId==='43');assert.equal(w.PP.info(w.currentEvent(),r).due,3200);
+await w.PP.increment('B','43');await w.PP.confirmRebuy();r=w.currentEvent().players.find(p=>p.memberId==='43');assert.equal(w.PP.info(w.currentEvent(),r).due,3200,'paid rebuy must not clear earlier debt');
+const originalPayment=bridge.playerPayment,groupsBeforeRetry=r.rebuy;let lost=true;bridge.playerPayment=async command=>{const result=await originalPayment(command);if(lost&&command.kind==='rebuy'){lost=false;throw Object.assign(Error('response lost'),{code:'unavailable'});}return result;};
+await w.PP.increment('B','43');await w.PP.confirmRebuy();assert($('ppRebuyDialog').open);assert.equal($('ppRebuyRetry').hidden,false);await w.PP.retryPending();assert(!$('ppRebuyDialog').open);assert.equal(w.currentEvent().players.find(p=>p.memberId==='43').rebuy,groupsBeforeRetry+1);bridge.playerPayment=originalPayment;
+console.log('PASS: uncertain desktop rebuy retries the same request and closes the dialog without duplicate groups/payment.');
+console.log('PASS: + opens a dialog without writing, default-paid registration/rebuy, multiple groups, incremental discounts, ladies once, invalid groups, duplicate-submit guard, explicit unpaid and preserved old debt.');
 await w.PP.removePlayer(w.currentEvent(),'43');assert($('ppRemovalDialog').open);assert.equal($('ppRemovalMethod').value,'');
 await w.PP.confirmRemoval();assert($('ppRemovalStatus').textContent.includes('請先選擇'));
 $('ppRemovalMethod').value='mistake';await w.PP.confirmRemoval();assert(!$('ppRemovalDialog').open);assert(!w.currentEvent().players.some(x=>x.memberId==='43'));assert.equal(data.get('accounting/PLAYER_PAYMENTS_43').accounts.B.charge,0);assert(data.get('accounting/PLAYER_PAYMENTS_43').items.some(x=>x.kind==='cancelRegistration'));
