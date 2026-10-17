@@ -98,13 +98,14 @@
   const wallets=[...state.entries()].filter(([id,s])=>s.wallet>0&&matches(id));
   el('ppConnection').innerHTML=(loaded?'玩家帳務已連線':'請先到 EPC帳務完成 Google 管理員登入')+(uncertain?' <button data-pp-action onclick="PP.retryPending()">確認上一筆儲存結果</button>':'');
   el('ppMemberList').innerHTML=actMemberSearchOptions_();
-  root.innerHTML='<div class="grid"><div class="card kpi"><div class="l">寄存金合計</div><div class="v">'+cash([...state.values()].reduce((n,x)=>n+x.wallet,0))+'</div></div><div class="card kpi"><div class="l">未結清合計</div><div class="v neg">'+cash(dues.reduce((n,x)=>n+x.due,0))+'</div></div></div><h3>依場次查看未結帳玩家</h3>'+
+  const walletsHtml='<h3>玩家寄存金</h3>'+(wallets.length?'<div class="tablewrap"><table><thead><tr><th>玩家</th><th>會員編號</th><th>寄存金</th><th>操作</th></tr></thead><tbody>'+wallets.map(([id,s])=>'<tr><td>'+button(esc(name(id)),'',id)+'</td><td>'+esc(id)+'</td><td>'+cash(s.wallet)+'</td><td>'+button('帳務明細／寄存','',id)+'</td></tr>').join('')+'</tbody></table></div>':'<p class="small">'+(q?'沒有符合搜尋的寄存玩家':'目前沒有寄存金')+'</p>');
+  root.innerHTML='<div class="grid"><div class="card kpi"><div class="l">寄存金合計</div><div class="v">'+cash([...state.values()].reduce((n,x)=>n+x.wallet,0))+'</div></div><div class="card kpi"><div class="l">未結清合計</div><div class="v neg">'+cash(dues.reduce((n,x)=>n+x.due,0))+'</div></div></div>'+walletsHtml+'<h3>依場次查看未結帳玩家</h3>'+
   groups.map(({e,rows},i)=>'<details class="card" data-pp-event="'+esc(e.id)+'" '+((expanded.has(String(e.id))?expanded.get(String(e.id)):i===0)?'open':'')+'><summary style="cursor:pointer;display:flex;gap:12px;flex-wrap:wrap;align-items:center"><b>'+esc(businessDateForEvent(e)||'日期待確認')+'｜'+esc(eventDisplayName_(e))+'</b><span>'+rows.length+' 人未結帳</span><span class="small">點開／收合明細</span><b class="neg">尚欠 '+cash(rows.reduce((n,x)=>n+x.due,0))+'</b></summary><div class="tablewrap" style="margin-top:12px"><table><thead><tr><th>玩家</th><th>會員編號</th><th>本場應付</th><th>本場已付</th><th>本場尚欠</th><th>操作</th></tr></thead><tbody>'+rows.map(x=>{
    const id=String(x.p.memberId);
    return '<tr data-pp-member="'+esc(id)+'"><td>'+button(esc(name(id)),e.id,id)+'</td><td>'+esc(id)+'</td><td>'+cash(x.charge)+'</td><td>'+cash(x.paid)+'</td><td class="neg">'+cash(x.due)+'</td><td>'+button('本場帳務／補帳',e.id,id)+' '+button('跨場結清','',id,'clearAll')+' '+button('刪除帳務名單','',id,'removeAccount')+(x.p._paymentOnly?'<small>帳務已載入，場次人員資料待同步；欠款仍保留</small>':'')+'</td></tr>';
   }).join('')+'</tbody></table></div></details>').join('')+
   (!groups.length?'<p class="small">'+(q?'沒有符合搜尋的未結帳場次':'目前沒有未結帳款')+'</p>':'')+
-  '<h3>玩家寄存金</h3>'+(wallets.length?'<div class="tablewrap"><table><thead><tr><th>玩家</th><th>會員編號</th><th>寄存金</th><th>操作</th></tr></thead><tbody>'+wallets.map(([id,s])=>'<tr><td>'+button(esc(name(id)),'',id)+'</td><td>'+esc(id)+'</td><td>'+cash(s.wallet)+'</td><td>'+button('帳務明細／寄存','',id)+'</td></tr>').join('')+'</tbody></table></div>':'<p class="small">'+(q?'沒有符合搜尋的寄存玩家':'目前沒有寄存金')+'</p>')+
+
   (!dues.length&&!wallets.length&&!q?'<p class="small">目前沒有寄存金或未結帳款</p>':'')+
   '<p class="small">點開場次可查看該場未結帳玩家與金額；「本場帳務／補帳」只開啟該場，「跨場結清」會確認此玩家所有場次的欠款。寄存金獨立列出，零餘額歷史可從上方選擇會員查看。合計涵蓋所有場次，不受搜尋影響。</p>';
  }
