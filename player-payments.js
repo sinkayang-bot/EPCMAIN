@@ -17,7 +17,27 @@
   const paid=a?Number(a.paid||0):Math.max(0,charge-Math.min(charge,legacyDue(p)));
   return {charge,paid,due:Math.max(0,charge-paid),excess:Math.max(0,paid-charge),tracked:!!a};
  }
- function pending(id){return events().flatMap(e=>(e.players||[]).filter(p=>id==null||String(p.memberId)===String(id)).map(p=>({e,p,...info(e,p)}))).filter(x=>x.due>0).sort((a,b)=>String(businessDateForEvent(a.e)).localeCompare(String(businessDateForEvent(b.e)))||Number(a.e.seq||0)-Number(b.e.seq||0));}
+ function pending(id){
+  const rows=new Map(),key=(eventId,memberId)=>JSON.stringify([String(eventId),String(memberId)]);
+  // Protected ledgers remain visible even if a roster snapshot has not arrived yet.
+  for(const [memberId,s] of state){
+   if(id!=null&&String(id)!==memberId)continue;
+   for(const [eventId,a] of Object.entries(s.accounts||{})){
+    const due=Core.due(a);if(!due||a.cancelled)continue;
+    const found=findEvent(eventId),e=found||{id:eventId,date:a.date||'',businessDate:a.date||'',name:a.name||eventId,seq:0};
+    const p=player(found,memberId)||{memberId,_paymentOnly:true};
+    rows.set(key(eventId,memberId),{e,p,charge:Number(a.charge||0),paid:Number(a.paid||0),due,excess:0,tracked:true});
+   }
+  }
+  // Existing untracked debts still use their explicit legacy unpaid amounts.
+  for(const e of events())for(const p of e.players||[]){
+   const memberId=String(p.memberId);if(id!=null&&String(id)!==memberId)continue;
+   if(ledger(memberId).accounts[String(e.id)])continue;
+   const v=info(e,p);if(v.due>0)rows.set(key(e.id,memberId),{e,p,...v});
+  }
+  return [...rows.values()].sort((a,b)=>String(businessDateForEvent(a.e)).localeCompare(String(businessDateForEvent(b.e)))||Number(a.e.seq||0)-Number(b.e.seq||0));
+ }
+
  function refresh(){
   if(typeof epcPlayerEditing_==='function'&&!epcPlayerEditing_()&&el('event')?.classList.contains('active'))renderEventFast_();
   renderPending();if(el('playerpayments')?.classList.contains('active'))renderPage();
@@ -58,20 +78,39 @@
  function rebuyCell(e,p,i){return `<div class="pp-rebuy"><input aria-label="重買組數" type="number" min="0" value="${Number(p.rebuy)||0}" onchange="setP(${i},'rebuy',this.value)"><button type="button" aria-label="重買加一組" data-pp-action data-e="${esc(e.id)}" data-m="${esc(p.memberId)}" onclick="PP.increment(this.dataset.e,this.dataset.m)">＋</button></div>`;}
  function renderPending(){
   const root=el('epcUnpaidPlayers');if(!root)return;const e=currentEvent();if(!e){root.innerHTML='';return;}
-  const rows=(e.players||[]).map(p=>({p,...info(e,p)})).filter(x=>x.due);
+  const rows=pending().filter(x=>String(x.e.id)===String(e.id));
   root.innerHTML=(uncertain?'<div class="notice">上一筆款項尚未確認，請勿再次收款。<button data-pp-action onclick="PP.retryPending()">確認上一筆儲存結果</button></div>':'')+'<b>本場未結帳 '+rows.length+' 人｜尚欠 '+cash(rows.reduce((n,x)=>n+x.due,0))+'</b><div class="pp-pending">'+(rows.map(x=>button(esc(name(x.p.memberId))+'｜欠 '+cash(x.due),e.id,x.p.memberId,'open','pp-unpaid')).join('')||'<span class="small">本場目前無未結帳玩家</span>')+'</div>';
  }
  function renderPage(){
   const root=el('ppPageBody');if(!root)return;
-  const q=String(el('ppSearch')?.value||'').trim().toLowerCase(),dues=pending(),ids=new Set([...state.keys(),...dues.map(x=>String(x.p.memberId))]);
-  const rows=[...ids].map(id=>({id,s:ledger(id),debts:dues.filter(x=>String(x.p.memberId)===id)})).filter(x=>x.debts.length>0||x.s.wallet>0).filter(x=>!q||[name(x.id),x.id].join(' ').toLowerCase().includes(q));
+  const expanded=new Map([...root.querySelectorAll('details[data-pp-event]')].map(x=>[x.dataset.ppEvent,x.open]));
+  const q=String(el('ppSearch')?.value||'').trim().toLowerCase(),dues=pending();
+  const matches=(id,e)=>{
+   const m=members().find(x=>String(x.id)===String(id));
+   return !q||[id,name(id),m?.name,m?.nickname,e?.name,e?.id,e?businessDateForEvent(e):''].join(' ').toLowerCase().includes(q);
+  };
+  const grouped=new Map();
+  for(const row of dues){
+   const id=String(row.p.memberId);if(!matches(id,row.e))continue;
+   const key=String(row.e.id);if(!grouped.has(key))grouped.set(key,{e:row.e,rows:[]});grouped.get(key).rows.push(row);
+  }
+  const groups=[...grouped.values()].sort((a,b)=>String(businessDateForEvent(b.e)).localeCompare(String(businessDateForEvent(a.e)))||Number(b.e.seq||0)-Number(a.e.seq||0)||String(a.e.id).localeCompare(String(b.e.id)));
+  const wallets=[...state.entries()].filter(([id,s])=>s.wallet>0&&matches(id));
   el('ppConnection').innerHTML=(loaded?'玩家帳務已連線':'請先到 EPC帳務完成 Google 管理員登入')+(uncertain?' <button data-pp-action onclick="PP.retryPending()">確認上一筆儲存結果</button>':'');
   el('ppMemberList').innerHTML=actMemberSearchOptions_();
-  root.innerHTML='<div class="grid"><div class="card kpi"><div class="l">寄存金合計</div><div class="v">'+cash([...state.values()].reduce((n,x)=>n+x.wallet,0))+'</div></div><div class="card kpi"><div class="l">未結清合計</div><div class="v neg">'+cash(dues.reduce((n,x)=>n+x.due,0))+'</div></div></div><div class="tablewrap"><table><thead><tr><th>玩家</th><th>會員編號</th><th>寄存金</th><th>未結清</th><th>操作</th></tr></thead><tbody>'+(!rows.length?'<tr><td colspan="5" class="small">'+(q?'沒有符合搜尋的寄存／欠款玩家':'目前沒有寄存金或未結帳款')+'</td></tr>':'')+rows.map(x=>'<tr><td>'+button(esc(name(x.id)),'',x.id)+'</td><td>'+esc(x.id)+'</td><td>'+cash(x.s.wallet)+'</td><td class="neg">'+cash(x.debts.reduce((n,r)=>n+r.due,0))+'</td><td>'+button('帳務明細／寄存','',x.id)+' '+button('結清剩餘帳款','',x.id,'clearAll')+' '+button('刪除','',x.id,'removeAccount')+'</td></tr>').join('')+'</tbody></table></div><p class="small">寄存、獎金抵扣及補帳屬付款紀錄，不會改動原賽事的獎池、JP 或優惠。此列表顯示有寄存金或未結帳款的玩家；兩者皆為 0 才自動隱藏，歷史明細可從上方選擇會員開啟。舊紀錄沿用既有付款狀態，不追溯產生新欠款。</p>';
+  root.innerHTML='<div class="grid"><div class="card kpi"><div class="l">寄存金合計</div><div class="v">'+cash([...state.values()].reduce((n,x)=>n+x.wallet,0))+'</div></div><div class="card kpi"><div class="l">未結清合計</div><div class="v neg">'+cash(dues.reduce((n,x)=>n+x.due,0))+'</div></div></div><h3>依場次查看未結帳玩家</h3>'+
+  groups.map(({e,rows},i)=>'<details class="card" data-pp-event="'+esc(e.id)+'" '+((expanded.has(String(e.id))?expanded.get(String(e.id)):i===0)?'open':'')+'><summary style="cursor:pointer;display:flex;gap:12px;flex-wrap:wrap;align-items:center"><b>'+esc(businessDateForEvent(e)||'日期待確認')+'｜'+esc(eventDisplayName_(e))+'</b><span>'+rows.length+' 人未結帳</span><span class="small">點開／收合明細</span><b class="neg">尚欠 '+cash(rows.reduce((n,x)=>n+x.due,0))+'</b></summary><div class="tablewrap" style="margin-top:12px"><table><thead><tr><th>玩家</th><th>會員編號</th><th>本場應付</th><th>本場已付</th><th>本場尚欠</th><th>操作</th></tr></thead><tbody>'+rows.map(x=>{
+   const id=String(x.p.memberId);
+   return '<tr data-pp-member="'+esc(id)+'"><td>'+button(esc(name(id)),e.id,id)+'</td><td>'+esc(id)+'</td><td>'+cash(x.charge)+'</td><td>'+cash(x.paid)+'</td><td class="neg">'+cash(x.due)+'</td><td>'+button('本場帳務／補帳',e.id,id)+' '+button('跨場結清','',id,'clearAll')+' '+button('刪除帳務名單','',id,'removeAccount')+(x.p._paymentOnly?'<small>帳務已載入，場次人員資料待同步；欠款仍保留</small>':'')+'</td></tr>';
+  }).join('')+'</tbody></table></div></details>').join('')+
+  (!groups.length?'<p class="small">'+(q?'沒有符合搜尋的未結帳場次':'目前沒有未結帳款')+'</p>':'')+
+  '<h3>玩家寄存金</h3>'+(wallets.length?'<div class="tablewrap"><table><thead><tr><th>玩家</th><th>會員編號</th><th>寄存金</th><th>操作</th></tr></thead><tbody>'+wallets.map(([id,s])=>'<tr><td>'+button(esc(name(id)),'',id)+'</td><td>'+esc(id)+'</td><td>'+cash(s.wallet)+'</td><td>'+button('帳務明細／寄存','',id)+'</td></tr>').join('')+'</tbody></table></div>':'<p class="small">'+(q?'沒有符合搜尋的寄存玩家':'目前沒有寄存金')+'</p>')+
+  (!dues.length&&!wallets.length&&!q?'<p class="small">目前沒有寄存金或未結帳款</p>':'')+
+  '<p class="small">點開場次可查看該場未結帳玩家與金額；「本場帳務／補帳」只開啟該場，「跨場結清」會確認此玩家所有場次的欠款。寄存金獨立列出，零餘額歷史可從上方選擇會員查看。合計涵蓋所有場次，不受搜尋影響。</p>';
  }
  function open(e,id){selection={eventId:String(e||''),memberId:String(id)};renderDialog();if(!el('ppDialog').open)el('ppDialog').showModal();}
  function renderDialog(){
-  if(!selection)return;const {eventId,memberId}=selection,e=findEvent(eventId),p=player(e,memberId),s=ledger(memberId),rows=pending(memberId),v=p?info(e,p):null;
+  if(!selection)return;const {eventId,memberId}=selection,s=ledger(memberId),rows=pending(memberId),debt=rows.find(x=>String(x.e.id)===eventId),e=findEvent(eventId)||debt?.e,p=player(e,memberId)||debt?.p,v=debt?{charge:debt.charge,paid:debt.paid,due:debt.due,excess:0}:p?info(e,p):null;
   const options=events().filter(x=>String(x.id)!==eventId&&['settled','已結算'].includes(x.status)&&player(x,memberId)&&(!e||String(businessDateForEvent(x))<String(businessDateForEvent(e))||(String(businessDateForEvent(x))===String(businessDateForEvent(e))&&Number(x.seq||0)<Number(e.seq||0)))).map(x=>{
    const source=player(x,memberId),net=Math.max(0,Number(source.prize||0)-Number(calcPlayerForEvent(source,x).paid||0)),known=s.profits[String(x.id)],available=known?known.limit-known.used-known.cash:net;
    return {x,net,available,known};
@@ -89,6 +128,7 @@
  async function submit(){
   if(!selection||busy)return;const {eventId,memberId}=selection,kind=el('ppMethod').value;
   try{
+   if(['cash','transfer','profit','walletPay','creditExcess'].includes(kind)&&!player(findEvent(eventId),memberId))throw Error('場次人員資料尚未載入，欠款已保留；請確認同步後再補帳');
    const cmd={kind,eventId,memberId,note:el('ppNote').value};
    if(!['walletPay','creditExcess'].includes(kind))cmd.amount=Core.amount(el('ppAmount').value);
    if(['profit','profitCash'].includes(kind)){cmd.sourceEventId=el('ppSource').value;cmd.confirmUnpaidProfit=el('ppProfitConfirmed').checked;if(!cmd.sourceEventId)throw Error('請選擇盈餘來源');}
@@ -100,6 +140,7 @@
  async function clearAll(unused,id){
   if(busy)return;try{
    ensure();const rows=pending(id),total=rows.reduce((n,r)=>n+r.due,0),wallet=ledger(id).wallet;
+   if(rows.some(x=>x.p._paymentOnly))throw Error('有欠款場次的人員資料尚未載入，請確認同步後再跨場結清');
    if(!total)return actionMsg('此玩家沒有未結帳款');
    const used=Math.min(total,wallet),rest=total-used;
    if(!confirm(name(id)+' 尚欠 '+cash(total)+'\n寄存金抵扣 '+cash(used)+'，其餘 '+cash(rest)+' 記為現金收款。\n確認已收到現金後再按確定。'))return;
@@ -305,3 +346,4 @@
  if(window.EPCFirestore?.accountingReady){for(const x of window.EPC_PLAYER_PAYMENT_ROWS||[])state.set(String(x.memberId),x);loaded=true;}
  renderPage();refresh();scheduleAuto();
 })();
+

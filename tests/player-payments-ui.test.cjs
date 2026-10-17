@@ -79,5 +79,26 @@ await w.PP.removePlayer(w.currentEvent(),'43');assert($('ppRemovalDialog').open)
 await w.PP.confirmRemoval();assert($('ppRemovalStatus').textContent.includes('請先選擇'));
 $('ppRemovalMethod').value='mistake';await w.PP.confirmRemoval();assert(!$('ppRemovalDialog').open);assert(!w.currentEvent().players.some(x=>x.memberId==='43'));assert.equal(data.get('accounting/PLAYER_PAYMENTS_43').accounts.B.charge,0);assert(data.get('accounting/PLAYER_PAYMENTS_43').items.some(x=>x.kind==='cancelRegistration'));
 console.log('PASS: removal dialog requires disposition, cancels paid mistaken entry and retains audit.');
+// A protected ledger may arrive before its event or player roster: keep its debt visible.
+w.db.members.push({id:'99',name:'漏列玩家'},{id:'98',name:'寄存玩家'});
+const ledger99={...Core.empty('99'),revision:100,accounts:{D:{charge:3400,paid:200,date:'2026-10-18',name:'EPC#4 3400'},B:{charge:3400,paid:1800,date:'2026-10-16',name:'EPC#1 3400'}}};
+const ledger98={...Core.empty('98'),revision:100,wallet:500};
+w.dispatchEvent(new w.CustomEvent('epcPlayerPayments',{detail:{connected:true,rows:[ledger99,ledger98]}}));
+w.PP.renderPage();assert.equal(w.PP.pending('99').length,2);assert.equal(w.PP.pending('99').reduce((n,x)=>n+x.due,0),4800);
+let groupD=$('ppPageBody').querySelector('[data-pp-event="D"]');assert(groupD);assert(groupD.textContent.includes('EPC#4 3400'));assert(groupD.textContent.includes('$3,200'));assert(groupD.querySelector('[data-pp-member="99"]'));
+assert($('ppPageBody').querySelector('[data-pp-event="B"] [data-pp-member="99"]'));assert($('ppPageBody').textContent.includes('寄存玩家'));
+w.PP.open('D','99');assert($('ppDialogBody').textContent.includes('應付 $3,400｜已付 $200｜尚欠 $3,200'));
+const storedBefore=JSON.stringify([...data]);$('ppAmount').value='100';$('ppMethod').value='cash';await w.PP.submit();assert.equal(JSON.stringify([...data]),storedBefore);assert($('ppStatus').textContent.includes('資料尚未載入'));
+await w.PP.clearAll('','99');assert.equal(JSON.stringify([...data]),storedBefore);
+// Once the roster arrives the same ledger appears once, with its actual outstanding amount.
+w.db.events.push({id:'D',seq:4,date:'2026-10-18',name:'EPC#4 3400',status:'open',poolUnit:3000,admin:400,players:[{memberId:'99',buyin:1,rebuy:0,registrationUnpaidAmount:3400}]});
+assert.equal(w.PP.pending('99').filter(x=>x.e.id==='D').length,1);assert.equal(w.PP.pending('99').find(x=>x.e.id==='D').due,3200);
+w.PP.renderPage();groupD=$('ppPageBody').querySelector('[data-pp-event="D"]');groupD.open=false;w.PP.renderPage();assert.equal($('ppPageBody').querySelector('[data-pp-event="D"]').open,false);
+$('ppSearch').value='EPC#4';w.PP.renderPage();assert($('ppPageBody').querySelector('[data-pp-event="D"]'));assert(!$('ppPageBody').querySelector('[data-pp-event="B"]'));$('ppSearch').value='';
+// A paid ledger must not be revived as a debt by stale roster flags.
+w.dispatchEvent(new w.CustomEvent('epcPlayerPayments',{detail:{connected:true,rows:[{...ledger99,revision:101,accounts:{...ledger99.accounts,D:{...ledger99.accounts.D,paid:3400}}}]}}));assert(!w.PP.pending('99').some(x=>x.e.id==='D'));
+w.db.events.push({id:'LEGACY',seq:5,date:'2026-10-18',name:'舊制未結帳場',poolUnit:3000,admin:400,players:[{memberId:'98',buyin:1,rebuy:0,registrationUnpaidAmount:1700}]});w.PP.renderPage();assert.equal(w.PP.pending('98').find(x=>x.e.id==='LEGACY').due,1700);assert($('ppPageBody').querySelector('[data-pp-event="LEGACY"]'));
+console.log('PASS: debts grouped by event, per-event amounts, ledger-first debt before roster arrival, no duplicate rows, paid/cancelled suppression, wallet list, search, retained expansion and safe missing-roster guards.');
 dom.window.close();console.log('PASS: real page DOM, register checkbox, deposit, +1 rebuy, partial cash, prior net-profit offset, red/clear labels, pending summary, cross-event clear, preserved prizes.');
 })().catch(e=>{console.error(e);process.exitCode=1});
+
