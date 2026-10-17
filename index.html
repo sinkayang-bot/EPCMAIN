@@ -6534,11 +6534,24 @@ function extremeTenRows_(){
  .sort((a,b)=>a.difference-b.difference||String(a.createdAt||a.id).localeCompare(String(b.createdAt||b.id)));
 }
 function extremeTenStats_(){
- const rows=extremeTenRows_(),awarded=rows.filter(x=>x.awardType),remaining=Math.max(0,8-awarded.length);
- const successful=rows.filter(x=>x.success&&!x.awardType);
- // Candidates are suggestions only: staff explicitly records each award.
- const candidates=rows.filter(x=>!x.awardType).slice(0,remaining);
- return {rows,awarded,remaining,successful,candidates};
+ const rows=extremeTenRows_(),best=new Map(),awardByMember=new Map(),awardCounts=new Map();
+ for(const row of rows){
+  const member=String(row.memberId??'').trim();if(!member)continue;
+  if(!best.has(member))best.set(member,row);
+  if(row.awardType||row.claimed){
+   if(!awardByMember.has(member))awardByMember.set(member,row);
+   awardCounts.set(member,(awardCounts.get(member)||0)+1);
+  }
+ }
+ const awarded=rows.filter(x=>x.awardType||x.claimed),remaining=Math.max(0,8-awarded.length);
+ const leaderboard=[...best.entries()].map(([member,row])=>{
+  const award=awardByMember.get(member);
+  return {...row,awardType:award?.awardType||'',claimed:!!award?.claimed,awardRecordId:award?.id||'',awardCount:awardCounts.get(member)||0};
+ });
+ const successful=leaderboard.filter(x=>x.success&&!awardByMember.has(String(x.memberId)));
+ // Only one best attempt per unawarded member can occupy a remaining prize slot.
+ const candidates=leaderboard.filter(x=>!awardByMember.has(String(x.memberId))).slice(0,remaining);
+ return {rows,leaderboard,awarded,remaining,successful,candidates,awardByMember};
 }
 function extremeTenSave_(){persist();if(window.saveActivityCloudV3)window.saveActivityCloudV3();renderActivities();}
 function addExtremeTen_(){
@@ -6571,6 +6584,9 @@ function extremeTenAward_(id,kind){
  if(kind&&!['成功','補發'].includes(kind))return;
  const S=extremeTenStats_();
  if(kind&&!S.rows.some(x=>x.id===id))return actionMsg('此紀錄不在目前有效活動區間',true);
+ if(kind&&S.rows.some(x=>String(x.memberId)===String(row.memberId)&&x.id!==id&&(x.awardType||x.claimed)))return actionMsg('此玩家本期已登記得獎，每人限領一次；其他挑戰僅保留紀錄',true);
+ if(kind&&!S.leaderboard.some(x=>x.id===id))return actionMsg('請從此玩家最接近 10.00 秒的最佳成績登記得獎',true);
+ if(kind&&row.awardType===kind)return actionMsg('此筆已登記得獎，不會重複登記');
  if(kind&&!row.awardType&&S.remaining<=0)return actionMsg('本期 8 份獎勵已全數登記',true);
  if(kind==='成功'&&row.cents!==1000)return actionMsg('只有 10.00 秒可登記成功獎勵',true);
  if(kind==='補發'&&businessDateForEvent({createdAt:new Date().toISOString()})<actActivityRange_('extremeTen').to)return actionMsg('活動結束後才可登記補發',true);
@@ -6579,15 +6595,24 @@ function extremeTenAward_(id,kind){
 }
 function extremeTenClaim_(id,checked){
  const row=(db.activityManagement.extremeTen||[]).find(x=>x.id===id&&!x.deleted);if(!row?.awardType)return;
+ if(checked&&extremeTenRows_().some(x=>x.id!==id&&String(x.memberId)===String(row.memberId)&&x.claimed)){renderActivities();return actionMsg('此玩家本期已領取獎勵，不能重複領取',true);}
  row.claimed=!!checked;stampActivityRecord_(row);extremeTenSave_();
 }
 function actExtremeTen_(){
- const S=extremeTenStats_(),r=actRange_(),q=r.q,rows=S.rows.filter(x=>(!r.from||x.date>=r.from)&&(!r.to||x.date<=r.to)&&(!q||[x.memberId,epcPlayerDisplayName_(x.memberId),x.note].join(' ').toLowerCase().includes(q)));
- const candidateIds=new Set(S.candidates.map(x=>x.id));let lastDifference=null,place=0;
- const rankById=new Map();S.rows.forEach((x,i)=>{if(x.difference!==lastDifference)place=i+1;lastDifference=x.difference;rankById.set(x.id,place)});
+ const S=extremeTenStats_(),r=actRange_(),q=r.q;
+ const matches=x=>(!r.from||x.date>=r.from)&&(!r.to||x.date<=r.to)&&(!q||[x.memberId,epcPlayerDisplayName_(x.memberId),x.note].join(' ').toLowerCase().includes(q));
+ const rows=S.leaderboard.filter(matches),records=S.rows.filter(matches).slice().sort((a,b)=>Number(b.createdAt||0)-Number(a.createdAt||0)||String(b.id).localeCompare(String(a.id)));
+ const candidateIds=new Set(S.candidates.map(x=>x.id)),bestIds=new Set(S.leaderboard.map(x=>x.id));let lastDifference=null,place=0;
+ const rankById=new Map();S.leaderboard.forEach((x,i)=>{if(x.difference!==lastDifference)place=i+1;lastDifference=x.difference;rankById.set(x.id,place)});
  const date=businessDateForEvent({createdAt:new Date().toISOString()});
+ const actions=x=>{
+  const award=S.awardByMember.get(String(x.memberId)),isBest=bestIds.has(x.id);
+  if(x.awardType)return `<button onclick="extremeTenAward_('${x.id}','')">取消得獎</button>`;
+  if(award)return `<span class="small">本期已得獎；僅保留紀錄</span><button onclick="extremeTenEdit_('${x.id}')">修改秒數</button><button class="danger" onclick="extremeTenDelete_('${x.id}')">刪除</button>`;
+  return `${isBest&&x.success?`<button onclick="extremeTenAward_('${x.id}','成功')">確認成功獎勵</button>`:''}${isBest?`<button onclick="extremeTenAward_('${x.id}','補發')">登記月底補發</button>`:'<span class="small">僅紀錄</span>'}<button onclick="extremeTenEdit_('${x.id}')">修改秒數</button><button class="danger" onclick="extremeTenDelete_('${x.id}')">刪除</button>`;
+ };
  return `<div class="card"><h3>極限 10 秒｜挑戰排行榜</h3>
- <div class="notice">停在 10.00 秒即成功。每份獎勵：現金 1,000＋折價卡 1,000；本期共 8 份。月底未送完，依最接近 10.00 秒的排名補發。相同差距顯示同名次；同名次遇剩餘名額不足時，請先確認處理方式再補發。</div>
+ <div class="notice">停在 10.00 秒即成功。每份獎勵：現金 1,000＋折價卡 1,000；本期共 8 份。月底未送完，依最接近 10.00 秒的排名補發。每位玩家只取最接近 10.00 秒的一筆上榜，其餘僅保留紀錄。每人限領一次，已登記得獎者不再列入補發候選。相同差距顯示同名次；同名次遇剩餘名額不足時，請先確認處理方式再補發。</div>
  <div class="grid"><div class="card kpi"><div class="l">挑戰紀錄</div><div class="v">${S.rows.length}</div></div><div class="card kpi"><div class="l">已登記得獎</div><div class="v">${S.awarded.length} / 8</div></div><div class="card kpi"><div class="l">剩餘名額</div><div class="v">${S.remaining}</div></div><div class="card kpi"><div class="l">10.00 秒待確認</div><div class="v">${S.successful.length}</div></div></div>
  <h3>登記挑戰</h3><div class="formgrid">
  <div><label>營業日</label><input type="date" id="tenDate" value="${date}"></div>
@@ -6598,7 +6623,9 @@ function actExtremeTen_(){
  <div><label>備註</label><input id="tenNote" placeholder="手牌確認／挑戰備註"></div>
  </div><div class="toolbar"><button class="primary" onclick="addExtremeTen_()">儲存挑戰紀錄</button></div>
  <div class="small">8Xo（假日 8Xs 亦適用）翻牌後收池至少 20BB，累積兩次可挑戰一次；28o 轉牌圈收池至少 20BB 一次可挑戰一次。此處由工作人員確認資格後登記真實秒數。</div>
- <h3 style="margin-top:18px">依最接近 10.00 秒排序</h3><div class="tablewrap"><table><thead><tr><th>排名</th><th>日期</th><th>玩家</th><th>挑戰秒數</th><th>距離 10.00 秒</th><th>資格</th><th>獎勵狀態</th><th>已領取</th><th>備註</th><th>操作</th></tr></thead><tbody>${rows.map(x=>`<tr><td>${rankById.get(x.id)}</td><td>${epcDisplayEscape_(x.date)}</td><td>${epcPlayerDisplayHtml_(x.memberId)}</td><td><b class="${x.success?'pos':''}">${(x.cents/100).toFixed(2)} 秒</b></td><td>${(x.difference/100).toFixed(2)} 秒</td><td>${epcDisplayEscape_(x.method||'')}</td><td>${x.awardType?epcDisplayEscape_(x.awardType)+'｜2,000 元':x.success?'挑戰成功，待確認':candidateIds.has(x.id)?'月底補發候選':'未得獎'}</td><td>${x.awardType?`<input type="checkbox" ${x.claimed?'checked':''} onchange="extremeTenClaim_('${x.id}',this.checked)">`:'—'}</td><td>${epcDisplayEscape_(x.note||'')}</td><td>${x.awardType?`<button onclick="extremeTenAward_('${x.id}','')">取消得獎</button>`:`${x.success?`<button onclick="extremeTenAward_('${x.id}','成功')">確認成功獎勵</button>`:''}<button onclick="extremeTenAward_('${x.id}','補發')">登記月底補發</button><button onclick="extremeTenEdit_('${x.id}')">修改秒數</button><button class="danger" onclick="extremeTenDelete_('${x.id}')">刪除</button>`}</td></tr>`).join('')||'<tr><td colspan="10">尚無挑戰紀錄</td></tr>'}</tbody></table></div></div>`;
+
+ <h3 style="margin-top:18px">每人最佳成績排行榜｜依最接近 10.00 秒排序</h3><div class="tablewrap"><table><thead><tr><th>排名</th><th>玩家</th><th>最佳秒數</th><th>距離 10.00 秒</th><th>日期</th><th>獎勵狀態</th></tr></thead><tbody>${rows.map(x=>`<tr><td>${rankById.get(x.id)}</td><td>${epcPlayerDisplayHtml_(x.memberId)}</td><td><b class="${x.success?'pos':''}">${(x.cents/100).toFixed(2)} 秒</b></td><td>${(x.difference/100).toFixed(2)} 秒</td><td>${epcDisplayEscape_(x.date)}</td><td>${x.awardRecordId?(x.claimed?'已領取':'已登記得獎')+'｜每人限領一次':x.success?'挑戰成功，待確認':candidateIds.has(x.id)?'月底補發候選':'候補'}${x.awardCount>1?'<br><span class="neg">既有重複得獎紀錄，請核對</span>':''}</td></tr>`).join('')||'<tr><td colspan="6">尚無有效挑戰成績</td></tr>'}</tbody></table></div>
+ <details style="margin-top:18px" open><summary>全部挑戰紀錄（${records.length} 筆；重複挑戰不重複占榜）</summary><div class="tablewrap"><table><thead><tr><th>日期</th><th>玩家</th><th>挑戰秒數</th><th>距離 10.00 秒</th><th>紀錄用途</th><th>資格</th><th>已領取</th><th>備註</th><th>操作</th></tr></thead><tbody>${records.map(x=>`<tr><td>${epcDisplayEscape_(x.date)}</td><td>${epcPlayerDisplayHtml_(x.memberId)}</td><td>${(x.cents/100).toFixed(2)} 秒</td><td>${(x.difference/100).toFixed(2)} 秒</td><td>${x.awardType?epcDisplayEscape_(x.awardType)+'獎勵紀錄':bestIds.has(x.id)?'最佳成績｜第 '+rankById.get(x.id)+' 名':'僅紀錄'}</td><td>${epcDisplayEscape_(x.method||'')}</td><td>${x.awardType?`<input type="checkbox" ${x.claimed?'checked':''} onchange="extremeTenClaim_('${x.id}',this.checked)">`:'—'}</td><td>${epcDisplayEscape_(x.note||'')}</td><td>${actions(x)}</td></tr>`).join('')||'<tr><td colspan="9">尚無挑戰紀錄</td></tr>'}</tbody></table></div></details></div>`;
 }
 
 function renderActivities(){
@@ -7441,7 +7468,7 @@ function displayPayload_(type){
   const S=extremeTenStats_();let last=null,rank=0;
   return {type,metric:'seconds',title:'極限 10 秒',activityFrom:range.from,activityTo:range.to,
    target:'10.00',rewardCash:1000,rewardCoupon:1000,rewardLimit:8,awarded:S.awarded.length,remaining:S.remaining,
-   rows:S.rows.slice(0,20).map((x,i)=>{if(last!==x.difference)rank=i+1;last=x.difference;return {
+   rows:S.leaderboard.slice(0,20).map((x,i)=>{if(last!==x.difference)rank=i+1;last=x.difference;return {
     id:x.id,memberId:x.memberId,name:epcPlayerDisplayName_(x.memberId),rank,
     seconds:(x.cents/100).toFixed(2),difference:(x.difference/100).toFixed(2),
     success:x.success,awardType:x.awardType||'',claimed:!!x.claimed
@@ -7657,4 +7684,5 @@ async function epcShowRecoveryAudit_(){
 <script src="sync-v3.js?v=20261007-0780"></script>
 <script src="app.js?v=20261016-modes1"></script><dialog id="ppDialog"><div class="toolbar" style="justify-content:space-between"><h2 id="ppDialogTitle">玩家帳務</h2><button onclick="document.getElementById('ppDialog').close()">關閉</button></div><div id="ppDialogBody"></div></dialog>
 <dialog id="ppRegistrationDialog"><div class="toolbar" style="justify-content:space-between"><h2 id="ppRegistrationTitle">加入本場</h2><button data-pp-action onclick="PP.cancelRegistration()">取消</button></div><div id="ppRegistrationBody"></div></dialog><script src="player-payments-core.js?v=20261017-remove1"></script><script src="player-payments.js?v=20261017-rebuy1"></script></body></html>
+
 

@@ -6,10 +6,14 @@ function identity(r,ui){return [ui.showName!==false?esc(r.name||r.member||''):nu
 function render(p,target=host){
  const ui=p.ui||{},header=`<header><h1>${esc(p.title||'EPC')}</h1><span>${esc(p.activityFrom||'')} ～ ${esc(p.activityTo||'')}</span></header>`;
  if(p.type==='extremeTen'||ui.kind==='extremeTen'||String(p.title||'').replace(/\s/g,'')==='極限10秒'){
-  const rows=(p.rows||[]).slice(0,ui.limit||10);
+  const distance=r=>Number.isFinite(Number(r.seconds))?Math.abs(Math.round(Number(r.seconds)*100)-1000):Number.isFinite(Number(r.difference))?Math.round(Number(r.difference)*100):Infinity;
+  const unique=new Map();
+  (p.rows||[]).slice().sort((a,b)=>distance(a)-distance(b)).forEach((r,i)=>{const key=String(r.memberId??r.name??r.id??i);if(!unique.has(key))unique.set(key,r);});
+  const ranked=[...unique.values()];let lastDistance=null,place=0;
+  const rows=ranked.map((r,i)=>{const d=distance(r);if(d!==lastDistance)place=i+1;lastDistance=d;return {...r,rank:place};}).slice(0,ui.limit||10);
   const cols=3+(ui.showMemberId?1:0);
   target.innerHTML=header+`<div class="ten-content"><div class="ten-summary"><span>目標 <b>10.00 秒</b></span><span>獎勵 <b>${money(Number(p.rewardCash||0)+Number(p.rewardCoupon||0))}</b><small>現金 ${money(p.rewardCash)}＋折價卡 ${money(p.rewardCoupon)}</small></span><span>剩餘 <b>${Number(p.remaining??8)}／${Number(p.rewardLimit||8)} 份</b></span></div>
-  <table class="leaderboard ten-ranking"><colgroup><col class="ten-rank-col"><col>${ui.showMemberId?'<col class="ten-id-col">':''}<col class="ten-seconds-col"></colgroup><thead><tr><th>排名</th><th>${ui.showName!==false?'玩家':'會員'}</th>${ui.showMemberId?'<th>會員編號</th>':''}<th>挑戰秒數</th></tr></thead><tbody>${rows.map((r,i)=>`<tr><td class="ten-rank">${Number(r.rank||i+1)}</td><td class="player-identity">${esc(ui.showName!==false?(r.name||r.memberId||''):(ui.showMemberId?'—':r.memberId||''))}${r.awardType||r.success?`<small class="ten-result">${esc(r.awardType||(r.success?'挑戰成功':''))}</small>`:''}</td>${ui.showMemberId?`<td class="member-number">${esc(r.memberId||'')}</td>`:''}<td class="ten-seconds${r.success?' ten-success':''}"><b>${esc(r.seconds??'—')} 秒</b><small>距離 10.00 秒：${esc(r.difference??'—')} 秒</small></td></tr>`).join('')||`<tr><td colspan="${cols}">尚無挑戰紀錄</td></tr>`}</tbody></table><footer>依最接近 10.00 秒排名；月底未送完依排名補發。</footer></div>`;
+  <table class="leaderboard ten-ranking"><colgroup><col class="ten-rank-col"><col>${ui.showMemberId?'<col class="ten-id-col">':''}<col class="ten-seconds-col"></colgroup><thead><tr><th>排名</th><th>${ui.showName!==false?'玩家':'會員'}</th>${ui.showMemberId?'<th>會員編號</th>':''}<th>挑戰秒數</th></tr></thead><tbody>${rows.map((r,i)=>`<tr><td class="ten-rank">${Number(r.rank||i+1)}</td><td class="player-identity">${esc(ui.showName!==false?(r.name||r.memberId||''):(ui.showMemberId?'—':r.memberId||''))}${r.awardType||r.success?`<small class="ten-result">${esc(r.awardType||(r.success?'挑戰成功':''))}</small>`:''}</td>${ui.showMemberId?`<td class="member-number">${esc(r.memberId||'')}</td>`:''}<td class="ten-seconds${r.success?' ten-success':''}"><b>${esc(r.seconds??'—')} 秒</b><small>距離 10.00 秒：${esc(r.difference??'—')} 秒</small></td></tr>`).join('')||`<tr><td colspan="${cols}">尚無挑戰紀錄</td></tr>`}</tbody></table><footer>每人只列最佳秒數，每人限領一次；月底未送完依排名補發。</footer></div>`;
   return;
  }
  if(p.type==='boss'){
@@ -75,4 +79,5 @@ try{
  },e=>{host.innerHTML=`<div class="center error"><h1>顯示連線失敗</h1><p>${esc(e.message)}</p><p>請重新整理後再試</p></div>`});
  setInterval(()=>cloud.heartbeat(id).catch(()=>{}),30000);
 }catch(e){host.innerHTML=`<div class="center error"><h1>無法連線</h1><p>${esc(e.message)}</p><p>請重新整理後再試</p></div>`}
+
 
