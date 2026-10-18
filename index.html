@@ -6020,9 +6020,30 @@ function actRecordEligible_(record){
  const e=actRecordEvent_(record);
  return !e||!isIndependentAccountingEvent(e);
 }
-function umbrellaRows_(){
- const {from,to}=actActivityRange_('umbrella');
- return (db.activityManagement.umbrella||[]).filter(x=>actRecordEligible_(x)&&(!from||x.date>=from)&&(!to||x.date<=to));
+let umbrellaMonthFilter_='';
+function umbrellaRows_(range=actActivityRange_('umbrella')){
+ const {from,to}=range;
+ return (db.activityManagement.umbrella||[]).filter(x=>!x.deleted&&actRecordEligible_(x)&&(!from||x.date>=from)&&(!to||x.date<=to));
+}
+function umbrellaMonthRange_(){
+ const activity=actActivityRange_('umbrella'),today=businessDateForEvent({createdAt:new Date().toISOString()});
+ const month=umbrellaMonthFilter_||String(activity.from||today||new Date().toISOString()).slice(0,7);
+ const [year,m]=month.split('-').map(Number),last=new Date(Date.UTC(year,m,0)).getUTCDate();
+ return {month,from:month+'-01',to:month+'-'+String(last).padStart(2,'0')};
+}
+function umbrellaSetMonthFilter_(value){
+ umbrellaMonthFilter_=/^\d{4}-(0[1-9]|1[0-2])$/.test(String(value||''))?String(value):'';
+ renderActivities();
+}
+function umbrellaRanking_(rows){
+ const totals=new Map();
+ rows.forEach(x=>{const id=String(x.memberId??'');if(id)totals.set(id,(totals.get(id)||0)+(Number(x.coupons)||0));});
+ return [...totals].map(([id,score])=>({id,memberId:id,name:epcPlayerDisplayName_(id),score})).sort((a,b)=>b.score-a.score||a.id.localeCompare(b.id));
+}
+function umbrellaStats_(){
+ const period=actActivityRange_('umbrella'),month=umbrellaMonthRange_();
+ const periodRows=umbrellaRows_(period),monthRows=umbrellaRows_(month);
+ return {period,month,periodRows,monthRows,periodRank:umbrellaRanking_(periodRows),monthRank:umbrellaRanking_(monthRows)};
 }
 function actNeedsSettled_(kind){return ['rank','hunter'].includes(String(kind||''))}
 function isPioneerEvent_(e){return /^(?:第(?:一|1)場|EPC#1\s+\d+限時錦標賽)$/.test(String(eventDisplayName_(e)).trim());}
@@ -6420,11 +6441,12 @@ function addUmbrella_(){const id=actResolveMember_('umbrellaMember'),k=$('umbrel
 function umbrellaEdit_(id,v){const x=db.activityManagement.umbrella.find(z=>z.id===id);if(x){x.coupons=+v||0;persist();if(window.saveActivityCloudV3)window.saveActivityCloudV3();renderActivities()}}
 function umbrellaDel_(id){db.activityManagement.umbrella=db.activityManagement.umbrella.filter(x=>x.id!==id);persist();if(window.saveActivityCloudV3)window.saveActivityCloudV3();renderActivities()}
 function actUmbrella_(){
- const A=db.activityManagement,{from,to}=actActivityRange_('umbrella'),rows=umbrellaRows_().slice().sort((a,b)=>String(b.date||'').localeCompare(String(a.date||''))||String(b.id||'').localeCompare(String(a.id||''))),tot={};rows.forEach(x=>tot[x.memberId]=(tot[x.memberId]||0)+(+x.coupons||0));const rank=Object.entries(tot).map(([id,score])=>({id,name:epcPlayerDisplayName_(id),score})).sort((a,b)=>b.score-a.score);
+ const A=db.activityManagement,S=umbrellaStats_(),{from,to}=S.period,rows=S.periodRows.slice().sort((a,b)=>String(b.date||'').localeCompare(String(a.date||''))||String(b.id||'').localeCompare(String(a.id||'')));
  const rules=Object.entries(A.umbrellaRules);
  return `<div class="card"><h3>保護傘｜牌型券數設定</h3><div class="formgrid" style="grid-template-columns:repeat(${rules.length},1fr)">${rules.map(([k,v])=>`<div><label>${k}</label><input type="number" value="${v}" onchange="umbrellaRule_('${k}',this.value)"></div>`).join('')}</div>
  <h3 style="margin-top:14px">登記保護傘</h3><div class="formgrid" style="grid-template-columns:.9fr 1.2fr 1.2fr .6fr 1.2fr auto"><div><label>日期</label><input type="date" id="umbrellaDate" value="${new Date().toISOString().slice(0,10)}"></div><div><label>會員</label><input id="umbrellaMember" list="umbrellaMemberList" autocomplete="off" placeholder="輸入姓名 / 會員ID"><datalist id="umbrellaMemberList">${actMemberSearchOptions_()}</datalist></div><div><label>被超車牌型</label><select id="umbrellaType" onchange="umbrellaTypeChanged_()">${rules.map(([k])=>`<option>${k}</option>`).join('')}</select></div><div><label>券數</label><input type="number" id="umbrellaCoupons" value="${rules[0]?.[1]||0}"></div><div><label>備註</label><input id="umbrellaNote"></div><div style="align-self:end"><button onclick="addUmbrella_()">登記</button></div></div>
- <h3 style="margin-top:14px">排行榜</h3><table><thead><tr><th>排名</th><th>玩家</th><th>券數</th></tr></thead><tbody>${rank.map((x,i)=>`<tr><td>${i+1}</td><td>${epcDisplayEscape_(x.name)}</td><td>${x.score}</td></tr>`).join('')||'<tr><td colspan="3">尚無資料</td></tr>'}</tbody></table>
+ <h3 style="margin-top:14px">排行榜</h3><div style="max-width:280px;margin-bottom:12px"><label>整月排行月份</label><input type="month" id="umbrellaMonthFilter" value="${S.month.month}" onchange="umbrellaSetMonthFilter_(this.value)"></div><div class="small">整月排行包含該月所有有效登記，不受活動區間裁切；活動期間排行依上方設定的開始日、結束日計算。</div>
+ <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px;margin-top:12px">${[{title:'整月排行榜',range:S.month,rank:S.monthRank},{title:'活動期間排行榜',range:S.period,rank:S.periodRank}].map(board=>`<div class="card"><h3>${board.title}</h3><div class="small">${epcDisplayEscape_(board.range.from||'不限開始日')} ～ ${epcDisplayEscape_(board.range.to||'不限結束日')}</div><table><thead><tr><th>排名</th><th>玩家</th><th>券數</th></tr></thead><tbody>${board.rank.map((x,i)=>`<tr><td>${i+1}</td><td>${epcPlayerDisplayHtml_(x.id)}</td><td>${x.score}</td></tr>`).join('')||'<tr><td colspan="3">尚無資料</td></tr>'}</tbody></table></div>`).join('')}</div>
  <h3 style="margin-top:14px">明細</h3><table><thead><tr><th>日期</th><th>玩家</th><th>牌型</th><th>券數（可改）</th><th>備註</th><th></th></tr></thead><tbody>${rows.map(x=>`<tr><td>${x.date}</td><td>${epcPlayerDisplayHtml_(x.memberId)}</td><td>${x.type}</td><td><input type="number" style="width:90px" value="${x.coupons}" onchange="umbrellaEdit_('${x.id}',this.value)"></td><td>${x.note||''}</td><td><button class="danger" onclick="umbrellaDel_('${x.id}')">刪除</button></td></tr>`).join('')||'<tr><td colspan="6">尚無資料</td></tr>'}</tbody></table></div>`;
 }
 function bossSet_(k,v,type='num'){const B=db.activityManagement.boss;B[k]=type==='bool'?!!v:Number(v)||0;persist();if(window.saveActivityCloudV3)window.saveActivityCloudV3();renderActivities()}
@@ -7484,6 +7506,11 @@ function displayPayload_(type){
    boss:b?{name:b.name||'魔王',initialHp:+b.initialHp||0,hp,killed:!!b.killed}:null,
    attacks:attacks.slice(0,12).map(x=>({date:x.date||'',memberId:x.memberId||'',name:epcPlayerDisplayName_(x.memberId),member:epcPlayerDisplayName_(x.memberId),method:x.method||'',damage:+x.damage||0,success:!!x.success,execute:+x.execute||0})),
    latest:attacks[0]?{member:epcPlayerDisplayName_(attacks[0].memberId),method:attacks[0].method,damage:+attacks[0].damage||0,success:!!attacks[0].success}:null};
+ }
+ if(type==='umbrella'){
+  const S=umbrellaStats_();
+  return {type,title:'保護傘',activityFrom:S.period.from,activityTo:S.period.to,
+   monthFrom:S.month.from,monthTo:S.month.to,monthRows:S.monthRank,rows:S.periodRank};
  }
  if(type==='weekly'){
   return {type,title:'每週任務卡',activityFrom:range.from,activityTo:range.to,rows:actPlayerStats_('weekly').map(x=>({id:x.id,memberId:x.id,name:x.name||x.id,games:x.games||0,days:x.days||0})).sort((a,b)=>b.games-a.games||b.days-a.days).slice(0,10)};

@@ -16,6 +16,13 @@ function render(p,target=host){
   <table class="leaderboard ten-ranking"><colgroup><col class="ten-rank-col"><col>${ui.showMemberId?'<col class="ten-id-col">':''}<col class="ten-seconds-col"></colgroup><thead><tr><th>排名</th><th>${ui.showName!==false?'玩家':'會員'}</th>${ui.showMemberId?'<th>會員編號</th>':''}<th>挑戰秒數</th></tr></thead><tbody>${rows.map((r,i)=>`<tr><td class="ten-rank">${Number(r.rank||i+1)}</td><td class="player-identity">${esc(ui.showName!==false?(r.name||r.memberId||''):(ui.showMemberId?'—':r.memberId||''))}${r.awardType||r.success?`<small class="ten-result">${esc(r.awardType||(r.success?'挑戰成功':''))}</small>`:''}</td>${ui.showMemberId?`<td class="member-number">${esc(r.memberId||'')}</td>`:''}<td class="ten-seconds${r.success?' ten-success':''}"><b>${esc(r.seconds??'—')} 秒</b><small>距離 10.00 秒：${esc(r.difference??'—')} 秒</small></td></tr>`).join('')||`<tr><td colspan="${cols}">尚無挑戰紀錄</td></tr>`}</tbody></table><footer>每人只列最佳秒數，每人限領一次；月底未送完依排名補發。</footer></div>`;
   return;
  }
+ if(p.type==='umbrella'&&Array.isArray(p.monthRows)){
+  const showName=ui.showName!==false,showId=!!ui.showMemberId,showRank=ui.showRank!==false,showScore=ui.showScore!==false;
+  const cols=Math.max(1,Number(showRank)+Number(showName)+Number(showId)+Number(showScore));
+  const board=(title,from,to,rows)=>`<section class="umbrella-board"><h2>${title}</h2><p class="muted">${esc(from||'不限開始日')} ～ ${esc(to||'不限結束日')}</p><table class="leaderboard"><thead><tr>${showRank?'<th>排名</th>':''}${showName?'<th>玩家</th>':''}${showId?'<th>會員編號</th>':''}${showScore?'<th>券數</th>':''}</tr></thead><tbody>${rows.slice(0,ui.limit||10).map((r,i)=>`<tr>${showRank?`<td>${i+1}</td>`:''}${showName?`<td class="player-identity">${esc(r.name||r.member||'')}</td>`:''}${showId?`<td class="member-number">${esc(r.memberId||r.id||'')}</td>`:''}${showScore?`<td>${Number(r.score||0)}</td>`:''}</tr>`).join('')||`<tr><td colspan="${cols}">目前尚無資料</td></tr>`}</tbody></table></section>`;
+  target.innerHTML=header+`<div class="umbrella-boards${ui.compact?' compact':''}" style="--umbrella-scale:${(Number(ui.rankFontScale)||100)/100}">${board('整月排行榜',p.monthFrom,p.monthTo,p.monthRows)}${board('活動期間排行榜',p.activityFrom,p.activityTo,p.rows||[])}</div>`;
+  return;
+ }
  if(p.type==='boss'){
   const b=p.boss||{},pct=Math.max(0,Math.min(100,100*Number(b.hp||0)/Math.max(1,Number(b.initialHp||250))));
   const initial=p.startPrize??Math.max(0,Number(p.pool||0)-Number(p.participantAmount||0)-Number(p.groupAmount||0));
