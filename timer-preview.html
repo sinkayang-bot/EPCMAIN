@@ -22,7 +22,7 @@
 .dial{position:absolute;left:592px;top:86px;width:485px;height:485px;border-radius:50%;pointer-events:none}
 .dynamicRing{display:none;position:absolute;inset:0;border-radius:50%;background:radial-gradient(circle at 50% 35%,#00321d 0,#001a0c 45%,#010a05 64%,#0a2915 68%,#092516 70%,#00180d 71%);border:1px solid #35834a;box-shadow:0 0 11px #22a34b66}
 .dial.active .dynamicRing{display:block}
-.dynamicRing:after{content:"";position:absolute;inset:48px;border-radius:50%;border:1px solid #9f994a;background:radial-gradient(ellipse at 50% 30%,#002915,#001407 65%,#000b05);box-shadow:0 0 14px #f2d35e44}
+.dynamicRing:before{content:"";position:absolute;left:101px;top:307px;width:284px;height:1px;background:#b9a45b;z-index:2}.dynamicRing:after{content:"";position:absolute;inset:48px;border-radius:50%;border:1px solid #9f994a;background:radial-gradient(ellipse at 50% 30%,#002915,#001407 65%,#000b05);box-shadow:0 0 14px #f2d35e44}
 .ringTicks{position:absolute;inset:0}.ringTicks i{position:absolute;left:235.5px;top:228.5px;width:14px;height:28px;transform-origin:7px 14px;border-radius:1px;background:linear-gradient(100deg,#33464b,#617074);box-shadow:inset 0 0 2px #0009}.ringTicks i.lit{background:linear-gradient(90deg,#ffeaa0,#fff6bc);box-shadow:0 0 12px #ffbd3766}
 .roundLabel{left:716px;top:195px;width:238px;height:47px;font-size:38px;color:#f5d46e}
 .timer{left:658px;top:251px;width:354px;height:119px;font-size:132px;letter-spacing:-3px}
@@ -30,7 +30,7 @@
 .breakCaption{left:726px;top:411px;width:218px;height:28px;font-size:25px;color:#efd575;opacity:0}
 .dial.active~.roundLabel,.dial.active~.timer,.dial.active~.breakNumber,.dial.active~.breakCaption{opacity:1;background:transparent;box-shadow:none}
 .statValue{top:747px;width:125px;height:42px;font-size:42px}
-#sPlayers{left:103px}#sRebuys{left:291px}#sGroups{left:480px}
+#sPlayers{left:68px}#sRebuys{left:253px}#sGroups{left:437px}
 .chipValue{top:852px;height:48px;font-size:40px;justify-content:flex-start}
 #chipsInPlay{left:114px;width:193px}#avgStack{left:409px;width:170px}
 .announcementText{left:681px;top:740px;width:458px;height:75px;font-size:45px;line-height:1.35;white-space:pre-wrap;overflow-wrap:anywhere;text-align:center}
@@ -133,6 +133,7 @@ function fitScreen(){const v=$('previewViewport');if(!v)return;const full=docume
 function toggleProjector(){const full=document.body.classList.toggle('projector');fitScreen();if(full)document.documentElement.requestFullscreen?.().catch(()=>{});else if(document.fullscreenElement)document.exitFullscreen?.().catch(()=>{})}
 addEventListener('resize',fitScreen);document.addEventListener('fullscreenchange',()=>{if(!document.fullscreenElement&&document.body.classList.contains('projector')&&!new URLSearchParams(location.search).has('projector'))document.body.classList.remove('projector');fitScreen()});document.addEventListener('keydown',ev=>{if(ev.key==='Escape'){document.body.classList.remove('projector');fitScreen()}});
 
+addEventListener('storage',ev=>{if(ev.key!==KEY||!ev.newValue)return;try{const incoming=JSON.parse(ev.newValue);if(!Array.isArray(incoming.events)||!Array.isArray(incoming.templates))return;state=incoming;render()}catch{}});
 $('events').addEventListener('change',ev=>{state.selected=ev.target.value;save();render()});
 function advanceTimers(now=Date.now()){
  let changed=false;
