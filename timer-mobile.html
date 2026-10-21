@@ -1,0 +1,6 @@
+<!doctype html>
+<html lang="zh-Hant-TW"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>EPC 手機計時器控制</title><script src="terminal-mode.js?v=20261016-modes1"></script><style>*{box-sizing:border-box}body{margin:0;background:#090909;color:#eee;font:16px system-ui,sans-serif}header{padding:12px 16px;border-bottom:1px solid #66502b}a{color:#e9c568}h1{font-size:20px;margin:10px 0}main{padding:10px}#epcTerminalModeBar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:12px}select{font:inherit;padding:10px;border-radius:6px}iframe{width:100%;height:calc(100dvh - 185px);min-height:550px;border:1px solid #514322;border-radius:8px}p{color:#bbb;font-size:13px}</style></head><body><header><a href="phone/">← 返回 EPC 手機版</a><h1>手機計時器控制</h1><p>切換「操作模式」後即可控制；時間、盲注與公告會同步到投影設備。</p></header><main><iframe id="control" title="本場計時器控制"></iframe></main><script>
+const params=new URLSearchParams(location.search),eventId=params.get('eventId');
+if(eventId||params.has('demo'))document.getElementById('control').src='timer-control.html?'+(params.has('demo')?'demo=1':'eventId='+encodeURIComponent(eventId))+'&v=20261021-mobile5';
+else document.getElementById('control').replaceWith(document.createTextNode('請從 EPC 手機版選擇賽事，再按「計時器控制」。'));
+</script></body></html>

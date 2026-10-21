@@ -4057,7 +4057,10 @@ function togglePricingMode(){
 function levelChanged(){let lv=+$('eLevel').value;if(lv===3400){$('ePoolUnit').value=3000;$('eAdmin').value=400}else{$('ePoolUnit').value=6000;$('eAdmin').value=600}}
 async function saveEvent(){
  let e=requireEvent();if(!e)return;
- const timerTemplateId=e.timerId?'':String($('eTimerTemplate')?.value||'');
+ const chosenTimerTemplate=String($('eTimerTemplate')?.value||''),replaceTimerTemplate=!!e.timerId&&chosenTimerTemplate!==String(e.timerTemplateId||'');
+ if(replaceTimerTemplate&&!chosenTimerTemplate)return alert('本場已有計時器，請選擇要更換的範本。');
+ if(replaceTimerTemplate&&!confirm('更換範本會將本場計時器重設為第一級並暫停，公告與獎勵也會改用新範本。參賽資料、籌碼與帳務維持原值。確定套用？'))return;
+ const timerTemplateId=(!e.timerId||replaceTimerTemplate)?chosenTimerTemplate:'',expectedTimerTemplateId=e.timerTemplateId||'';
  e.date=$('eDate').value;
  const name=($('eName')?.value||'').trim();
  e.name=name===eventDisplayName_({...e,name:''})?'':name;
@@ -4086,8 +4089,9 @@ async function saveEvent(){
  e.payout=$('ePayout').value;
  e.birdDiscountDefaultsAt=Date.now();
  touchEvent_(e);persist();render();
- try{await syncEventToFirestore_(e,true,{timerTemplateId});}catch(err){return alert('賽事設定 Firebase 同步失敗：'+String(err?.message||err));}
+ try{await syncEventToFirestore_(e,true,{timerTemplateId,replaceTimerTemplate,expectedTimerTemplateId});}catch(err){return alert('賽事設定 Firebase 同步失敗：'+String(err?.message||err));}
  try{localStorage.setItem('epcBirdDiscountDefaultsV1',JSON.stringify({earlyBirdDiscount:e.earlyBirdDiscount,lateBirdDiscount:e.lateBirdDiscount,ladiesDiscount:e.ladiesDiscount,birdDiscountDefaultsAt:e.birdDiscountDefaultsAt}))}catch(_){}
+ if(timerTemplateId){const t=epcTimerTemplates_.find(t=>t.id===timerTemplateId);Object.assign(e,{timerId:String(e.id),timerTemplateId,timerTemplateName:t?.name||'20 分鐘標準賽'});persist();render();}
  alert('賽事設定已儲存並同步');
 }
 function filterAddPlayerMembers(keyword){
@@ -7774,7 +7778,7 @@ async function epcShowRecoveryAudit_(){
 </script>
 <script src="firebase-config.js?v=20261007-0780"></script>
 <script src="phone/stack-core.js?v=20261009-settlement-confirmed"></script>
-<script src="firebase-events.js?v=20261021-timer3"></script>
+<script src="firebase-events.js?v=20261021-template5"></script>
 <script src="sync-v3.js?v=20261007-0780"></script>
 <script src="app.js?v=20261018-no-diag1"></script><dialog id="ppDialog"><div class="toolbar" style="justify-content:space-between"><h2 id="ppDialogTitle">玩家帳務</h2><button onclick="document.getElementById('ppDialog').close()">關閉</button></div><div id="ppDialogBody"></div></dialog>
 <dialog id="ppRegistrationDialog"><div class="toolbar" style="justify-content:space-between"><h2 id="ppRegistrationTitle">加入本場</h2><button data-pp-action onclick="PP.cancelRegistration()">取消</button></div><div id="ppRegistrationBody"></div></dialog><script src="player-payments-core.js?v=20261017-remove1"></script><script src="player-payments.js?v=20261018-wallet-first1"></script><script src="ui-layout.js?v=20261018-layout1"></script><dialog id="epcTimerDialog" style="width:98vw;max-width:none;height:96vh;max-height:none;padding:0;background:#050505;border:1px solid #b7933b;border-radius:12px;color:white"><div style="height:44px;display:flex;justify-content:space-between;align-items:center;padding:4px 16px"><b>賽事計時器</b><button type="button" onclick="document.getElementById('epcTimerDialog').close()">關閉</button></div><iframe id="epcTimerFrame" title="賽事計時器後臺" style="width:100%;height:calc(100% - 48px);border:0"></iframe></dialog><dialog id="newEventDialog" style="width:min(580px,94vw);padding:24px;border:1px solid #b89340;border-radius:12px;background:var(--bg,#111);color:var(--text,#eee)"><h2>建立賽事</h2><label for="newEventName">賽事名稱</label><input id="newEventName"><label for="newEventTimerTemplate">計時器範本</label><select id="newEventTimerTemplate" onchange="epcNewEventTimerHint_()"><option value="">不啟用計時器</option><option value="standard">20 分鐘標準賽（內建）</option></select><p class="small" id="newEventTimerHint"></p><p class="small">範本請在獨立「計時器」管理。按建立後，賽事與該場計時器會一同產生。</p><div class="toolbar"><button id="newEventConfirm" class="primary" onclick="epcConfirmNewEvent_()">建立賽事與計時器</button><button onclick="document.getElementById('newEventDialog').close()">取消</button></div></dialog><dialog id="epcTimerProjectionDialog" style="width:96vw;max-width:1920px;height:94vh;max-height:none;padding:0;background:#000;border:1px solid #b89340;border-radius:12px;color:white"><div style="height:48px;display:flex;justify-content:space-between;align-items:center;gap:12px;padding:6px 16px"><b id="epcTimerProjectionTitle">投影預覽</b><button type="button" onclick="document.getElementById('epcTimerProjectionDialog').close()">關閉</button></div><iframe id="epcTimerProjectionFrame" title="設備計時器投影預覽" style="width:100%;height:calc(100% - 90px);border:0;background:#000"></iframe><div class="small" style="padding:8px 16px">此為設備投影預覽。確認畫面後，回到此設備按「套用到螢幕」。</div></dialog></body></html>

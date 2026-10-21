@@ -13,15 +13,20 @@ export function buildEventTimer(event,template,templateId,{creating=false}={}){
  return {event:{...event,...patch},timer,patch};
 }
 // Read and stage both records inside the caller's transaction. No write occurs until all reads succeed.
-export async function stageEventTimer({tx,fs,db,event,templateId,creating=false}){
+export async function stageEventTimer({tx,fs,db,event,templateId,creating=false,replaceExisting=false,expectedTemplateId}){
  const id=String(event.eventId),ref=fs.doc(db,'epc_events','_epc_timer','timers',id),existing=await tx.get(ref);
- if(existing.exists()){
+ if(existing.exists()&&replaceExisting){
+  const current=existing.data();
+  if(['settled','已結算'].includes(event.status))throw Error('已結算賽事不能更換計時器範本。');
+  if(String(current.templateId||'')!==String(expectedTemplateId||''))throw Error('本場範本已被其他後臺更換，請重新讀取。');
+ }
+ if(existing.exists()&&!replaceExisting){
   const timer=existing.data();if(timer.templateId&&timer.templateId!==templateId)throw Error('本場已有計時器；請到獨立「計時器」管理，不會覆蓋本場進度。');
   return {event:{...event,timerId:id,timerTemplateId:timer.templateId||templateId,timerTemplateName:timer.templateName||''},timer:null,ref};
  }
  let template=STANDARD_TEMPLATE;
  if(templateId!=='standard'){const snap=await tx.get(fs.doc(db,'epc_events','_epc_timer','templates',String(templateId)));if(!snap.exists())throw Error('計時器範本已不存在，請重新選擇。');template=snap.data();}
- const built=buildEventTimer(event,template,templateId,{creating});return {...built,ref};
+ const built=buildEventTimer(event,template,templateId,{creating});if(existing.exists())built.timer.revision=Number(existing.data().revision||0)+1;return {...built,ref};
 }
 export async function createEventWithTimer({fs,db,event,templateId,assertWrite=()=>{}}){
  return fs.runTransaction(db,async tx=>{

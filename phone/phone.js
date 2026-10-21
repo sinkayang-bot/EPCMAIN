@@ -277,3 +277,5 @@ $('registerBtn').addEventListener('click',async()=>{
 });
 api('member.list').then(r=>{memberRows=Array.isArray(r.members)?r.members:[];members=new Map(memberRows.map(m=>[String(m.memberId),m]));renderMemberOptions();render();$('memberChosen').textContent='會員已載入 '+memberRows.length+' 筆，點擊搜尋框選擇'}).catch(err=>{$('registerMessage').textContent='會員載入失敗：'+err.message;$('registerMessage').className='message error'});
 
+
+$('openTimerControl').addEventListener('click',()=>{const e=selectedEvent();if(!e?.timerId)return alert('請先在電腦的賽事設定選擇計時器範本並儲存。');location.href='../timer-mobile.html?eventId='+encodeURIComponent(e.eventId);});

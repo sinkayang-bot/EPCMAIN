@@ -9,7 +9,7 @@
   const db=fs.getFirestore(app);
   const col=fs.collection(db,'epc_events');
   const accountingCol=fs.collection(db,'epc_daily_accounting');
-  const timerStore=await import('./timer-store.js?v=20261021-3');
+  const timerStore=await import('./timer-store.js?v=20261021-template5');
   const clean=x=>{const y={};Object.entries(x||{}).forEach(([k,v])=>{if(v!==undefined&&typeof v!=='function')y[k]=v});return y};
   window.EPCFirestore={
    ready:true,
@@ -56,7 +56,7 @@
      row.hunterHeadHistory=[...historyById.values()];
      if(options.unlock){row.finalJP=fs.deleteField();row.finalAccounting=fs.deleteField();}
      if(options.timerTemplateId){
-      const linked=await timerStore.stageEventTimer({tx,fs,db,event:row,templateId:String(options.timerTemplateId)});
+      const linked=await timerStore.stageEventTimer({tx,fs,db,event:row,templateId:String(options.timerTemplateId),replaceExisting:!!options.replaceTimerTemplate,expectedTemplateId:options.expectedTimerTemplateId});
       Object.assign(row,linked.event);
       if(linked.timer)tx.set(linked.ref,{...linked.timer,updatedAt:fs.serverTimestamp()});
      }

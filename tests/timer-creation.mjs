@@ -19,6 +19,12 @@ assert.equal(guardCalls,1);assert.equal(created.timerTemplateId,'T-test');assert
 const saved=structuredClone(memory.get('epc_events/_epc_timer/timers/E-test'));saved.remaining=47;saved.running=true;saved.endsAt=123456;memory.set('epc_events/_epc_timer/timers/E-test',saved);
 const attach=await fs.runTransaction({},tx=>stageEventTimer({tx,fs,db:{},event,templateId:'T-test'}));assert.equal(attach.timer,null);assert.equal(memory.get('epc_events/_epc_timer/timers/E-test').remaining,47);
 await assert.rejects(()=>createEventWithTimer({fs,db:{},event,templateId:'T-test'}),/已存在/);
+memory.set('epc_events/_epc_timer/templates/T-next',{...template,name:'新範本',levels:[{sb:500,bb:1000,ante:1000,min:15}]});
+const replacement=await fs.runTransaction({},async tx=>{const result=await stageEventTimer({tx,fs,db:{},event:{...event,timerTemplateId:'T-test',players:[{memberId:'P1'}]},templateId:'T-next',replaceExisting:true,expectedTemplateId:'T-test'});tx.set(result.ref,result.timer);return result;});
+assert.equal(replacement.timer.remaining,900);assert.equal(replacement.timer.running,false);assert.equal(replacement.timer.index,0);assert.equal(replacement.timer.revision,saved.revision+1);assert.equal(replacement.event.chips,event.chips);assert.deepEqual(replacement.event.players,[{memberId:'P1'}]);assert.equal(replacement.event.timerTemplateId,'T-next');
+await assert.rejects(()=>fs.runTransaction({},tx=>stageEventTimer({tx,fs,db:{},event,templateId:'standard',replaceExisting:true,expectedTemplateId:'T-test'})),/其他後臺/);
+await assert.rejects(()=>fs.runTransaction({},tx=>stageEventTimer({tx,fs,db:{},event:{...event,status:'settled'},templateId:'standard',replaceExisting:true,expectedTemplateId:'T-next'})),/已結算/);
+
 for(const options of [{templateId:'missing'},{templateId:'T-test',assertWrite:()=>{throw Error('view only')}},{templateId:'T-test',failTimer:true}]){
  const store=fakeStore(options);await assert.rejects(()=>createEventWithTimer({fs:store.fs,db:{},event,...options}));assert(!store.memory.has('epc_events/E-test'));assert(!store.memory.has('epc_events/_epc_timer/timers/E-test'));
 }
