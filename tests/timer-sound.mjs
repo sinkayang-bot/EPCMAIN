@@ -12,13 +12,15 @@ assert.equal(countdownCue(state(11),{...state(10),key:'E1:1'}),null);
 assert.equal(countdownCue(state(60),state(5)),null);
 assert.equal(countdownCue(state(11),{...state(5),endsAt:999}),null);
 assert.equal(countdownCue(state(5),state(11)),null);
-const tones=[];let button;
-globalThis.document={createElement:()=>({style:{},setAttribute(){}}),body:{append(el){button=el}}};
+const tones=[],elements=[];let panel;
+globalThis.document={createElement:tag=>{const el={tag,style:{},children:[],append(...items){this.children.push(...items)},setAttribute(){}};elements.push(el);return el},body:{append(el){panel=el}}};
 globalThis.window={AudioContext:class{state='running';currentTime=0;destination={};async resume(){}createOscillator(){return {frequency:{},connect(){},start(t){tones.push(t)},stop(){}}}createGain(){return {gain:{setValueAtTime(){},linearRampToValueAtTime(){},exponentialRampToValueAtTime(){}},connect(){}}}}};
-const sound=countdownSound(),timer={index:0,levels:[{min:1}],running:true,endsAt:100};
+const sound=countdownSound(),button=elements.find(el=>el.textContent==='啟用提示音'),slider=elements.find(el=>el.type==='range'),test=elements.find(el=>el.textContent==='試聽提示音'),timer={index:0,levels:[{min:1}],running:true,endsAt:100};
 sound.observe(timer,11,'E1');sound.observe(timer,10,'E1');assert.equal(tones.length,0,'Muted until the device user enables audio');
 await button.onclick();assert.equal(tones.length,1,'Enable plays a short confirmation tone');
 sound.observe(timer,11,'E1');sound.observe(timer,10,'E1');sound.observe(timer,10,'E1');assert.equal(tones.length,2,'10-second cue plays once');
 sound.observe(timer,6,'E1');sound.observe(timer,5,'E1');assert.equal(tones.length,4,'5-second cue plays two short tones');
 await button.onclick();sound.observe(timer,11,'E1');sound.observe(timer,10,'E1');assert.equal(tones.length,4,'Disable mutes cues');
 console.log('Timer sound: thresholds, no duplicates, pause/seek/level protection, enable, mute and tone scheduling passed.');
+
+assert.equal(slider.value,'100');slider.value='50';slider.oninput();assert.equal(elements.find(el=>el.tag==='output').textContent,'50%');assert(test.disabled);await button.onclick();assert(!test.disabled);const beforeTest=tones.length;await test.onclick();assert.equal(tones.length,beforeTest+2);

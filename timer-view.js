@@ -1,4 +1,4 @@
-import {countdownSound} from './timer-sound.js?v=20261021-audio1';
+import {countdownSound} from './timer-sound.js?v=20261022-loud7';
 import {remaining,timeText,eventTotals,newTimer,timerAt} from './timer-core.js?v=20261022-auto6';
 const $=id=>document.getElementById(id),params=new URLSearchParams(location.search),demo=params.has('demo'),id=params.get('eventId');
 let event,timer,service;
