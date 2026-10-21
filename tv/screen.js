@@ -1,4 +1,4 @@
-import {effectiveDisplay} from '../display-assignment.js?v=20261022-assignment3';
+import {effectiveDisplay} from '../display-assignment.js?v=20261022-switch5';
 import {mountTimerFrame} from './timer-frame.js?v=20261022-stable2';
 import {displayCloud} from '../display-cloud.js';
 const host=document.getElementById('screen'),esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])),money=n=>'$'+Number(n||0).toLocaleString();

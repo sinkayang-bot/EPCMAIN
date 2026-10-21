@@ -1,4 +1,4 @@
-import {effectiveDisplay} from './display-assignment.js?v=20261022-assignment3';
+import {effectiveDisplay} from './display-assignment.js?v=20261022-switch5';
 // Background data refresh is never allowed to change a device's assignment.
 export async function refreshDisplay({fs,db,ref,request}){
  return fs.runTransaction(db,async tx=>{

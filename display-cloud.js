@@ -1,5 +1,5 @@
-import {effectiveDisplay} from './display-assignment.js?v=20261022-assignment3';
-import {refreshDisplay} from './display-refresh.js?v=20261022-assignment3';
+import {effectiveDisplay,pendingTimerAssignment,syncTimerAssignment} from './display-assignment.js?v=20261022-switch5';
+import {refreshDisplay} from './display-refresh.js?v=20261022-switch5';
 // Display documents live in a subcollection, separate from root event records.
 export async function displayCloud(){
  const [am,fs]=await Promise.all([import('https://www.gstatic.com/firebasejs/12.4.0/firebase-app.js'),import('https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js')]);
@@ -16,7 +16,7 @@ export async function displayCloud(){
    }
    if(p.action==='remove'){await fs.deleteDoc(device(p.deviceId));return {ok:true}}
    if(p.action==='publish'&&p.background)return refreshDisplay({fs,db,ref:device(p.deviceId),request:p});
-   if(p.action==='publish'){await fs.updateDoc(device(p.deviceId),{contentType:p.contentType,rotateSeconds:p.rotateSeconds,payload:p.payload,publishedAt:Date.now(),assignment:{id:crypto.randomUUID(),contentType:p.contentType,rotateSeconds:p.rotateSeconds,payload:p.payload}});return {ok:true}}
+   if(p.action==='publish'){const publishedAt=Date.now();await fs.updateDoc(device(p.deviceId),{contentType:p.contentType,rotateSeconds:p.rotateSeconds,payload:p.payload,publishedAt,assignment:{publishedAt,id:crypto.randomUUID(),contentType:p.contentType,rotateSeconds:p.rotateSeconds,payload:p.payload}});return {ok:true}}
    throw Error('不支援的顯示操作');
   },
   async register(id){
@@ -27,7 +27,7 @@ export async function displayCloud(){
    }throw Error('無法產生配對碼，請重新整理');
   },
   heartbeat:async id=>{await fs.updateDoc(device(id),{lastSeen:Date.now()})},
-  subscribe:(id,fn,error)=>fs.onSnapshot(device(id),snap=>fn(snap.exists()?snap.data():null),error)
+  subscribe:(id,fn,error)=>fs.onSnapshot(device(id),snap=>{const data=snap.exists()?snap.data():null;fn(data);if(pendingTimerAssignment(data))syncTimerAssignment({fs,db,ref:device(id)}).catch(e=>console.warn('Timer assignment sync:',e.message));},error)
  };
  const request=service.request;service.request=async function(p){return window.EPCMode&&!['ping','devices'].includes(p.action)?EPCMode.runWrite(()=>request.call(service,p)):request.call(service,p);};return service;
 }

@@ -2,8 +2,8 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 const source=n=>readFileSync(new URL('../'+n,import.meta.url),'utf8'),url=s=>'data:text/javascript;base64,'+Buffer.from(s).toString('base64');
 const assignmentUrl=url(source('display-assignment.js'));
-const {effectiveDisplay}=await import(assignmentUrl);
-const {refreshDisplay}=await import(url(source('display-refresh.js').replace("'./display-assignment.js?v=20261022-assignment3'",JSON.stringify(assignmentUrl))));
+const {effectiveDisplay,pendingTimerAssignment,syncTimerAssignment}=await import(assignmentUrl);
+const {refreshDisplay}=await import(url(source('display-refresh.js').replace("'./display-assignment.js?v=20261022-switch5'",JSON.stringify(assignmentUrl))));
 let device={paired:true,contentType:'parallel',publishedAt:10,payload:{type:'parallel',rows:[]}},writes=0;
 const fs={runTransaction:async(_,fn)=>fn({get:async()=>({exists:()=>!!device,data:()=>structuredClone(device)}),update:(_,patch)=>{Object.assign(device,patch);writes++}})};
 const request={contentType:'parallel',expectedPublishedAt:10,payload:{type:'parallel',rows:[1]}};
@@ -19,3 +19,11 @@ device.assignment={id:'manual-2',contentType:'parallel',rotateSeconds:15,payload
 assert.equal(effectiveDisplay(device).contentType,'parallel','Explicit manual activity changes still work');
 device.paired=false;assert((await refreshDisplay({fs,request:{...request,expectedPublishedAt:20}})).skipped);
 console.log('Display refresh: timer protection, stale-write races, legacy terminal protection and explicit manual switching passed.');
+
+device={paired:true,contentType:'timer',publishedAt:40,payload:{type:'timer',eventId:'E4'},assignment:{id:'old-selection',contentType:'timer',publishedAt:20,payload:{type:'timer',eventId:'E2'}}};
+assert(pendingTimerAssignment(device));assert.equal(effectiveDisplay(device).payload.eventId,'E4','Legacy manual event switching is accepted');
+await syncTimerAssignment({fs});assert.equal(device.assignment.payload.eventId,'E4');
+device.contentType='parallel';device.payload={type:'parallel'};device.publishedAt=50;
+assert.equal(effectiveDisplay(device).payload.eventId,'E4','A later legacy background refresh cannot undo the accepted event switch');
+device.contentType='timer';device.payload={type:'timer',eventId:'E2'};device.publishedAt=10;
+assert.equal(effectiveDisplay(device).payload.eventId,'E4','An older selection must not win');

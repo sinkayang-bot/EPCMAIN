@@ -7446,7 +7446,7 @@ let displayCloudPromise_;
 async function enableBuiltinDisplay_(){localStorage.setItem(DISPLAY_API_KEY,'firebase');$('displayApiUrl').value='firebase';await saveDisplayApi_()}
 async function displayFetch_(params={},post=false){
  const base=displayApi_();
- if(base==='firebase'){displayCloudPromise_=displayCloudPromise_||import('./display-cloud.js?v=20261022-assignment3').then(m=>m.displayCloud()).catch(e=>{displayCloudPromise_=null;throw e});return (await displayCloudPromise_).request(params)}if(!base)throw new Error('請先設定 Display API URL');
+ if(base==='firebase'){displayCloudPromise_=displayCloudPromise_||import('./display-cloud.js?v=20261022-switch5').then(m=>m.displayCloud()).catch(e=>{displayCloudPromise_=null;throw e});return (await displayCloudPromise_).request(params)}if(!base)throw new Error('請先設定 Display API URL');
  if(post){
   const r=await fetch(base,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(params),redirect:'follow'});
   const t=await r.text();let j;try{j=JSON.parse(t)}catch(_){throw new Error('Display API 回傳格式錯誤')}
