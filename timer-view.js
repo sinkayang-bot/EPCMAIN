@@ -18,7 +18,8 @@ function render(){
  sound.observe(state,seconds,event.eventId||id);
  text($('screenDate'),new Date().toLocaleString('sv-SE',{timeZone:'Asia/Taipei'}).slice(0,16));
  text($('screenEvent'),event.name||'EPC 限時錦標賽');text($('screenLevel'),'LEVEL '+level+' / '+levels.filter(l=>!l.break).length);
- text($('levelTitle'),l.break?'BREAK':'LEVEL '+level);text($('clock'),timeText(seconds));flag($('progressRing'),'isBreak',!!l.break);
+ const finished=state.index===levels.length-1&&seconds===0;
+ text($('levelTitle'),l.break?'BREAK':'LEVEL '+level);text($('clock'),finished?'Finish':timeText(seconds));flag($('progressRing'),'isBreak',!!l.break);flag($('progressRing'),'isFinished',finished);
  for(const [p,row] of [['cur',l],['next',next]])for(const [suffix,key] of [['SB','sb'],['BB','bb'],['Ante','ante']])text($(p+suffix),!row?'—':row.break?(p==='next'&&suffix==='SB'?'休息':'—'):num(row[key]));
  for(const [field,key] of [['sPlayers','players'],['sRebuys','rebuyGroups'],['sGroups','groups'],['chipsInPlay','chips'],['avgStack','average']])text($(field),totals[key]===null?'—':num(totals[key]));
  text($('extraContent'),'$'+num(totals.pool));payout(state.payoutInput||'');
@@ -26,7 +27,7 @@ function render(){
  const lit=Math.ceil(Math.min(1,seconds/(l.min*60))*72);[...$('ringTicks').children].forEach((t,i)=>flag(t,'lit',i<lit));
  let until=seconds;for(let i=state.index+1;i<levels.length&&!levels[i].break;i++)until+=levels[i].min*60;
  const hasBreak=levels.slice(state.index).some(l=>l.break),value=l.break?seconds:until;
- text($('breakCaption'),l.break?'BREAK REMAINING':'NEXT BREAK IN');text($('breakCountdown'),hasBreak?String(Math.floor(value/3600)).padStart(2,'0')+':'+timeText(value%3600):'—');
+ text($('breakCaption'),finished?'TOURNAMENT FINISHED':l.break?'BREAK REMAINING':'NEXT BREAK IN');text($('breakCountdown'),!finished&&hasBreak?String(Math.floor(value/3600)).padStart(2,'0')+':'+timeText(value%3600):'—');
 }
 for(let i=0;i<72;i++){const tick=document.createElement('i');tick.style.transform='rotate('+(i*5)+'deg) translateY(-249px)';$('ringTicks').append(tick)}
 fit();addEventListener('resize',fit);setInterval(render,250);
