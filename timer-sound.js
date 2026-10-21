@@ -1,3 +1,4 @@
+import {scheduleVoice,selectedTimerVoices} from './timer-sound-options.js?v=20261022-emergency18';
 // Only a naturally advancing countdown may trigger a cue; opening, seeking,
 // pausing or switching levels must not replay an old warning.
 export function countdownCue(previous,current){
@@ -16,7 +17,7 @@ export function finishedCue(previous,current){
 export function countdownSound(){
  let context,enabled=false,previous,volume=100;
  try{volume=Math.max(20,Math.min(100,Number(window.localStorage.getItem('epcTimerSoundVolumeV1'))||100))}catch(_){}
- const button=document.createElement('button');button.type='button';button.textContent='啟用提示音';button.setAttribute('aria-pressed','false');button.title='10 秒短鐘、5 秒雙鐘、換級長鐘、賽事結束警報';
+ const button=document.createElement('button');button.type='button';button.textContent='啟用提示音';button.setAttribute('aria-pressed','false');button.title='10 秒及 5 秒各一聲 A1，換級 C3，結束警報';
  const panel=document.createElement('aside');panel.setAttribute('aria-label','提示音設定');panel.style.cssText='position:fixed;right:8px;bottom:3px;z-index:50;max-width:240px;padding:0;display:flex;gap:8px;align-items:center;color:#e9c568;background:transparent;border:0;font:12px system-ui;opacity:.22;transition:opacity .15s';
  button.style.cssText='width:auto;margin:0;padding:3px 5px;font:12px system-ui;line-height:18px;color:#e9c568;background:transparent;border:0;cursor:pointer';
  const details=document.createElement('details'),summary=document.createElement('summary');summary.textContent='音量';summary.style.cssText='cursor:pointer;margin:0;font:12px/24px system-ui';details.style.position='relative';
@@ -30,13 +31,14 @@ export function countdownSound(){
  details.ontoggle=()=>{panel.style.opacity=details.open?'.95':'.22'};
  function bell(kind='level'){
   if(!enabled||context?.state!=='running')return;
-  const presets={ten:{base:523.25,duration:.5,strikes:1,gap:0},five:{base:493.88,duration:.45,strikes:2,gap:.55},level:{base:440,duration:2.8,strikes:1,gap:0},end:{base:392,duration:3,strikes:1,gap:0}},preset=presets[kind];
+  if(kind!=='end'){scheduleVoice(context,selectedTimerVoices[kind],volume/100);return;}
+  const preset={base:392,duration:2,strikes:1,gap:0};
   for(let i=0;i<preset.strikes;i++){
    const start=context.currentTime+i*preset.gap;
    for(const [ratio,amplitude,decay] of [[1,.58,1],[2.01,.23,.7],[3.99,.1,.4]]){
     const osc=context.createOscillator(),gain=context.createGain();osc.type='sine';osc.frequency.value=preset.base*ratio;
     gain.gain.setValueAtTime(0,start);gain.gain.linearRampToValueAtTime(amplitude*volume/100,start+.008);
-    if(kind==='end')gain.gain.setValueAtTime(amplitude*volume/100,start+2.6);
+    if(kind==='end')gain.gain.setValueAtTime(amplitude*volume/100,start+1.6);
     gain.gain.exponentialRampToValueAtTime(.001,start+preset.duration*(kind==='end'?1:decay));
     osc.connect(gain);gain.connect(context.destination);osc.start(start);osc.stop(start+preset.duration*(kind==='end'?1:decay)+.04);
    }
