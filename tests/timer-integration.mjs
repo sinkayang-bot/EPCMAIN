@@ -17,7 +17,7 @@ t=command(t,'set','00:10',400000);assert.equal(t.running,false);
 assert.equal(parseTime('05：09'),309);for(const bad of ['12:60','755','-1:00','NaN:00','6000:00'])assert.throws(()=>parseTime(bad));
 assert.throws(()=>validateLevels([{min:0,sb:1,bb:2,ante:2}]));assert.throws(()=>validateLevels([]));
 const raw={buyin:3000,fee:400,jpRate:3,jpRound:100,chips:300000,players:[{buyin:1,rebuy:2,addon:0},{buyin:1,rebuy:0,addon:1}]};
-assert.deepEqual(eventTotals(raw),{players:2,rebuyPlayers:2,groups:5,chips:1500000,average:750000,pool:14500,gross:15000,jp:500});
+assert.deepEqual(eventTotals(raw),{players:2,rebuyGroups:2,rebuyPlayers:2,groups:5,chips:1500000,average:750000,pool:14500,gross:15000,jp:500});
 assert.equal(eventTotals({...raw,finalJP:300}).pool,14700);assert.equal(eventTotals({...raw,players:[]}).average,null);
 const html=read('index.html');
 function extract(name){const start=html.indexOf('function '+name+'('),end=html.indexOf('\nfunction ',start+10);return html.slice(start,end)}
@@ -28,3 +28,7 @@ for(const extra of [{},{pricingMode:'custom',buyinTotal:6900,buyinAdmin:900,rebu
 }
 assert(!read('timer-cloud.js').includes('upsertEvent'));assert(!read('timer-view.js').includes('.change('));
 console.log('Timer integration: countdown, restore, pause, break, validation, JP/pricing parity and read-only projector checks passed.');
+
+const groupCase=eventTotals({...raw,players:[{buyin:1,rebuy:2},{buyin:1,rebuy:1},{buyin:1,rebuy:0},{buyin:1,rebuy:0}]});
+assert.equal(groupCase.players,4);assert.equal(groupCase.rebuyPlayers,2);assert.equal(groupCase.rebuyGroups,3);assert.equal(groupCase.groups,7);
+assert.equal(eventTotals({...raw,players:[{buyin:1,rebuy:0,addon:2}]}).rebuyGroups,0,'Add-ons must not be mislabeled as rebuys');

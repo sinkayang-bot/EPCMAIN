@@ -1,4 +1,4 @@
-import {DEFAULT_LEVELS,newTimer,remaining,timeText,eventTotals,parseTime,validateLevels} from './timer-core.js?v=20261021-3';
+import {DEFAULT_LEVELS,newTimer,remaining,timeText,eventTotals,parseTime,validateLevels} from './timer-core.js?v=20261022-count4';
 const $=id=>document.getElementById(id),params=new URLSearchParams(location.search),demo=params.has('demo'),id=params.get('eventId'),esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 let event,timer,service,templates=[],busy=false,draft=structuredClone(DEFAULT_LEVELS),textLoaded=false,structureLoaded=false,textDirty=false,structureDirty=false,textRevision=0,structureRevision=0;
 function canWrite(){try{return demo||window.parent!==window&&!window.parent.EPCMode.isView()}catch(_){return false}}
@@ -12,7 +12,7 @@ function update(){
  $('currentLevel').textContent=timer?(l?.break?'休息':'第 '+timer.levels.slice(0,timer.index+1).filter(l=>!l.break).length+' 級')+' · '+(timer.running&&remaining(timer)>0?'計時中':remaining(timer)===0?'本級結束，請切換下一級':'已暫停'):'';
  $('toggle').textContent=timer?.running&&remaining(timer)>0?'暫停':'開始';
  if(document.activeElement!==$('remainingTime'))$('remainingTime').value=timer?timeText(remaining(timer)):'';
- if(event){$('title').textContent=(event.name||'EPC')+' · 計時器';const s=eventTotals(event),n=v=>Number(v||0).toLocaleString();$('stats').textContent=`參賽 ${s.players} 人／重買 ${s.rebuyPlayers} 人／總買入 ${s.groups} 組\n總籌碼 ${n(s.chips)}／平均籌碼 ${s.average===null?'—':n(s.average)}\n總獎池 $${n(s.pool)}（原獎池 $${n(s.gross)} − JP $${n(s.jp)}）`;$('stats').style.whiteSpace='pre-line'}
+ if(event){$('title').textContent=(event.name||'EPC')+' · 計時器';const s=eventTotals(event),n=v=>Number(v||0).toLocaleString();$('stats').textContent=`參賽 ${s.players} 人／重買 ${s.rebuyGroups} 組／總買入 ${s.groups} 組\n總籌碼 ${n(s.chips)}／平均籌碼 ${s.average===null?'—':n(s.average)}\n總獎池 $${n(s.pool)}（原獎池 $${n(s.gross)} − JP $${n(s.jp)}）`;$('stats').style.whiteSpace='pre-line'}
 }
 function levels(){
  $('levels').innerHTML=draft.map((l,i)=>`<div class="levelrow"><span>${l.break?'休':i+1}</span>${['sb','bb','ante','min'].map(k=>`<input type="number" aria-label="第${i+1}級${k}" data-index="${i}" data-field="${k}" data-write min="${k==='min'?0.1:0}" step="${k==='min'?0.1:1}" value="${l[k]??''}" ${l.break&&k!=='min'?'disabled':''}>`).join('')}<button data-remove="${i}" data-write aria-label="移除第${i+1}級">×</button></div>`).join('');update();

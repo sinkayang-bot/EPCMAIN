@@ -38,5 +38,5 @@ export function eventTotals(raw){
  const groups=rows.reduce((n,r)=>n+r.groups,0),chips=groups*Math.max(0,Number(e.chips)||0);
  const gross=rows.reduce((n,r)=>n+r.pool,0),rate=Math.max(0,Number(e.jp)||0),unit=Math.max(1,Number(e.jpRound)||1);
  const jp=raw?.finalJP!=null?Number(raw.finalJP)||0:gross*rate>0?Math.ceil(gross*rate/100/unit)*unit:0;
- return {players:players.length,rebuyPlayers:players.filter(p=>Number(p.rebuy)>0||Number(p.addon)>0).length,groups,chips,average:players.length?Math.floor(chips/players.length):null,pool:Math.max(0,gross-jp),gross,jp};
+ return {players:players.length,rebuyGroups:players.reduce((n,p)=>n+Math.max(0,Number(p.rebuy)||0),0),rebuyPlayers:players.filter(p=>Number(p.rebuy)>0||Number(p.addon)>0).length,groups,chips,average:players.length?Math.floor(chips/players.length):null,pool:Math.max(0,gross-jp),gross,jp};
 }

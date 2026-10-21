@@ -1,5 +1,5 @@
 import {countdownSound} from './timer-sound.js?v=20261021-audio1';
-import {remaining,timeText,eventTotals,newTimer} from './timer-core.js?v=20261021-3';
+import {remaining,timeText,eventTotals,newTimer} from './timer-core.js?v=20261022-count4';
 const $=id=>document.getElementById(id),params=new URLSearchParams(location.search),demo=params.has('demo'),id=params.get('eventId');
 let event,timer,service;
 const sound=countdownSound();
@@ -19,7 +19,7 @@ function render(){
  text($('screenEvent'),event.name||'EPC 限時錦標賽');text($('screenLevel'),'LEVEL '+level+' / '+levels.filter(l=>!l.break).length);
  text($('levelTitle'),l.break?'BREAK':'LEVEL '+level);text($('clock'),timeText(seconds));flag($('progressRing'),'isBreak',!!l.break);
  for(const [p,row] of [['cur',l],['next',next]])for(const [suffix,key] of [['SB','sb'],['BB','bb'],['Ante','ante']])text($(p+suffix),!row?'—':row.break?(p==='next'&&suffix==='SB'?'休息':'—'):num(row[key]));
- for(const [field,key] of [['sPlayers','players'],['sRebuys','rebuyPlayers'],['sGroups','groups'],['chipsInPlay','chips'],['avgStack','average']])text($(field),totals[key]===null?'—':num(totals[key]));
+ for(const [field,key] of [['sPlayers','players'],['sRebuys','rebuyGroups'],['sGroups','groups'],['chipsInPlay','chips'],['avgStack','average']])text($(field),totals[key]===null?'—':num(totals[key]));
  text($('extraContent'),'$'+num(totals.pool));payout(timer.payoutInput||'');
  const ann=$('announcementDisplay');if(ann.textContent!==(timer.announcement||'')){ann.textContent=timer.announcement||'';let size=40;ann.style.fontSize=size+'px';while(size>18&&ann.scrollHeight>$('announcementBody').clientHeight-50){size-=2;ann.style.fontSize=size+'px'}}
  const lit=Math.ceil(Math.min(1,seconds/(l.min*60))*72);[...$('ringTicks').children].forEach((t,i)=>flag(t,'lit',i<lit));
