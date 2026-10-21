@@ -4,10 +4,10 @@ export const soundGroups=[
  {key:'ten',title:'10 秒｜短音一聲',options:[bell('A1','清亮銅鐘',659.25,[1,2.01,3.99],.5),bell('A2','玻璃輕鐘',783.99,[1,2.76,5.4],.55),bell('A3','金屬短鐘',698.46,[1,2.4,3.6],.5),bell('A4','明亮叮聲',880,[1,2,3],.4),bell('A5','柔和小鐘',739.99,[1,1.5,3],.6)]},
  {key:'five',title:'5 秒｜短音兩聲',options:[bell('B1','雙響銅鐘',659.25,[1,2.01,3.99],.4,2),bell('B2','雙響玻璃鐘',783.99,[1,2.76,5.4],.45,2),bell('B3','雙響金屬鐘',698.46,[1,2.4,3.6],.4,2),bell('B4','雙響叮聲',880,[1,2,3],.35,2),bell('B5','雙響柔和鐘',739.99,[1,1.5,3],.45,2)]},
  {key:'level',title:'換級別｜長音一聲',options:[bell('C1','銅鐘長鳴',659.25,[1,2.01,3.99],2.8),bell('C2','玻璃鐘長鳴',783.99,[1,2.76,5.4],2.8),bell('C3','金屬鐘長鳴',698.46,[1,2.4,3.6],2.8),bell('C4','明亮長鐘',880,[1,2,3],2.6),bell('C5','柔和長鐘',739.99,[1,1.5,3],3)]},
- {key:'end',title:'最後結束｜電子終場蜂鳴 2 秒',options:[
+ {key:'end',title:'最後結束｜電子終場蜂鳴',options:[
  {id:'G1',name:'高頻電子長鳴',base:1000,drive:6,duration:2,strikes:1,basketball:true,electronic:true},
  {id:'G2',name:'雙頻電子蜂鳴',base:800,secondary:1066.67,drive:5,duration:2,strikes:1,basketball:true,electronic:true},
- {id:'G3',name:'電子震動蜂鳴',base:900,fmRate:85,fmDepth:1.8,drive:4,duration:2,strikes:1,basketball:true,electronic:true},
+ {id:'G3',name:'電子震動蜂鳴（1 秒）',base:900,fmRate:85,fmDepth:1.8,drive:4,duration:1,strikes:1,basketball:true,electronic:true},
  {id:'G4',name:'記分板電鳴',base:750,secondary:1125,amRate:100,drive:6,duration:2,strikes:1,basketball:true,electronic:true},
  {id:'G5',name:'尖銳電子終場',base:1200,secondary:1500,fmRate:60,fmDepth:.6,drive:5,duration:2,strikes:1,basketball:true,electronic:true}
  ]}
@@ -17,7 +17,7 @@ export const selectedTimerVoices={
 };
 // A flat sustained end-of-game buzzer: no siren sweeps or separate pulses.
 export function renderBasketballBuzzer(voice,sampleRate=44100){
- const samples=new Float32Array(Math.round(sampleRate*2));let peak=0;
+ const samples=new Float32Array(Math.round(sampleRate*voice.duration));let peak=0;
  for(let n=0;n<samples.length;n++){
   const t=n/sampleRate;let value=0;
   if(voice.electronic){
@@ -27,7 +27,7 @@ export function renderBasketballBuzzer(voice,sampleRate=44100){
    if(voice.amRate)value*=.72+.28*Math.sin(2*Math.PI*voice.amRate*t);
   }else for(let k=0;k<voice.harmonics.length;k++)value+=voice.harmonics[k]*Math.sin(2*Math.PI*voice.base*(k+1)*t);
   if(voice.detune)value+=.3*Math.sin(2*Math.PI*(voice.base+voice.detune)*t);
-  const envelope=Math.min(1,t/.008,(2-t)/.025);
+  const envelope=Math.min(1,t/.008,(voice.duration-t)/.025);
   samples[n]=(voice.electronic?value:Math.tanh(value*voice.drive))*envelope;peak=Math.max(peak,Math.abs(samples[n]));
  }
  const scale=.8/Math.max(peak,.001);for(let n=0;n<samples.length;n++)samples[n]*=scale;
@@ -37,8 +37,8 @@ function scheduleBasketballBuzzer(context,voice,volume){
  const samples=renderBasketballBuzzer(voice,context.sampleRate),buffer=context.createBuffer(1,samples.length,context.sampleRate);
  buffer.getChannelData(0).set(samples);
  const source=context.createBufferSource(),gain=context.createGain(),start=context.currentTime+.025;
- source.buffer=buffer;gain.gain.value=volume;source.connect(gain);gain.connect(context.destination);source.start(start);source.stop(start+2);
- return {nodes:[source],duration:2.05};
+ source.buffer=buffer;gain.gain.value=volume;source.connect(gain);gain.connect(context.destination);source.start(start);source.stop(start+voice.duration);
+ return {nodes:[source],duration:voice.duration+.05};
 }
 function scheduleEmergency(context,voice,volume){
  const start=context.currentTime+.025,end=start+2,osc=context.createOscillator(),gain=context.createGain(),nodes=[osc];
