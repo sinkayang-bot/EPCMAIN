@@ -7374,7 +7374,7 @@ async function autoRefreshMembers(){
 /* Timer controls live separately from event/accounting records. */
 function epcOpenTimer_(eventId){
  if(!eventId)return actionMsg('請先選擇一場賽事',true);
- const dialog=$('epcTimerDialog'),frame=$('epcTimerFrame');frame.src='timer-control.html?eventId='+encodeURIComponent(String(eventId));dialog.showModal();
+ const dialog=$('epcTimerDialog'),frame=$('epcTimerFrame');frame.src='timer-control.html?eventId='+encodeURIComponent(String(eventId))+'&v=20261021-integrate2';dialog.showModal();
 }
 function epcTimerDisplayControls_(deviceId,ui){
  const escape=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));

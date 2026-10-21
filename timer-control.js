@@ -1,4 +1,4 @@
-import {DEFAULT_LEVELS,newTimer,remaining,timeText,eventTotals,parseTime,validateLevels} from './timer-core.js';
+import {DEFAULT_LEVELS,newTimer,remaining,timeText,eventTotals,parseTime,validateLevels} from './timer-core.js?v=20261021-2';
 const $=id=>document.getElementById(id),params=new URLSearchParams(location.search),demo=params.has('demo'),id=params.get('eventId'),esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 let event,timer,service,templates=[],busy=false,draft=structuredClone(DEFAULT_LEVELS),textLoaded=false,structureLoaded=false,textDirty=false,structureDirty=false,textRevision=0,structureRevision=0;
 function canWrite(){try{return demo||window.parent!==window&&!window.parent.EPCMode.isView()}catch(_){return false}}
@@ -34,13 +34,13 @@ function setTime(){try{parseTime($('remainingTime').value);send('set',$('remaini
  $('levels').onclick=e=>{const el=e.target.closest('[data-remove]');if(!el||!canWrite())return;if(draft.length===1)return message('至少保留一個級別');dirtyStructure();draft.splice(Number(el.dataset.remove),1);levels()};
  $('templates').onchange=()=>{dirtyStructure();draft=structuredClone(templates.find(t=>t.id===$('templates').value)?.levels||DEFAULT_LEVELS);levels()};
  $('saveTemplate').onclick=async()=>{if(busy)return;busy=true;update();try{await service.saveTemplate($('templateName').value,draft);message('共用範本已儲存')}catch(e){message(e.message)}finally{busy=false;update()}};
-const url='timer.html?'+(demo?'demo=1':'eventId='+encodeURIComponent(id||''));$('preview').src=url;$('projector').href=url;
+const url='timer.html?'+(demo?'demo=1':'eventId='+encodeURIComponent(id||''))+'&v=20261021-integrate2';$('preview').src=url;$('projector').href=url;
 try{
  if(!demo&&!id)throw Error('請從賽事管理選擇一場賽事。');
- service=demo?(await import('./timer-demo.js')).demoCloud():await(await import('./timer-cloud.js')).timerCloud();
+ service=demo?(await import('./timer-demo.js?v=20261021-2')).demoCloud():await(await import('./timer-cloud.js?v=20261021-2')).timerCloud();
  const error=e=>message('連線失敗：'+e.message);
  service.subscribeEvent(id,e=>{event=e;message(e?(timer?'已連線':'請建立本場計時器，或選擇範本後建立。'):'找不到賽事');update()},error);
- service.subscribeTimer(id,t=>{timer=t;if(t&&!textDirty){$('announcement').value=t.announcement||'';$('payoutInput').value=t.payoutInput||'';textRevision=t.revision;textLoaded=true}if(t&&!structureDirty){structureRevision=t.revision;if(!structureLoaded||JSON.stringify(draft)!==JSON.stringify(t.levels)){draft=structuredClone(t.levels);structureLoaded=true;levels()}}update()},error);
+ service.subscribeTimer(id,t=>{timer=t;if(!busy)message(['settled','已結算'].includes(event?.status)?'此場賽事已結算，僅供檢視。':t?'已連線，時間與公告同步中。':'請建立本場計時器，或選擇範本後建立。');if(t&&!textDirty){$('announcement').value=t.announcement||'';$('payoutInput').value=t.payoutInput||'';textRevision=t.revision;textLoaded=true}if(t&&!structureDirty){structureRevision=t.revision;if(!structureLoaded||JSON.stringify(draft)!==JSON.stringify(t.levels)){draft=structuredClone(t.levels);structureLoaded=true;levels()}}update()},error);
  service.subscribeTemplates(rows=>{templates=rows;const selected=$('templates').value;$('templates').innerHTML='<option value="default">20 分鐘標準賽</option>'+rows.map(t=>`<option value="${esc(t.id)}">${esc(t.name)}</option>`).join('');if(rows.some(t=>t.id===selected))$('templates').value=selected},error);
 }catch(e){message(e.message)}
 levels();setInterval(()=>{update();document.querySelectorAll('#levels [data-field]').forEach(el=>{if(draft[el.dataset.index]?.break&&el.dataset.field!=='min')el.disabled=true})},250);

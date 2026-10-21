@@ -1,4 +1,4 @@
-import {command,newTimer,validateLevels} from './timer-core.js';
+import {command,newTimer,validateLevels} from './timer-core.js?v=20261021-2';
 let connection;
 export function timerCloud(){return connection||=(async()=>{
  const [am,fs]=await Promise.all([import('https://www.gstatic.com/firebasejs/12.4.0/firebase-app.js'),import('https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js')]);

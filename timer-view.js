@@ -1,4 +1,4 @@
-import {remaining,timeText,eventTotals} from './timer-core.js';
+import {remaining,timeText,eventTotals} from './timer-core.js?v=20261021-2';
 const $=id=>document.getElementById(id),params=new URLSearchParams(location.search),demo=params.has('demo'),id=params.get('eventId');
 let event,timer,service;
 const num=n=>Number(n||0).toLocaleString('en-US');
@@ -27,7 +27,7 @@ fit();addEventListener('resize',fit);setInterval(render,250);
 addEventListener('offline',()=>message('連線中斷，正在顯示最後同步資料'));addEventListener('online',()=>message('正在重新連線…'));
 try{
  if(!demo&&!id)throw Error('請從顯示設備選擇要投影的賽事。');
- service=demo?(await import('./timer-demo.js')).demoCloud():await(await import('./timer-cloud.js')).timerCloud();
+ service=demo?(await import('./timer-demo.js?v=20261021-2')).demoCloud():await(await import('./timer-cloud.js?v=20261021-2')).timerCloud();
  const error=e=>message('計時器連線失敗：'+e.message);
  service.subscribeEvent(id,e=>{event=e;message(!e?'找不到賽事，請從後臺重新選擇。':!timer?'等待後臺建立本場計時器…':'');render()},error);
  service.subscribeTimer(id,t=>{timer=t;message(!event?'正在讀取賽事…':!t?'等待後臺建立本場計時器…':'');render()},error);
