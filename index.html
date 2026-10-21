@@ -2169,7 +2169,7 @@ window.addEventListener('error',function(e){
  </div>
 </section>
 
-<section id="event" class="page">
+<section id="event" class="page"><div class="toolbar"><button type="button" onclick="epcOpenTimer_(currentEvent()?.id)">開啟本場計時器</button></div>
  <h2>賽事帳務 <span class="pill" id="currentEventLabel"></span></h2>
  <div class="toolbar no-print"><button onclick="goEvents()">← 返回賽事管理</button><button class="primary" onclick="goICM()">ICM / 結算 →</button><button type="button" id="btnUnlockEvent" onclick="unlockSettledEvent(currentEvent()?.id)" style="display:none">解鎖編輯</button></div>
  <div class="card">
@@ -5146,7 +5146,7 @@ function printDailyAccounting(){
   <h2>當日賽事明細</h2>
   <table><thead><tr><th>場次</th><th>賽事</th><th>組數</th><th>行政費收入</th><th>重買優惠</th><th>組數優惠</th><th>早晚鳥／手動優惠</th><th>折扣支出</th><th>實收行政費</th><th>JP</th></tr></thead><tbody>${eventRows}</tbody></table>
   <div class="sign"><div>製表：____________________</div><div>覆核：____________________</div></div>
- </div></body></html>`;
+ </div><dialog id="epcTimerDialog" style="width:98vw;max-width:none;height:96vh;max-height:none;padding:0;background:#050505;border:1px solid #b7933b;border-radius:12px;color:white"><div style="height:44px;display:flex;justify-content:space-between;align-items:center;padding:4px 16px"><b>賽事計時器</b><button type="button" onclick="document.getElementById('epcTimerDialog').close()">關閉</button></div><iframe id="epcTimerFrame" title="賽事計時器後臺" style="width:100%;height:calc(100% - 48px);border:0"></iframe></dialog></body></html>`;
 
  const w=window.open('','_blank');
  if(!w){
@@ -5409,7 +5409,7 @@ function renderEventList(){
    let raw=pool*e.jp/100, unit=Math.max(1,e.jpRound||1), jp=raw>0?Math.ceil(raw/unit)*unit:0;
    let reportBtn=`<button type="button" onclick="openEventReportById('${e.id}')">列印報表</button>`;
    let unlockBtn=e.status==='已結算'?`<button type="button" onclick="unlockSettledEvent('${e.id}')">解鎖編輯</button>`:'';
-   return `<tr><td>${businessDateForEvent(e)}</td><td><input value="${eventDisplayName_(e).replace(/&/g,'&amp;').replace(/\"/g,'&quot;')}" style="min-width:120px" onchange="setEventName_('${e.id}',this.value)"></td><td>${e.level}</td><td>${e.players.length}</td><td>${e.players.filter(p=>p.earlyBird).length}</td><td>${e.players.filter(p=>p.lateBird).length}</td><td>${rebuys}</td><td>${groups}</td><td>${money(pool)}</td><td>${money(jp)}</td><td><span class="pill">${e.status||'進行中'}</span></td><td><button onclick="openEvent('${e.id}')">進入</button> ${reportBtn} ${unlockBtn} <button type="button" class="danger" onclick="deleteEventSafe('${e.id}')">刪除</button></td></tr>`;
+   return `<tr><td>${businessDateForEvent(e)}</td><td><input value="${eventDisplayName_(e).replace(/&/g,'&amp;').replace(/\"/g,'&quot;')}" style="min-width:120px" onchange="setEventName_('${e.id}',this.value)"></td><td>${e.level}</td><td>${e.players.length}</td><td>${e.players.filter(p=>p.earlyBird).length}</td><td>${e.players.filter(p=>p.lateBird).length}</td><td>${rebuys}</td><td>${groups}</td><td>${money(pool)}</td><td>${money(jp)}</td><td><span class="pill">${e.status||'進行中'}</span></td><td><button onclick="openEvent('${e.id}')">進入</button> <button type="button" onclick="epcOpenTimer_('${e.id}')">計時器</button> ${reportBtn} ${unlockBtn} <button type="button" class="danger" onclick="deleteEventSafe('${e.id}')">刪除</button></td></tr>`;
  }).join('') || '<tr><td colspan="12" style="text-align:center;color:#91a0b2">此營業日尚無賽事</td></tr>';
 }
 function calcPlayerForEvent(p,e){
@@ -7371,6 +7371,17 @@ async function autoRefreshMembers(){
 }
 // Eight Poker: no periodic/focus member rereads; Google data loads once at startup.
 
+/* Timer controls live separately from event/accounting records. */
+function epcOpenTimer_(eventId){
+ if(!eventId)return actionMsg('請先選擇一場賽事',true);
+ const dialog=$('epcTimerDialog'),frame=$('epcTimerFrame');frame.src='timer-control.html?eventId='+encodeURIComponent(String(eventId));dialog.showModal();
+}
+function epcTimerDisplayControls_(deviceId,ui){
+ const escape=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+ const rows=(db.events||[]).filter(e=>!['settled','已結算'].includes(e.status)||String(e.id)===String(ui.eventId));
+ return '<div style="grid-column:1/-1"><label>投影賽事</label><select id="displayTimerEvent_'+escape(deviceId)+'"><option value="">請選擇賽事</option>'+rows.map(e=>'<option value="'+escape(e.id)+'" '+(String(e.id)===String(ui.eventId)?'selected':'')+'>'+escape((e.date||'')+' '+eventDisplayName_(e))+'</option>').join('')+'</select><p class="small">本場人數、組數、籌碼與獎池即時連動。請至「賽事管理 → 計時器」設定範本、時間及公告。</p></div>';
+}
+
 /* ===== V1.50.0 Display Devices ===== */
 const DISPLAY_API_KEY='epcDisplayApiUrlV1';
 const DISPLAY_PREFS_KEY='epcDisplayDevicePrefsV1';
@@ -7403,7 +7414,7 @@ async function saveDisplayApi_(){
  catch(e){$('displayApiStatus').textContent='連線失敗：'+e.message;actionMsg('Display API 連線失敗：'+e.message,true)}
 }
 function displayContentOptions_(v){
- const a=[['weekly','每週任務卡'],['pioneer','開桌先鋒'],['rank','週排行榜'],['hunter','獵人排行榜'],['umbrella','保護傘'],['boss','雙十狩王'],['extremeTen','極限 10 秒'],['parallel','活動並排'],['rotate','活動輪播'],['rotateParallel','並排輪播']];
+ const a=[['timer','賽事計時器'],['weekly','每週任務卡'],['pioneer','開桌先鋒'],['rank','週排行榜'],['hunter','獵人排行榜'],['umbrella','保護傘'],['boss','雙十狩王'],['extremeTen','極限 10 秒'],['parallel','活動並排'],['rotate','活動輪播'],['rotateParallel','並排輪播']];
  return a.map(x=>`<option value="${x[0]}" ${v===x[0]?'selected':''}>${x[1]}</option>`).join('');
 }
 async function pairDisplay_(){
@@ -7414,6 +7425,7 @@ async function pairDisplay_(){
 }
 function displaySpecificControls_(id,type,sec,ui){
  ui=ui||{};
+ if(type==='timer')return epcTimerDisplayControls_(id,ui);
  const checked=(v,def)=>((v===undefined?def:!!v)?' checked':'');
  const limit=String(ui.limit||10),font=String(ui.rankFontScale||100);
  const common='<div><label>輪播秒數</label><input id="displaySec_'+id+'" type="number" min="5" value="'+(sec||15)+'"></div>';
@@ -7448,7 +7460,7 @@ async function loadDisplays_(){
   const r=await displayFetch_({action:'devices'});displayDevicesCache=r.devices||[];
   const box=$('displayDeviceRows');if(!box)return;
   box.innerHTML=displayDevicesCache.length?displayDevicesCache.map(d=>{
-   const online=Date.now()-(+d.lastSeen||0)<30000,pref=displayPref_(d.deviceId),type=pref.type||d.contentType||'boss',sec=pref.sec||d.rotateSeconds||15,ui=pref.ui||{};
+   const online=Date.now()-(+d.lastSeen||0)<30000,pref=displayPref_(d.deviceId),type=pref.type||d.contentType||'boss',sec=pref.sec||d.rotateSeconds||15,ui=pref.ui||d.payload?.ui||{};if(type==='timer'&&!ui.eventId)ui.eventId=d.payload?.eventId||'';
    return `<div class="display-device"><div class="display-device-head"><div><b>${d.name||'未命名顯示器'}</b> <span class="${online?'display-online':'display-offline'}">${online?'● 在線':'○ 離線'}</span><div class="small">設備 ID：${d.deviceId||''}</div></div><button class="danger" onclick="removeDisplay_('${d.deviceId}')">解除配對</button></div>
    <div class="formgrid" style="grid-template-columns:1fr 3fr;margin-top:10px">
     <div><label>顯示活動</label><select id="displayType_${d.deviceId}" onchange="refreshDisplayControls_('${d.deviceId}',this.value,${sec})">${displayContentOptions_(type)}</select></div>
@@ -7533,6 +7545,15 @@ async function publishDisplay_(deviceId,silent=false){
  }
  if(type==='rotateParallel'){const acts=['weekly','pioneer','rank','hunter','umbrella','boss','extremeTen'];ui.parallelItems=acts.filter(t=>$('displayParallel_'+deviceId+'_'+t)?.checked);ui.rotateItems=acts.filter(t=>$('displayRotate_'+deviceId+'_'+t)?.checked).slice(0,1);ui.parallelSeconds=Math.max(5,Number($('displayParallelSec_'+deviceId)?.value||15));ui.rotateSeconds={};acts.forEach(t=>ui.rotateSeconds[t]=Math.max(5,Number($('displayRotateSec_'+deviceId+'_'+t)?.value||15)));if(!ui.parallelItems.length)return actionMsg('並排頁請至少勾選一個活動',true);if(ui.rotateItems.length!==1)return actionMsg('第 2 頁請選擇一個活動',true);}
  if(type==='rotate'){const acts=['weekly','pioneer','rank','hunter','umbrella','boss','extremeTen'];ui.rotateItems=acts.filter(t=>$('displayRotate_'+deviceId+'_'+t)?.checked);ui.rotateSeconds={};acts.forEach(t=>ui.rotateSeconds[t]=Math.max(5,+($('displayRotateSec_'+deviceId+'_'+t)?.value||15)));}
+ if(type==='timer'){
+  ui.eventId=$('displayTimerEvent_'+deviceId)?.value||'';
+  if(!ui.eventId)return actionMsg('請選擇要投影的賽事',true);
+  const event=(db.events||[]).find(e=>String(e.id)===ui.eventId);
+  if(!event)return actionMsg('找不到賽事，請重新選擇',true);
+  const payload={type:'timer',eventId:ui.eventId,title:eventDisplayName_(event),ui};
+  try{await displayFetch_({action:'publish',deviceId,contentType:type,rotateSeconds:sec,payload},true);saveDisplayPref_(deviceId,{type,sec,ui});if(!silent){actionMsg('已套用本場計時器；請在賽事管理開啟計時器後臺操作');await loadDisplays_()}}catch(e){actionMsg('計時器投影失敗：'+e.message,true)}
+  return;
+ }
  const payload=displayPayload_(type);payload.ui=ui;
  if(type==='rotateParallel'){const parallel=displayPayload_('parallel');parallel.ui=Object.assign({},ui,{kind:'parallel'});parallel.panels=(ui.parallelItems||[]).map(t=>{const panel=displayPayload_(t);panel.ui=Object.assign({},ui,{kind:t,compact:true});if(Array.isArray(panel.rows))panel.rows=panel.rows.slice(0,ui.limit);return panel});parallel.duration=ui.parallelSeconds||15;payload.slides=[parallel,...(ui.rotateItems||[]).map(t=>{const slide=displayPayload_(t);slide.ui=Object.assign({},ui,{kind:t});slide.duration=Math.max(5,Number(ui.rotateSeconds?.[t]||15));return slide})]}
  if(type==='rotate'){payload.slides=(ui.rotateItems||[]).map(t=>{const s=displayPayload_(t);s.ui=Object.assign({},ui,{kind:t});s.duration=Math.max(5,+(ui.rotateSeconds||{})[t]||15);return s})}
@@ -7552,6 +7573,7 @@ async function publishAllDisplays_(){
    // A viewing terminal must not replace a TV with its local/default activity data.
    // Only terminals that explicitly applied this device may republish it automatically.
    if(!pref.type)continue;
+   if(pref.type==='timer')continue; // Timer/event subscriptions drive TV updates directly.
    const type=pref.type,sec=Math.max(5,+(pref.sec||d.rotateSeconds||15));
    const ui=Object.assign({kind:type,limit:10,layout:'classic',showRank:true,showName:true,showMemberId:false,showScore:true,rankFontScale:100},pref.ui||{});
    ui.kind=type;

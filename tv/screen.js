@@ -4,6 +4,7 @@ let id=localStorage.getItem('epcTvDeviceId');if(!id){id=Array.from(crypto.getRan
 let timer,cloud,lastSignature='',renewing=false;
 function identity(r,ui){return [ui.showName!==false?esc(r.name||r.member||''):null,ui.showMemberId?esc(r.memberId||r.id||''):null].filter(Boolean).join(' · ')}
 function render(p,target=host){
+ if(p.type==='timer'){target.replaceChildren();const frame=document.createElement('iframe');frame.title='EPC 賽事計時器';frame.src='../timer.html?eventId='+encodeURIComponent(String(p.eventId||''));frame.style.cssText='position:fixed;inset:0;width:100vw;height:100vh;border:0;background:#000';target.append(frame);return}
  const ui=p.ui||{},header=`<header><h1>${esc(p.title||'EPC')}</h1><span>${esc(p.activityFrom||'')} ～ ${esc(p.activityTo||'')}</span></header>`;
  if(p.type==='extremeTen'||ui.kind==='extremeTen'||String(p.title||'').replace(/\s/g,'')==='極限10秒'){
   const distance=r=>Number.isFinite(Number(r.seconds))?Math.abs(Math.round(Number(r.seconds)*100)-1000):Number.isFinite(Number(r.difference))?Math.round(Number(r.difference)*100):Infinity;
@@ -60,7 +61,7 @@ const panelObserver=typeof ResizeObserver==='function'?new ResizeObserver(entrie
 function show(data){
  clearTimeout(timer);panelObserver?.disconnect();host.className='';
  if(!data?.paired){host.innerHTML=`<div class="center"><h1>EPC 顯示設備配對</h1><p>在 EPCMAIN「顯示設備」輸入此配對碼</p><div class="code">${esc(data?.code||'…')}</div><p class="muted">配對碼有效 10 分鐘；到期請重新整理</p></div>`;return}
- const p=data.payload;if(p?.type==='timer'){host.innerHTML='<div class="center"><h1>計時器已停用</h1><p>請從後台顯示設備選擇其他活動。</p></div>';return}if(!p){host.innerHTML='<div class="center"><h1>配對完成</h1><p>請在後台選擇活動，再按「套用到螢幕」。</p></div>';return}
+ const p=data.payload;if(!p){host.innerHTML='<div class="center"><h1>配對完成</h1><p>請在後台選擇活動，再按「套用到螢幕」。</p></div>';return}
  const renderParallel=(p)=>{
   const panels=(p.panels||[]).slice(0,6);
   if(!panels.length){host.innerHTML='<div class="center"><h1>請在後台勾選並排活動</h1></div>';return}
