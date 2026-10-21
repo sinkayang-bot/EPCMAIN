@@ -30,13 +30,15 @@ export function countdownSound(){
  details.ontoggle=()=>{panel.style.opacity=details.open?'.95':'.22'};
  function bell(kind='level'){
   if(!enabled||context?.state!=='running')return;
-  const presets={ten:{base:523.25,duration:.5,strikes:1,gap:0},five:{base:493.88,duration:.45,strikes:2,gap:.55},level:{base:440,duration:2.8,strikes:1,gap:0},end:{base:392,duration:.45,strikes:6,gap:.6}},preset=presets[kind];
+  const presets={ten:{base:523.25,duration:.5,strikes:1,gap:0},five:{base:493.88,duration:.45,strikes:2,gap:.55},level:{base:440,duration:2.8,strikes:1,gap:0},end:{base:392,duration:3,strikes:1,gap:0}},preset=presets[kind];
   for(let i=0;i<preset.strikes;i++){
    const start=context.currentTime+i*preset.gap;
    for(const [ratio,amplitude,decay] of [[1,.58,1],[2.01,.23,.7],[3.99,.1,.4]]){
-    const osc=context.createOscillator(),gain=context.createGain();osc.type='sine';osc.frequency.value=preset.base*(kind==='end'&&i%2?4/3:1)*ratio;
-    gain.gain.setValueAtTime(0,start);gain.gain.linearRampToValueAtTime(amplitude*volume/100,start+.008);gain.gain.exponentialRampToValueAtTime(.001,start+preset.duration*decay);
-    osc.connect(gain);gain.connect(context.destination);osc.start(start);osc.stop(start+preset.duration*decay+.04);
+    const osc=context.createOscillator(),gain=context.createGain();osc.type='sine';osc.frequency.value=preset.base*ratio;
+    gain.gain.setValueAtTime(0,start);gain.gain.linearRampToValueAtTime(amplitude*volume/100,start+.008);
+    if(kind==='end')gain.gain.setValueAtTime(amplitude*volume/100,start+2.6);
+    gain.gain.exponentialRampToValueAtTime(.001,start+preset.duration*(kind==='end'?1:decay));
+    osc.connect(gain);gain.connect(context.destination);osc.start(start);osc.stop(start+preset.duration*(kind==='end'?1:decay)+.04);
    }
   }
  }
