@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-const {countdownCue,countdownSound,levelChangeCue}=await import('data:text/javascript;base64,'+Buffer.from(readFileSync(new URL('../timer-sound.js',import.meta.url))).toString('base64'));
+const {countdownCue,countdownSound,levelChangeCue,finishedCue}=await import('data:text/javascript;base64,'+Buffer.from(readFileSync(new URL('../timer-sound.js',import.meta.url))).toString('base64'));
 const state=seconds=>({seconds,running:true,key:'E1:0',endsAt:12345});
 assert.equal(countdownCue(state(11),state(10)),10);
 assert.equal(countdownCue(state(6),state(5)),5);
@@ -31,3 +31,17 @@ const structure=[{min:1},{break:true,min:1},{min:1}];
 sound.observe({...timer,levels:structure},1,'E1');const beforeBell=tones.length;sound.observe({...timer,levels:structure,index:1,endsAt:160},60,'E1');assert.equal(tones.length,beforeBell+3,'One bell strike uses three decaying partials');sound.observe({...timer,levels:structure,index:1,endsAt:160},60,'E1');assert.equal(tones.length,beforeBell+3,'No duplicate bell on redraw');sound.observe({...timer,levels:structure,index:2,endsAt:220},60,'E1');assert.equal(tones.length,beforeBell+6,'Leaving a break also rings');
 
 console.log('Three bell voices: 10-second single, 5-second double, level transition long bell passed.');
+
+const almostDone={key:'E1:2',running:true,seconds:1,endsAt:5000,at:4750};
+const done={...almostDone,running:false,seconds:0,last:true,at:5000};
+assert(finishedCue(almostDone,done));
+for(const rejected of [null,{...done,key:'E2:2'},{...done,last:false},{...done,seconds:1},{...done,at:4000},{...done,at:10000}])assert(!finishedCue(almostDone,rejected));
+assert(!finishedCue(null,done));assert(!finishedCue({...almostDone,running:false},done));
+const realNow=Date.now;Date.now=()=>5000;
+sound.observe({...timer,levels:structure,index:2,endsAt:5000},1,'E1');
+const beforeEnd=tones.length;
+sound.observe({...timer,levels:structure,index:2,running:false,endsAt:0},0,'E1');
+assert.equal(tones.length,beforeEnd+18,'Final completion plays six alternating bell pulses');
+sound.observe({...timer,levels:structure,index:2,running:false,endsAt:0},0,'E1');
+assert.equal(tones.length,beforeEnd+18,'Finished redraw does not replay alarm');Date.now=realNow;
+console.log('Final alarm: natural completion only, no pause/reload/duplicate triggers passed.');
