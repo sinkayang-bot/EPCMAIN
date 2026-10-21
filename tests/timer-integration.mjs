@@ -12,6 +12,7 @@ t=command(t,'shift',-60,90000);assert.equal(t.remaining,685);
 t=command(t,'structure',[{sb:100,bb:200,ante:200,min:1},{break:true,min:5}],90000);
 t=command(t,'level',1,90000);assert.equal(t.levels[t.index].break,true);assert.equal(t.remaining,300);
 t=command(t,'toggle',undefined,90000);assert.equal(remaining(t,390000),0);
+const expired=command(t,'settings',{announcement:'本級結束',payoutInput:''},400000);assert.equal(expired.remaining,0);assert.equal(expired.running,false);
 t=command(t,'set','00:10',400000);assert.equal(t.running,false);
 assert.equal(parseTime('05：09'),309);for(const bad of ['12:60','755','-1:00','NaN:00','6000:00'])assert.throws(()=>parseTime(bad));
 assert.throws(()=>validateLevels([{min:0,sb:1,bb:2,ante:2}]));assert.throws(()=>validateLevels([]));
