@@ -4,6 +4,8 @@ const $=id=>document.getElementById(id),params=new URLSearchParams(location.sear
 let event,timer,service;
 const sound=countdownSound();
 const num=n=>Number(n||0).toLocaleString('en-US');
+function text(el,value){const next=String(value);if(el.textContent!==next)el.textContent=next}
+function flag(el,name,value){if(el.classList.contains(name)!==value)el.classList.toggle(name,value)}
 function message(s){$('connection').textContent=s;$('connection').hidden=!s}
 function fit(){const scale=Math.min(innerWidth/1920,innerHeight/1080);$('broadcastScreen').style.transform=`translate(${(innerWidth-1920*scale)/2}px,${(innerHeight-1080*scale)/2}px) scale(${scale})`}
 function payout(text){const el=$('payoutDisplay');if(el.dataset.text===text)return;el.dataset.text=text;el.replaceChildren();for(const line of text.split('\n')){const row=document.createElement('div'),m=line.match(/^\s*((?:第\s*)?[0-9一二三四五六七八九十百]+\s*名|[0-9]+[.、．]?|冠軍|亞軍|季軍|殿軍)(?:[\s,，:：]+)(.*)$/);row.className=m?'payoutEntry':'payoutNote';if(m){for(const v of [m[1],m[2]]){const c=document.createElement('span');c.textContent=v;row.append(c)}}else row.textContent=line;el.append(row)}}
@@ -13,17 +15,17 @@ function render(){
  const levels=timer.levels,l=levels[timer.index],next=levels[timer.index+1];if(!l)return message('計時器結構不完整，請在後臺重新套用範本。');
  const seconds=remaining(timer),level=levels.slice(0,timer.index+1).filter(l=>!l.break).length,totals=eventTotals(event);
  sound.observe(timer,seconds,event.eventId||id);
- $('screenDate').textContent=new Date().toLocaleString('sv-SE',{timeZone:'Asia/Taipei'}).slice(0,16);
- $('screenEvent').textContent=event.name||'EPC 限時錦標賽';$('screenLevel').textContent='LEVEL '+level+' / '+levels.filter(l=>!l.break).length;
- $('levelTitle').textContent=l.break?'BREAK':'LEVEL '+level;$('clock').textContent=timeText(seconds);$('progressRing').classList.toggle('isBreak',!!l.break);
- for(const [p,row] of [['cur',l],['next',next]])for(const [suffix,key] of [['SB','sb'],['BB','bb'],['Ante','ante']])$(p+suffix).textContent=!row?'—':row.break?(p==='next'&&suffix==='SB'?'休息':'—'):num(row[key]);
- for(const [field,key] of [['sPlayers','players'],['sRebuys','rebuyPlayers'],['sGroups','groups'],['chipsInPlay','chips'],['avgStack','average']])$(field).textContent=totals[key]===null?'—':num(totals[key]);
- $('extraContent').textContent='$'+num(totals.pool);payout(timer.payoutInput||'');
+ text($('screenDate'),new Date().toLocaleString('sv-SE',{timeZone:'Asia/Taipei'}).slice(0,16));
+ text($('screenEvent'),event.name||'EPC 限時錦標賽');text($('screenLevel'),'LEVEL '+level+' / '+levels.filter(l=>!l.break).length);
+ text($('levelTitle'),l.break?'BREAK':'LEVEL '+level);text($('clock'),timeText(seconds));flag($('progressRing'),'isBreak',!!l.break);
+ for(const [p,row] of [['cur',l],['next',next]])for(const [suffix,key] of [['SB','sb'],['BB','bb'],['Ante','ante']])text($(p+suffix),!row?'—':row.break?(p==='next'&&suffix==='SB'?'休息':'—'):num(row[key]));
+ for(const [field,key] of [['sPlayers','players'],['sRebuys','rebuyPlayers'],['sGroups','groups'],['chipsInPlay','chips'],['avgStack','average']])text($(field),totals[key]===null?'—':num(totals[key]));
+ text($('extraContent'),'$'+num(totals.pool));payout(timer.payoutInput||'');
  const ann=$('announcementDisplay');if(ann.textContent!==(timer.announcement||'')){ann.textContent=timer.announcement||'';let size=40;ann.style.fontSize=size+'px';while(size>18&&ann.scrollHeight>$('announcementBody').clientHeight-50){size-=2;ann.style.fontSize=size+'px'}}
- const lit=Math.ceil(Math.min(1,seconds/(l.min*60))*72);[...$('ringTicks').children].forEach((t,i)=>t.classList.toggle('lit',i<lit));
+ const lit=Math.ceil(Math.min(1,seconds/(l.min*60))*72);[...$('ringTicks').children].forEach((t,i)=>flag(t,'lit',i<lit));
  let until=seconds;for(let i=timer.index+1;i<levels.length&&!levels[i].break;i++)until+=levels[i].min*60;
  const hasBreak=levels.slice(timer.index).some(l=>l.break),value=l.break?seconds:until;
- $('breakCaption').textContent=l.break?'BREAK REMAINING':'NEXT BREAK IN';$('breakCountdown').textContent=hasBreak?String(Math.floor(value/3600)).padStart(2,'0')+':'+timeText(value%3600):'—';
+ text($('breakCaption'),l.break?'BREAK REMAINING':'NEXT BREAK IN');text($('breakCountdown'),hasBreak?String(Math.floor(value/3600)).padStart(2,'0')+':'+timeText(value%3600):'—');
 }
 for(let i=0;i<72;i++){const tick=document.createElement('i');tick.style.transform='rotate('+(i*5)+'deg) translateY(-249px)';$('ringTicks').append(tick)}
 fit();addEventListener('resize',fit);setInterval(render,250);

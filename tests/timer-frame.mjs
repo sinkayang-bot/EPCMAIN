@@ -1,0 +1,12 @@
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+const source=readFileSync(new URL('../tv/timer-frame.js',import.meta.url),'utf8');
+const {mountTimerFrame}=await import('data:text/javascript;base64,'+Buffer.from(source).toString('base64'));
+globalThis.document={createElement:tag=>({tagName:tag.toUpperCase(),dataset:{},style:{}})};
+const host={childElementCount:0,firstElementChild:null,mounts:0,replaceChildren(frame){this.childElementCount=1;this.firstElementChild=frame;this.mounts++}};
+const frame=mountTimerFrame(host,'E1');frame.audioEnabled=true;
+for(let i=0;i<120;i++)assert.equal(mountTimerFrame(host,'E1'),frame);
+assert.equal(host.mounts,1,'Metadata updates must preserve the browsing context');assert(frame.audioEnabled,'Audio activation must survive refreshes');
+assert.notEqual(mountTimerFrame(host,'E2'),frame);assert.equal(host.mounts,2,'Changing the selected event mounts its timer');
+host.firstElementChild={tagName:'DIV',dataset:{}};mountTimerFrame(host,'E2');assert.equal(host.mounts,3,'Returning from an activity restores the timer');
+console.log('Timer frame: repeated updates preserve iframe/audio; event and content switches mount the correct timer.');
