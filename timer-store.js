@@ -3,11 +3,11 @@ export const STANDARD_TEMPLATE={id:'standard',name:'20 分鐘標準賽',starting
 export function templateData(value){
  const name=String(value.name||'').trim(),startingStack=Number(value.startingStack??300000);
  if(!name)throw Error('請輸入範本名稱。');if(!Number.isSafeInteger(startingStack)||startingStack<1)throw Error('起始籌碼須為正整數。');
- return {name:name.slice(0,100),startingStack,levels:validateLevels(value.levels),announcement:String(value.announcement||'').slice(0,6000),payoutInput:String(value.payoutInput||'').slice(0,6000)};
+ return {background:['black-gold','light','emerald','velvet'].includes(value.background)?value.background:'classic',name:name.slice(0,100),startingStack,levels:validateLevels(value.levels),announcement:String(value.announcement||'').slice(0,6000),payoutInput:String(value.payoutInput||'').slice(0,6000)};
 }
 export function buildEventTimer(event,template,templateId,{creating=false}={}){
  const data=templateData(template),eventId=String(event.eventId);
- const timer={...newTimer(data.levels),eventId,templateId,templateName:data.name,eventName:event.name||'EPC',announcement:data.announcement,payoutInput:data.payoutInput,revision:1};
+ const timer={...newTimer(data.levels),eventId,templateId,templateName:data.name,eventName:event.name||'EPC',background:data.background,announcement:data.announcement,payoutInput:data.payoutInput,revision:1};
  const patch={timerId:eventId,timerTemplateId:templateId,timerTemplateName:data.name};
  if(creating)patch.chips=data.startingStack;
  return {event:{...event,...patch},timer,patch};
