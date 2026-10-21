@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 const source=readFileSync(new URL('../tv/timer-frame.js',import.meta.url),'utf8');
-const {mountTimerFrame}=await import('data:text/javascript;base64,'+Buffer.from(source).toString('base64'));
+const {mountTimerFrame,timerProjectionUrl}=await import('data:text/javascript;base64,'+Buffer.from(source).toString('base64'));
 globalThis.document={createElement:tag=>({tagName:tag.toUpperCase(),dataset:{},style:{}})};
 const host={childElementCount:0,firstElementChild:null,mounts:0,replaceChildren(frame){this.childElementCount=1;this.firstElementChild=frame;this.mounts++}};
 const frame=mountTimerFrame(host,'E1');frame.audioEnabled=true;
@@ -10,3 +10,12 @@ assert.equal(host.mounts,1,'Metadata updates must preserve the browsing context'
 assert.notEqual(mountTimerFrame(host,'E2'),frame);assert.equal(host.mounts,2,'Changing the selected event mounts its timer');
 host.firstElementChild={tagName:'DIV',dataset:{}};mountTimerFrame(host,'E2');assert.equal(host.mounts,3,'Returning from an activity restores the timer');
 console.log('Timer frame: repeated updates preserve iframe/audio; event and content switches mount the correct timer.');
+
+assert.equal(frame.src,timerProjectionUrl('E1'));
+assert.equal(timerProjectionUrl('E1',''),timerProjectionUrl('E1').replace('../',''));
+const refreshed=mountTimerFrame(host,'E2','apply-1');
+assert.equal(host.mounts,4,'Explicit apply refreshes the same event');
+assert.equal(mountTimerFrame(host,'E2','apply-1'),refreshed,'Heartbeat never reloads explicitly refreshed timer');
+assert.match(refreshed.src,/refresh=apply-1/);
+assert.notEqual(mountTimerFrame(host,'E2','apply-2'),refreshed,'Next explicit apply loads latest presentation');
+console.log('Projection consistency: shared preview URL, explicit refresh and stable heartbeats passed.');

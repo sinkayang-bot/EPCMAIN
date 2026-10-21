@@ -7416,13 +7416,14 @@ function epcChooseTimerDisplay_(deviceId){
  select.value='timer';refreshDisplayControls_(deviceId,'timer',15);
  $('displaySpecific_'+deviceId)?.scrollIntoView({block:'nearest',behavior:'smooth'});
 }
-function epcPreviewTimerDisplay_(deviceId){
+async function epcPreviewTimerDisplay_(deviceId){
  const device=displayDevicesCache.find(d=>String(d.deviceId)===String(deviceId));
  const eventId=$('displayTimerEvent_'+deviceId)?.value||device?.payload?.eventId||'';
  if(!eventId)return actionMsg('請先選擇要預覽的投影賽事',true);
  const event=(db.events||[]).find(e=>String(e.id)===String(eventId));
  $('epcTimerProjectionTitle').textContent='投影預覽｜'+(event?eventDisplayName_(event):'EPC 賽事計時器');
- $('epcTimerProjectionFrame').src='timer.html?eventId='+encodeURIComponent(String(eventId))+'&v=20261022-auto6';
+ const {timerProjectionUrl}=await import('./tv/timer-frame.js?v=20261022-projection13');
+ $('epcTimerProjectionFrame').src=timerProjectionUrl(eventId,'');
  $('epcTimerProjectionDialog').showModal();
 }
 function epcTimerDisplayControls_(deviceId,ui){
@@ -7599,7 +7600,7 @@ async function publishDisplay_(deviceId,silent=false){
   if(!ui.eventId)return actionMsg('請選擇要投影的賽事',true);
   const event=(db.events||[]).find(e=>String(e.id)===ui.eventId);
   if(!event)return actionMsg('找不到賽事，請重新選擇',true);
-  const payload={type:'timer',eventId:ui.eventId,title:eventDisplayName_(event),ui};
+  const payload={type:'timer',eventId:ui.eventId,title:eventDisplayName_(event),ui,refreshToken:crypto.randomUUID()};
   try{await displayFetch_({action:'publish',deviceId,contentType:type,rotateSeconds:sec,payload},true);saveDisplayPref_(deviceId,{type,sec,ui});if(!silent){actionMsg('已套用本場計時器；請在賽事管理開啟計時器後臺操作');await loadDisplays_()}}catch(e){actionMsg('計時器投影失敗：'+e.message,true)}
   return;
  }
