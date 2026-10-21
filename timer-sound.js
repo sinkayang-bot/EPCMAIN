@@ -23,18 +23,21 @@ export function countdownSound(){
  panel.onmouseleave=()=>{if(!details.open)panel.style.opacity='.22'};
  panel.onfocusout=e=>{if(!details.open&&!panel.contains(e.relatedTarget))panel.style.opacity='.22'};
  details.ontoggle=()=>{panel.style.opacity=details.open?'.95':'.22'};
- function beep(count=1){
+ function bell(kind='level'){
   if(!enabled||context?.state!=='running')return;
-  for(let i=0;i<count;i++){const start=context.currentTime+i*.5,osc=context.createOscillator(),gain=context.createGain(),peak=.8*volume/100;osc.type='triangle';osc.frequency.value=1046.5;gain.gain.setValueAtTime(0,start);gain.gain.linearRampToValueAtTime(peak,start+.02);gain.gain.setValueAtTime(peak,start+.3);gain.gain.exponentialRampToValueAtTime(.001,start+.4);osc.connect(gain);gain.connect(context.destination);osc.start(start);osc.stop(start+.42);}
- }
- function bell(){
-  if(!enabled||context?.state!=='running')return;
-  const start=context.currentTime;
-  for(const [frequency,amplitude] of [[880,.55],[1770,.22],[2640,.12]]){const osc=context.createOscillator(),gain=context.createGain();osc.type='sine';osc.frequency.value=frequency;gain.gain.setValueAtTime(0,start);gain.gain.linearRampToValueAtTime(amplitude*volume/100,start+.012);gain.gain.exponentialRampToValueAtTime(.001,start+1.5);osc.connect(gain);gain.connect(context.destination);osc.start(start);osc.stop(start+1.6);}
+  const presets={ten:{base:1318.51,duration:.85,strikes:1,gap:0},five:{base:1046.5,duration:.65,strikes:2,gap:.38},level:{base:659.25,duration:2.4,strikes:1,gap:0}},preset=presets[kind];
+  for(let i=0;i<preset.strikes;i++){
+   const start=context.currentTime+i*preset.gap;
+   for(const [ratio,amplitude,decay] of [[1,.58,1],[2.01,.23,.7],[3.99,.1,.4]]){
+    const osc=context.createOscillator(),gain=context.createGain();osc.type='sine';osc.frequency.value=preset.base*ratio;
+    gain.gain.setValueAtTime(0,start);gain.gain.linearRampToValueAtTime(amplitude*volume/100,start+.008);gain.gain.exponentialRampToValueAtTime(.001,start+preset.duration*decay);
+    osc.connect(gain);gain.connect(context.destination);osc.start(start);osc.stop(start+preset.duration*decay+.04);
+   }
+  }
  }
  button.onclick=async()=>{
-  try{if(!enabled){const Audio=window.AudioContext||window.webkitAudioContext;if(!Audio)throw Error('unsupported');context||=new Audio();await context.resume();if(context.state!=='running')throw Error('blocked');enabled=true;beep();}else enabled=false;button.textContent=enabled?'提示音：開啟':'啟用提示音';button.setAttribute('aria-pressed',String(enabled));}
+  try{if(!enabled){const Audio=window.AudioContext||window.webkitAudioContext;if(!Audio)throw Error('unsupported');context||=new Audio();await context.resume();if(context.state!=='running')throw Error('blocked');enabled=true;bell('ten');}else enabled=false;button.textContent=enabled?'提示音：開啟':'啟用提示音';button.setAttribute('aria-pressed',String(enabled));}
   catch(_){enabled=false;button.textContent='無法播放，點擊重試';button.setAttribute('aria-pressed','false');}
  };
- return {observe(timer,seconds,eventId){const event=String(eventId||''),structure=timer?JSON.stringify(timer.levels):'',current=timer?{key:event+':'+timer.index+':'+structure,event,structure,index:timer.index,at:Date.now(),seconds,running:!!timer.running,endsAt:timer.endsAt}:null;const cue=current?countdownCue(previous,current):null,changed=levelChangeCue(previous,current);previous=current;if(changed)bell();else if(cue)beep(cue===5?2:1);}};
+ return {observe(timer,seconds,eventId){const event=String(eventId||''),structure=timer?JSON.stringify(timer.levels):'',current=timer?{key:event+':'+timer.index+':'+structure,event,structure,index:timer.index,at:Date.now(),seconds,running:!!timer.running,endsAt:timer.endsAt}:null;const cue=current?countdownCue(previous,current):null,changed=levelChangeCue(previous,current);previous=current;if(changed)bell();else if(cue)bell(cue===5?'five':'ten');}};
 }
