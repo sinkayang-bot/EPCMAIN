@@ -47,14 +47,6 @@ body.native{width:1920px;min-width:1920px;min-height:1080px;overflow:auto!import
 .dialSection:is(.isBreak,.isFinished){border-color:#c84949;box-shadow:0 0 4px #ff9393,0 0 22px #dc303077,inset 0 0 20px #7a2020}:is(.isBreak,.isFinished) .timer,:is(.isBreak,.isFinished) .roundLabel,:is(.isBreak,.isFinished) .breakNumber,:is(.isBreak,.isFinished) .breakCaption{color:#ff6464}:is(.isBreak,.isFinished) .ringTicks i.lit{background:linear-gradient(100deg,#b91e2e,#ff8989 42%,#ef3d47);box-shadow:0 0 13px #ff354b70}:is(.isBreak,.isFinished) .dialInside{border-color:#b95555;box-shadow:0 0 17px #df353555,inset 0 0 35px #0006}
 
 body{background:#000;overflow:hidden}.previewViewport{position:fixed;inset:0;height:100vh}.screenControls{display:none!important}#connection{position:fixed;z-index:20;left:20px;bottom:15px;background:#141414e8;border:1px solid #b7933b;padding:12px 20px;color:white;font:18px system-ui;max-width:90vw}[hidden]{display:none!important}.isFinished .timer{font-size:128px;letter-spacing:-2px}.isFinished .ringTicks i{background:linear-gradient(100deg,#b91e2e,#ff8989 42%,#ef3d47);box-shadow:0 0 10px #ff354b70}
-
-/* Black-gold artwork remains visible through the foreground panels. */
-.screen{background:linear-gradient(#00000012,#00000012),url('assets/timer-black-gold-background-v1.webp') center/cover no-repeat #030303}
-.screen:before{background:radial-gradient(ellipse at 50% 40%,transparent 35%,#00000020 100%)}
-.sceneDecoration{display:none}
-.panel,.noticePanel{background:linear-gradient(135deg,#0c0c0ca8,#03030394);box-shadow:0 0 0 2px #0005,inset 0 1px 0 #f4d98a33,0 7px 18px #0007}
-.panelHeader{background:linear-gradient(180deg,#202020d1,#080808c2)}
-.announcementText,.blindValue,.statValue,.chipValue{ text-shadow:0 2px 5px #000,0 0 8px #000b }
 </style></head><body><div class="previewViewport" id="previewViewport"><section class="screen" id="broadcastScreen" hidden aria-label="EPC 賽事計時器"><svg aria-hidden="true" width="0" height="0" style="position:absolute"><defs>
 <symbol id="icon-coins" viewBox="0 0 32 32"><ellipse cx="17" cy="6" rx="10" ry="4"/><path d="M7 6v5c0 5 20 5 20 0V6M7 11v5c0 5 20 5 20 0v-5M27 16v5c0 5-17 5-17 2M4 16c-4 1-4 6 1 7M4 21v5c0 3 8 5 14 3"/></symbol>
 <symbol id="icon-players" viewBox="0 0 32 32"><circle cx="16" cy="8" r="5"/><path d="M7 28v-8c0-7 18-7 18 0v8zM7 7c-6 0-6 10 0 10M25 7c6 0 6 10 0 10M4 18c-4 2-3 8-3 10h4M28 18c4 2 3 8 3 10h-4"/></symbol>
