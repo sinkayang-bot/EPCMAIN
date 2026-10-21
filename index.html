@@ -7391,7 +7391,7 @@ function epcTimerTemplateOptions_(event){
  const create=$('newEventTimerTemplate');if(create){const previous=create.value;create.innerHTML=options;create.value=previous;}
  const field=$('eTimerTemplate');if(!field)return;
  const sameEvent=field.dataset.eventId===String(event?.id||''),previous=field.value;field.dataset.eventId=String(event?.id||'');field.innerHTML=options;
- if(event?.timerId){if(![...field.options].some(o=>o.value===event.timerTemplateId))field.add(new Option(event.timerTemplateName||'本場計時器',event.timerTemplateId));field.value=event.timerTemplateId;field.disabled=true;$('eTimerTemplateHint').textContent='已產生本場計時器：'+(event.timerTemplateName||'既有範本')+'。控制請到左側「計時器」。'}
+ if(event?.timerId){if(![...field.options].some(o=>o.value===event.timerTemplateId))field.add(new Option(event.timerTemplateName||'本場計時器',event.timerTemplateId));field.value=sameEvent&&[...field.options].some(o=>o.value===previous)?previous:event.timerTemplateId;field.disabled=!!window.EPCMode?.isView();$('eTimerTemplateHint').textContent='可更換範本並儲存賽事；更換後重設為第一級並暫停，公告與獎勵改用新範本。玩家、籌碼及帳務不變。';}
  else{field.value=sameEvent?previous:'';field.disabled=!!window.EPCMode?.isView();$('eTimerTemplateHint').textContent='選擇範本並儲存賽事，即會自動產生本場計時器。範本請到左側「計時器」管理。';}
 }
 function epcEventTimerTemplateChanged_(){const e=currentEvent(),id=$('eTimerTemplate').value;if(!e?.timerId&&!(e?.players||[]).length&&id){const t=epcTimerTemplates_.find(t=>t.id===id);$('eChips').value=t?.startingStack||300000;}}
