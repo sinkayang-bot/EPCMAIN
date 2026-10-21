@@ -32,9 +32,4 @@ function toggleProjector(){document.body.classList.toggle('projector');if(docume
 $('events').addEventListener('change',ev=>{state.selected=ev.target.value;save();render()});
 setInterval(()=>{const now=Date.now(),dt=Math.max(0,Math.floor((now-tick)/1000));tick=now;const e=current();if(e?.running&&dt){e.remaining=Math.max(0,e.remaining-dt);if(e.remaining===0){e.running=false;alert('本級時間結束，請手動切換下一級')}save();renderScreen()}},1000);
 if(!state.events.length){const e=newEvent('EPC 計時器示範賽事');state.events.push(e);state.selected=e.id;save()}render();
-</script></body></html>+(e.groups*e.unit).toLocaleString():'—';$('announcementDisplay').textContent=e.announcement||'暫無公告';$('chipsInPlay').textContent='—';$('avgStack').textContent='—';$('playBtn').textContent=e.running?'Ⅱ 暫停':'▶ 開始'}
-function toggleProjector(){document.body.classList.toggle('projector');if(document.body.classList.contains('projector'))document.documentElement.requestFullscreen?.().catch(()=>{});else if(document.fullscreenElement)document.exitFullscreen?.().catch(()=>{})}
-$('events').addEventListener('change',ev=>{state.selected=ev.target.value;save();render()});
-setInterval(()=>{const now=Date.now(),dt=Math.max(0,Math.floor((now-tick)/1000));tick=now;const e=current();if(e?.running&&dt){e.remaining=Math.max(0,e.remaining-dt);if(e.remaining===0){e.running=false;alert('本級時間結束，請手動切換下一級')}save();renderScreen()}},1000);
-if(!state.events.length){const e=newEvent('EPC 計時器示範賽事');state.events.push(e);state.selected=e.id;save()}render();
 </script></body></html>
