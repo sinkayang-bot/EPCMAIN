@@ -1,4 +1,4 @@
-import {remaining,timeText,eventTotals} from './timer-core.js?v=20261021-3';
+import {remaining,timeText,eventTotals,newTimer} from './timer-core.js?v=20261021-3';
 const $=id=>document.getElementById(id),params=new URLSearchParams(location.search),demo=params.has('demo'),id=params.get('eventId');
 let event,timer,service;
 const num=n=>Number(n||0).toLocaleString('en-US');
@@ -25,7 +25,11 @@ function render(){
 for(let i=0;i<72;i++){const tick=document.createElement('i');tick.style.transform='rotate('+(i*5)+'deg) translateY(-249px)';$('ringTicks').append(tick)}
 fit();addEventListener('resize',fit);setInterval(render,250);
 addEventListener('offline',()=>message('連線中斷，正在顯示最後同步資料'));addEventListener('online',()=>message('正在重新連線…'));
-try{
+if(params.has('templatePreview')){
+ message('正在載入範本預覽…');
+ addEventListener('message',e=>{if(e.origin!==location.origin||e.source!==parent||e.data?.type!=='epc-template-preview')return;try{const t=e.data.template;timer={...newTimer(t.levels),announcement:String(t.announcement||''),payoutInput:String(t.payoutInput||'')};event={name:'範本預覽｜'+String(t.name||'EPC'),players:[],chips:Number(t.startingStack)||0,buyin:0,jpRate:0,jpRound:100};message('');render()}catch(err){message('範本預覽失敗：'+err.message)}});
+ parent.postMessage({type:'epc-timer-preview-ready'},location.origin);
+}else try{
  if(!demo&&!id)throw Error('請從顯示設備選擇要投影的賽事。');
  service=demo?(await import('./timer-demo.js?v=20261021-3')).demoCloud():await(await import('./timer-cloud.js?v=20261021-3')).timerCloud();
  const error=e=>message('計時器連線失敗：'+e.message);

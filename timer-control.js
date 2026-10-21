@@ -28,11 +28,11 @@ function setTime(){try{parseTime($('remainingTime').value);send('set',$('remaini
  $('saveText').onclick=()=>send('settings',{announcement:$('announcement').value,payoutInput:$('payoutInput').value},textRevision);
  for(const field of ['announcement','payoutInput'])$(field).oninput=()=>{if(!textDirty)textRevision=timer?.revision||0;textDirty=true};
  $('reloadSettings').onclick=()=>location.reload();
+ $('previewTimer').onclick=()=>{if(!timer)return message('本場尚未產生計時器');$('timerPreviewFrame').src='timer.html?'+(demo?'demo=1':'eventId='+encodeURIComponent(id))+'&v=20261021-projection4';$('timerPreviewDialog').showModal()};$('closePreview').onclick=()=>$('timerPreviewDialog').close();
  function dirtyStructure(){if(!structureDirty)structureRevision=timer?.revision||0;structureDirty=true}
  $('addLevel').onclick=()=>{dirtyStructure();draft.push({sb:1000,bb:2000,ante:2000,min:20});levels()};$('addBreak').onclick=()=>{dirtyStructure();draft.push({break:true,min:5});levels()};
  $('levels').oninput=e=>{const el=e.target;if(el.dataset.field){dirtyStructure();draft[el.dataset.index][el.dataset.field]=Number(el.value)}};
  $('levels').onclick=e=>{const el=e.target.closest('[data-remove]');if(!el||!canWrite())return;if(draft.length===1)return message('至少保留一個級別');dirtyStructure();draft.splice(Number(el.dataset.remove),1);levels()};
-const url='timer.html?'+(demo?'demo=1':'eventId='+encodeURIComponent(id||''))+'&v=20261021-3';$('preview').src=url;$('projector').href=url;
 try{
  if(!demo&&!id)throw Error('請從賽事管理選擇一場賽事。');
  service=demo?(await import('./timer-demo.js?v=20261021-3')).demoCloud():await(await import('./timer-cloud.js?v=20261021-3')).timerCloud();

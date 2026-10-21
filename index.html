@@ -2145,7 +2145,7 @@ window.addEventListener('error',function(e){
 </section>
 
 
-<section id="timers" class="page"><iframe id="timerManagerFrame" loading="lazy" src="timer-manager.html?v=20261021-3" title="獨立計時器管理" style="width:100%;height:calc(100vh - 130px);min-height:720px;border:0;background:#090909"></iframe></section>
+<section id="timers" class="page"><iframe id="timerManagerFrame" loading="lazy" src="timer-manager.html?v=20261021-projection4" title="獨立計時器管理" style="width:100%;height:calc(100vh - 130px);min-height:720px;border:0;background:#090909"></iframe></section>
 <section id="events" class="page">
  <h2>賽事管理</h2>
  <div class="card" style="margin-bottom:12px">
@@ -6672,7 +6672,7 @@ function renderActivities(){
  }finally{window.epcActivityIdentityMode_=previous;}
 }
 function render(){
- if($('timers')?.classList.contains('active')&&!$('timerManagerFrame').getAttribute('src'))$('timerManagerFrame').src='timer-manager.html?v=20261021-3';
+ if($('timers')?.classList.contains('active')&&!$('timerManagerFrame').getAttribute('src'))$('timerManagerFrame').src='timer-manager.html?v=20261021-projection4';
  if($('playerpayments')?.classList.contains('active'))window.PP?.renderPage();
  if(epcPlayerEditing_()){epcFullRenderPending_=true;return}
  renderDashboardSummary();
@@ -7405,12 +7405,21 @@ setTimeout(()=>epcTimerRegistry_().catch(err=>console.warn('Timer templates:',er
 function epcOpenTimer_(eventId){
  if(!eventId)return actionMsg('請先選擇一場賽事',true);
  const e=findEventById_(eventId);if(e&&!e.timerId){setCurrentEventDevice_(e.id);showPage('event');return actionMsg('請在賽事設定選擇計時器範本並儲存，會自動產生本場計時器。')}
- const dialog=$('epcTimerDialog'),frame=$('epcTimerFrame');frame.src='timer-control.html?eventId='+encodeURIComponent(String(eventId))+'&v=20261021-3';dialog.showModal();
+ const dialog=$('epcTimerDialog'),frame=$('epcTimerFrame');frame.src='timer-control.html?eventId='+encodeURIComponent(String(eventId))+'&v=20261021-projection4';dialog.showModal();
+}
+function epcPreviewTimerDisplay_(deviceId){
+ const device=displayDevicesCache.find(d=>String(d.deviceId)===String(deviceId));
+ const eventId=$('displayTimerEvent_'+deviceId)?.value||device?.payload?.eventId||'';
+ if(!eventId)return actionMsg('請先選擇要預覽的投影賽事',true);
+ const event=(db.events||[]).find(e=>String(e.id)===String(eventId));
+ $('epcTimerProjectionTitle').textContent='投影預覽｜'+(event?eventDisplayName_(event):'EPC 賽事計時器');
+ $('epcTimerProjectionFrame').src='timer.html?eventId='+encodeURIComponent(String(eventId))+'&v=20261021-projection4';
+ $('epcTimerProjectionDialog').showModal();
 }
 function epcTimerDisplayControls_(deviceId,ui){
  const escape=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
- const rows=(db.events||[]).filter(e=>!['settled','已結算'].includes(e.status)||String(e.id)===String(ui.eventId));
- return '<div style="grid-column:1/-1"><label>投影賽事</label><select id="displayTimerEvent_'+escape(deviceId)+'"><option value="">請選擇賽事</option>'+rows.map(e=>'<option value="'+escape(e.id)+'" '+(String(e.id)===String(ui.eventId)?'selected':'')+'>'+escape((e.date||'')+' '+eventDisplayName_(e))+'</option>').join('')+'</select><p class="small">本場人數、組數、籌碼與獎池即時連動。範本與計時器控制請至左側「計時器」；建立賽事時選擇範本會自動產生。</p></div>';
+ const rows=(db.events||[]).filter(e=>e.timerId||String(e.id)===String(ui.eventId)),arg=escape(JSON.stringify(String(deviceId)));
+ return '<div style="grid-column:1/-1"><label>投影賽事</label><select id="displayTimerEvent_'+escape(deviceId)+'"><option value="">請選擇已建立計時器的賽事</option>'+rows.map(e=>'<option value="'+escape(e.id)+'" '+(String(e.id)===String(ui.eventId)?'selected':'')+'>'+escape((e.date||'')+' '+eventDisplayName_(e)+(['settled','已結算'].includes(e.status)?'（已結束）':''))+'</option>').join('')+'</select><div class="toolbar" style="margin-top:10px"><button type="button" data-mode-control onclick="epcPreviewTimerDisplay_('+arg+')">預覽投影畫面</button></div><p class="small">在此預覽，確認後按「套用到螢幕」發送至這台設備。時間、盲注與公告請至左側「計時器」控制。</p></div>';
 }
 
 /* ===== V1.50.0 Display Devices ===== */
@@ -7763,6 +7772,6 @@ async function epcShowRecoveryAudit_(){
 <script src="firebase-events.js?v=20261021-timer3"></script>
 <script src="sync-v3.js?v=20261007-0780"></script>
 <script src="app.js?v=20261018-no-diag1"></script><dialog id="ppDialog"><div class="toolbar" style="justify-content:space-between"><h2 id="ppDialogTitle">玩家帳務</h2><button onclick="document.getElementById('ppDialog').close()">關閉</button></div><div id="ppDialogBody"></div></dialog>
-<dialog id="ppRegistrationDialog"><div class="toolbar" style="justify-content:space-between"><h2 id="ppRegistrationTitle">加入本場</h2><button data-pp-action onclick="PP.cancelRegistration()">取消</button></div><div id="ppRegistrationBody"></div></dialog><script src="player-payments-core.js?v=20261017-remove1"></script><script src="player-payments.js?v=20261018-wallet-first1"></script><script src="ui-layout.js?v=20261018-layout1"></script><dialog id="epcTimerDialog" style="width:98vw;max-width:none;height:96vh;max-height:none;padding:0;background:#050505;border:1px solid #b7933b;border-radius:12px;color:white"><div style="height:44px;display:flex;justify-content:space-between;align-items:center;padding:4px 16px"><b>賽事計時器</b><button type="button" onclick="document.getElementById('epcTimerDialog').close()">關閉</button></div><iframe id="epcTimerFrame" title="賽事計時器後臺" style="width:100%;height:calc(100% - 48px);border:0"></iframe></dialog><dialog id="newEventDialog" style="width:min(580px,94vw);padding:24px;border:1px solid #b89340;border-radius:12px;background:var(--bg,#111);color:var(--text,#eee)"><h2>建立賽事</h2><label for="newEventName">賽事名稱</label><input id="newEventName"><label for="newEventTimerTemplate">計時器範本</label><select id="newEventTimerTemplate" onchange="epcNewEventTimerHint_()"><option value="">不啟用計時器</option><option value="standard">20 分鐘標準賽（內建）</option></select><p class="small" id="newEventTimerHint"></p><p class="small">範本請在獨立「計時器」管理。按建立後，賽事與該場計時器會一同產生。</p><div class="toolbar"><button id="newEventConfirm" class="primary" onclick="epcConfirmNewEvent_()">建立賽事與計時器</button><button onclick="document.getElementById('newEventDialog').close()">取消</button></div></dialog></body></html>
+<dialog id="ppRegistrationDialog"><div class="toolbar" style="justify-content:space-between"><h2 id="ppRegistrationTitle">加入本場</h2><button data-pp-action onclick="PP.cancelRegistration()">取消</button></div><div id="ppRegistrationBody"></div></dialog><script src="player-payments-core.js?v=20261017-remove1"></script><script src="player-payments.js?v=20261018-wallet-first1"></script><script src="ui-layout.js?v=20261018-layout1"></script><dialog id="epcTimerDialog" style="width:98vw;max-width:none;height:96vh;max-height:none;padding:0;background:#050505;border:1px solid #b7933b;border-radius:12px;color:white"><div style="height:44px;display:flex;justify-content:space-between;align-items:center;padding:4px 16px"><b>賽事計時器</b><button type="button" onclick="document.getElementById('epcTimerDialog').close()">關閉</button></div><iframe id="epcTimerFrame" title="賽事計時器後臺" style="width:100%;height:calc(100% - 48px);border:0"></iframe></dialog><dialog id="newEventDialog" style="width:min(580px,94vw);padding:24px;border:1px solid #b89340;border-radius:12px;background:var(--bg,#111);color:var(--text,#eee)"><h2>建立賽事</h2><label for="newEventName">賽事名稱</label><input id="newEventName"><label for="newEventTimerTemplate">計時器範本</label><select id="newEventTimerTemplate" onchange="epcNewEventTimerHint_()"><option value="">不啟用計時器</option><option value="standard">20 分鐘標準賽（內建）</option></select><p class="small" id="newEventTimerHint"></p><p class="small">範本請在獨立「計時器」管理。按建立後，賽事與該場計時器會一同產生。</p><div class="toolbar"><button id="newEventConfirm" class="primary" onclick="epcConfirmNewEvent_()">建立賽事與計時器</button><button onclick="document.getElementById('newEventDialog').close()">取消</button></div></dialog><dialog id="epcTimerProjectionDialog" style="width:96vw;max-width:1920px;height:94vh;max-height:none;padding:0;background:#000;border:1px solid #b89340;border-radius:12px;color:white"><div style="height:48px;display:flex;justify-content:space-between;align-items:center;gap:12px;padding:6px 16px"><b id="epcTimerProjectionTitle">投影預覽</b><button type="button" onclick="document.getElementById('epcTimerProjectionDialog').close()">關閉</button></div><iframe id="epcTimerProjectionFrame" title="設備計時器投影預覽" style="width:100%;height:calc(100% - 90px);border:0;background:#000"></iframe><div class="small" style="padding:8px 16px">此為設備投影預覽。確認畫面後，回到此設備按「套用到螢幕」。</div></dialog></body></html>
 
 
