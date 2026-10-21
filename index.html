@@ -7407,6 +7407,11 @@ function epcOpenTimer_(eventId){
  const e=findEventById_(eventId);if(e&&!e.timerId){setCurrentEventDevice_(e.id);showPage('event');return actionMsg('請在賽事設定選擇計時器範本並儲存，會自動產生本場計時器。')}
  const dialog=$('epcTimerDialog'),frame=$('epcTimerFrame');frame.src='timer-control.html?eventId='+encodeURIComponent(String(eventId))+'&v=20261021-projection4';dialog.showModal();
 }
+function epcChooseTimerDisplay_(deviceId){
+ const select=$('displayType_'+deviceId);if(!select)return;
+ select.value='timer';refreshDisplayControls_(deviceId,'timer',15);
+ $('displaySpecific_'+deviceId)?.scrollIntoView({block:'nearest',behavior:'smooth'});
+}
 function epcPreviewTimerDisplay_(deviceId){
  const device=displayDevicesCache.find(d=>String(d.deviceId)===String(deviceId));
  const eventId=$('displayTimerEvent_'+deviceId)?.value||device?.payload?.eventId||'';
@@ -7419,7 +7424,7 @@ function epcPreviewTimerDisplay_(deviceId){
 function epcTimerDisplayControls_(deviceId,ui){
  const escape=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
  const rows=(db.events||[]).filter(e=>e.timerId||String(e.id)===String(ui.eventId)),arg=escape(JSON.stringify(String(deviceId)));
- return '<div style="grid-column:1/-1"><label>投影賽事</label><select id="displayTimerEvent_'+escape(deviceId)+'"><option value="">請選擇已建立計時器的賽事</option>'+rows.map(e=>'<option value="'+escape(e.id)+'" '+(String(e.id)===String(ui.eventId)?'selected':'')+'>'+escape((e.date||'')+' '+eventDisplayName_(e)+(['settled','已結算'].includes(e.status)?'（已結束）':''))+'</option>').join('')+'</select><div class="toolbar" style="margin-top:10px"><button type="button" data-mode-control onclick="epcPreviewTimerDisplay_('+arg+')">預覽投影畫面</button></div><p class="small">在此預覽，確認後按「套用到螢幕」發送至這台設備。時間、盲注與公告請至左側「計時器」控制。</p></div>';
+ return '<div style="grid-column:1/-1"><label>投影賽事</label><select data-mode-control id="displayTimerEvent_'+escape(deviceId)+'"><option value="">請選擇已建立計時器的賽事</option>'+rows.map(e=>'<option value="'+escape(e.id)+'" '+(String(e.id)===String(ui.eventId)?'selected':'')+'>'+escape((e.date||'')+' '+eventDisplayName_(e)+(['settled','已結算'].includes(e.status)?'（已結束）':''))+'</option>').join('')+'</select><div class="toolbar" style="margin-top:10px"><button type="button" data-mode-control onclick="epcPreviewTimerDisplay_('+arg+')">預覽投影畫面</button></div><p class="small">在此預覽，確認後按「套用到螢幕」發送至這台設備。時間、盲注與公告請至左側「計時器」控制。</p></div>';
 }
 
 /* ===== V1.50.0 Display Devices ===== */
@@ -7506,7 +7511,7 @@ async function loadDisplays_(){
     <div><label>顯示活動</label><select id="displayType_${d.deviceId}" onchange="refreshDisplayControls_('${d.deviceId}',this.value,${sec})">${displayContentOptions_(type)}</select></div>
     <div id="displaySpecific_${d.deviceId}" class="formgrid" style="grid-template-columns:repeat(3,1fr)">${displaySpecificControls_(d.deviceId,type,sec,ui)}</div>
    </div>
-   <div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin-top:10px"><button class="primary" onclick="publishDisplay_('${d.deviceId}')">套用到螢幕</button></div>
+   <div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin-top:10px"><button type="button" data-mode-control onclick="epcChooseTimerDisplay_('${d.deviceId}')">賽事計時器</button><button class="primary" onclick="publishDisplay_('${d.deviceId}')">套用到螢幕</button></div>
    <div class="display-preview small">目前：${type}｜每個活動使用自己的顯示版型｜最後連線：${d.lastSeen?new Date(+d.lastSeen).toLocaleString('zh-TW'):'-'}</div></div>`
   }).join(''):'<div class="small">目前沒有已配對設備</div>';
  }catch(e){if($('displayDeviceRows'))$('displayDeviceRows').innerHTML='<div class="small">載入失敗：'+e.message+'</div>'}
