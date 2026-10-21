@@ -1,0 +1,17 @@
+import assert from 'node:assert/strict';
+import {readFileSync,writeFileSync} from 'node:fs';
+import vm from 'node:vm';
+const read=n=>readFileSync(new URL('../'+n,import.meta.url),'utf8'),data=s=>'data:text/javascript;base64,'+Buffer.from(s).toString('base64');
+const {pairingUrl,pairingCode,pairingMarkup}=await import(data(read('display-pairing.js')));
+const base='https://sinkayang-bot.github.io/EPCMAIN/tv/';
+assert.equal(pairingUrl('123456',base),'https://sinkayang-bot.github.io/EPCMAIN/#pair=123456');
+assert.equal(pairingCode('#pair=123456'),'123456');assert.equal(pairingCode('#pair=12345'),null);assert.throws(()=>pairingUrl('<script>',base));
+vm.runInThisContext(read('vendor/qrcode.js'));const html=pairingMarkup('123456',base);assert(html.includes('<svg'));assert(html.includes('aria-label="手機掃碼配對這台電視"'));writeFileSync('/tmp/epc-pair-qr.svg',html.match(/<svg[\s\S]*?<\/svg>/)[0]);
+const records=new Map([['codes/123456',{deviceId:'test-tv',expiresAt:Date.now()+60000}],['devices/test-tv',{paired:false}]]);
+const fs={getFirestore:()=>({}),collection:(db,...parts)=>parts.at(-1),doc:(collection,id)=>collection+'/'+id,runTransaction:async(db,fn)=>{const writes=[];const result=await fn({get:async ref=>({exists:()=>records.has(ref),data:()=>records.get(ref)}),update:(ref,patch)=>writes.push(()=>records.set(ref,{...records.get(ref),...patch})),delete:ref=>writes.push(()=>records.delete(ref))});writes.forEach(fn=>fn());return result}};
+globalThis.window={EPC_FIREBASE_CONFIG:{}};globalThis.__qrCloud=[{getApps:()=>[{name:'epc-display'}]},fs];
+const source=read('display-cloud.js').replace(/^import .*;\n/gm,'').replace(/const \[am,fs\]=await Promise\.all\(.*\);/,'const [am,fs]=globalThis.__qrCloud;');
+const {displayCloud}=await import(data(source));const service=await displayCloud();
+const result=await service.request({action:'pair',code:'123456',name:'測試電視'});assert.equal(result.deviceId,'test-tv');assert.equal(records.get('devices/test-tv').paired,true);assert(!records.has('codes/123456'));await assert.rejects(service.request({action:'pair',code:'123456'}),/過期/);
+records.set('codes/234567',{deviceId:'other',expiresAt:Date.now()-1});await assert.rejects(service.request({action:'pair',code:'234567'}),/過期/);
+console.log('QR pairing: backend fragment URL, invalid input rejection, SVG generation, exact device pairing, one-time code consumption and expiry passed.');

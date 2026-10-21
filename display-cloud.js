@@ -12,7 +12,7 @@ export async function displayCloud(){
    if(p.action==='ping'){await fs.getDocs(fs.query(devices,fs.limit(1)));return {ok:true,version:'Firebase 顯示連線'}}
    if(p.action==='devices'){const snap=await fs.getDocs(devices);return {ok:true,devices:snap.docs.map(d=>effectiveDisplay({...d.data(),deviceId:d.id})).filter(d=>d.paired)}}
    if(p.action==='pair'){
-    await fs.runTransaction(db,async tx=>{const ref=fs.doc(codes,p.code),snap=await tx.get(ref);if(!snap.exists()||snap.data().expiresAt<Date.now())throw Error('配對碼已過期，請重新整理電視頁面');const d=snap.data(),target=device(d.deviceId),ds=await tx.get(target);if(!ds.exists()||ds.data().paired)throw Error('此設備已配對或已失效');tx.update(target,{paired:true,name:p.name,lastSeen:Date.now()});tx.delete(ref)});return {ok:true};
+    const deviceId=await fs.runTransaction(db,async tx=>{const ref=fs.doc(codes,p.code),snap=await tx.get(ref);if(!snap.exists()||snap.data().expiresAt<Date.now())throw Error('配對碼已過期，請重新整理電視頁面');const d=snap.data(),target=device(d.deviceId),ds=await tx.get(target);if(!ds.exists()||ds.data().paired)throw Error('此設備已配對或已失效');tx.update(target,{paired:true,name:p.name,lastSeen:Date.now()});tx.delete(ref);return d.deviceId});return {ok:true,deviceId};
    }
    if(p.action==='remove'){await fs.deleteDoc(device(p.deviceId));return {ok:true}}
    if(p.action==='publish'&&p.background)return refreshDisplay({fs,db,ref:device(p.deviceId),request:p});

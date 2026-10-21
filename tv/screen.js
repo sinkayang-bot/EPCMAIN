@@ -1,3 +1,4 @@
+import {pairingMarkup} from '../display-pairing.js?v=20261022-qr27';
 import {effectiveDisplay} from '../display-assignment.js?v=20261022-switch5';
 import {mountTimerFrame} from './timer-frame.js?v=20261022-background26';
 import {displayCloud} from '../display-cloud.js';
@@ -62,7 +63,7 @@ function fitBossPanel(section){
 const panelObserver=typeof ResizeObserver==='function'?new ResizeObserver(entries=>entries.forEach(e=>fitBossPanel(e.target))):null;
 function show(data){
  clearTimeout(timer);panelObserver?.disconnect();host.className='';
- if(!data?.paired){host.innerHTML=`<div class="center"><h1>EPC 顯示設備配對</h1><p>在 EPCMAIN「顯示設備」輸入此配對碼</p><div class="code">${esc(data?.code||'…')}</div><p class="muted">配對碼有效 10 分鐘；到期請重新整理</p></div>`;return}
+ if(!data?.paired){host.innerHTML=/^\d{6}$/.test(data?.code||'')?pairingMarkup(data.code,location.href):'<div class="center"><h1>正在產生配對碼…</h1></div>';return}
  const p=data.payload;if(!p){host.innerHTML='<div class="center"><h1>配對完成</h1><p>請在後台選擇活動，再按「套用到螢幕」。</p></div>';return}
  const renderParallel=(p)=>{
   const panels=(p.panels||[]).slice(0,6);

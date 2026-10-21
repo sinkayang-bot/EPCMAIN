@@ -2650,7 +2650,7 @@ window.addEventListener('error',function(e){
  </div>
  <div class="card">
   <h3>配對新顯示器</h3>
-  <div class="small">先在電視開啟 EPCMAIN/tv/，畫面會出現 6 位數配對碼。</div>
+  <div class="small">先在電視開啟 EPCMAIN/tv/，用手機掃描 QR Code 即可連接；也可輸入六位數配對碼。</div>
   <div class="formgrid" style="grid-template-columns:1fr 1fr auto;margin-top:10px">
    <div><label>6 位數配對碼</label><input id="displayPairCode" inputmode="numeric" maxlength="6" placeholder="例如 483921"></div>
    <div><label>設備名稱</label><input id="displayPairName" placeholder="例如：主電視、包廂電視"></div>
@@ -7447,7 +7447,7 @@ let displayCloudPromise_;
 async function enableBuiltinDisplay_(){localStorage.setItem(DISPLAY_API_KEY,'firebase');$('displayApiUrl').value='firebase';await saveDisplayApi_()}
 async function displayFetch_(params={},post=false){
  const base=displayApi_();
- if(base==='firebase'){displayCloudPromise_=displayCloudPromise_||import('./display-cloud.js?v=20261022-switch5').then(m=>m.displayCloud()).catch(e=>{displayCloudPromise_=null;throw e});return (await displayCloudPromise_).request(params)}if(!base)throw new Error('請先設定 Display API URL');
+ if(base==='firebase'){displayCloudPromise_=displayCloudPromise_||import('./display-cloud.js?v=20261022-qr27').then(m=>m.displayCloud()).catch(e=>{displayCloudPromise_=null;throw e});return (await displayCloudPromise_).request(params)}if(!base)throw new Error('請先設定 Display API URL');
  if(post){
   const r=await fetch(base,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(params),redirect:'follow'});
   const t=await r.text();let j;try{j=JSON.parse(t)}catch(_){throw new Error('Display API 回傳格式錯誤')}
@@ -7511,7 +7511,7 @@ async function loadDisplays_(){
   const box=$('displayDeviceRows');if(!box)return;
   box.innerHTML=displayDevicesCache.length?displayDevicesCache.map(d=>{
    const online=Date.now()-(+d.lastSeen||0)<30000,pref=displayPref_(d.deviceId),type=d.contentType||pref.type||'boss',sec=d.rotateSeconds||pref.sec||15,ui=Object.assign({},d.payload?.ui||pref.ui||{});if(type==='timer'&&!ui.eventId)ui.eventId=d.payload?.eventId||'';
-   return `<div class="display-device"><div class="display-device-head"><div><b>${d.name||'未命名顯示器'}</b> <span class="${online?'display-online':'display-offline'}">${online?'● 在線':'○ 離線'}</span><div class="small">設備 ID：${d.deviceId||''}</div></div><button class="danger" onclick="removeDisplay_('${d.deviceId}')">解除配對</button></div>
+   return `<div class="display-device" id="displayDevice_${d.deviceId}"><div class="display-device-head"><div><b>${d.name||'未命名顯示器'}</b> <span class="${online?'display-online':'display-offline'}">${online?'● 在線':'○ 離線'}</span><div class="small">設備 ID：${d.deviceId||''}</div></div><button class="danger" onclick="removeDisplay_('${d.deviceId}')">解除配對</button></div>
    <div class="formgrid" style="grid-template-columns:1fr 3fr;margin-top:10px">
     <div><label>顯示活動</label><select id="displayType_${d.deviceId}" onchange="refreshDisplayControls_('${d.deviceId}',this.value,${sec})">${displayContentOptions_(type)}</select></div>
     <div id="displaySpecific_${d.deviceId}" class="formgrid" style="grid-template-columns:repeat(3,1fr)">${displaySpecificControls_(d.deviceId,type,sec,ui)}</div>
@@ -7783,3 +7783,4 @@ async function epcShowRecoveryAudit_(){
 <dialog id="ppRegistrationDialog"><div class="toolbar" style="justify-content:space-between"><h2 id="ppRegistrationTitle">加入本場</h2><button data-pp-action onclick="PP.cancelRegistration()">取消</button></div><div id="ppRegistrationBody"></div></dialog><script src="player-payments-core.js?v=20261017-remove1"></script><script src="player-payments.js?v=20261018-wallet-first1"></script><script src="ui-layout.js?v=20261018-layout1"></script><dialog id="epcTimerDialog" style="width:98vw;max-width:none;height:96vh;max-height:none;padding:0;background:#050505;border:1px solid #b7933b;border-radius:12px;color:white"><div style="height:44px;display:flex;justify-content:space-between;align-items:center;padding:4px 16px"><b>賽事計時器</b><button type="button" onclick="document.getElementById('epcTimerDialog').close()">關閉</button></div><iframe id="epcTimerFrame" title="賽事計時器後臺" style="width:100%;height:calc(100% - 48px);border:0"></iframe></dialog><dialog id="newEventDialog" style="width:min(580px,94vw);padding:24px;border:1px solid #b89340;border-radius:12px;background:var(--bg,#111);color:var(--text,#eee)"><h2>建立賽事</h2><label for="newEventName">賽事名稱</label><input id="newEventName"><label for="newEventTimerTemplate">計時器範本</label><select id="newEventTimerTemplate" onchange="epcNewEventTimerHint_()"><option value="">不啟用計時器</option><option value="standard">20 分鐘標準賽（內建）</option></select><p class="small" id="newEventTimerHint"></p><p class="small">範本請在獨立「計時器」管理。按建立後，賽事與該場計時器會一同產生。</p><div class="toolbar"><button id="newEventConfirm" class="primary" onclick="epcConfirmNewEvent_()">建立賽事與計時器</button><button onclick="document.getElementById('newEventDialog').close()">取消</button></div></dialog><dialog id="epcTimerProjectionDialog" style="width:96vw;max-width:1920px;height:94vh;max-height:none;padding:0;background:#000;border:1px solid #b89340;border-radius:12px;color:white"><div style="height:48px;display:flex;justify-content:space-between;align-items:center;gap:12px;padding:6px 16px"><b id="epcTimerProjectionTitle">投影預覽</b><button type="button" onclick="document.getElementById('epcTimerProjectionDialog').close()">關閉</button></div><iframe id="epcTimerProjectionFrame" title="設備計時器投影預覽" style="width:100%;height:calc(100% - 90px);border:0;background:#000"></iframe><div class="small" style="padding:8px 16px">此為設備投影預覽。確認畫面後，回到此設備按「套用到螢幕」。</div></dialog></body></html>
 
 
+<script type="module" src="display-phone-pair.js?v=20261022-qr27"></script>
