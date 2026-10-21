@@ -2016,6 +2016,7 @@ button.epc-clicked-now,.btn.epc-clicked-now{transform:scale(.985);filter:brightn
 <button data-page="dashboard" class="active">總覽</button>
 <button data-page="members">會員</button>
 <button data-page="events">賽事管理</button>
+<button data-page="timers">計時器</button>
 
 <button data-page="dailysettle">分帳報表</button>
 <button data-page="accounting">EPC帳務</button>
@@ -2144,6 +2145,7 @@ window.addEventListener('error',function(e){
 </section>
 
 
+<section id="timers" class="page"><iframe id="timerManagerFrame" title="獨立計時器管理" style="width:100%;height:calc(100vh - 130px);min-height:720px;border:0;background:#090909"></iframe></section>
 <section id="events" class="page">
  <h2>賽事管理</h2>
  <div class="card" style="margin-bottom:12px">
@@ -2192,6 +2194,7 @@ window.addEventListener('error',function(e){
    <div><label>JP 取整單位</label><input type="number" id="eJPRound" value="100"></div>
    <div><label>早鳥折扣金額</label><input id="eEarlyBirdDiscount" type="number" min="0" step="1" value="0"></div>
    <div><label>晚鳥折扣金額</label><input id="eLateBirdDiscount" type="number" min="0" step="1" value="0"></div><div><label>女士折扣金額（每場一次）</label><input id="eLadiesDiscount" type="number" min="0" step="1" value="200"></div>
+   <div><label for="eTimerTemplate">計時器範本</label><select id="eTimerTemplate" onchange="epcEventTimerTemplateChanged_()"><option value="">不啟用計時器</option></select><div class="small" id="eTimerTemplateHint">選擇範本並儲存賽事，即會自動產生本場計時器。範本請到左側「計時器」管理。</div></div>
    <div><label>ICM 獎金梯度 %</label><input id="ePayout" value="50,30,20" placeholder="例如 50,30,20"></div>
   </div>
   <div class="toolbar"><button class="primary" onclick="saveEvent()">儲存賽事設定</button></div>
@@ -3879,6 +3882,7 @@ function firestoreEventPayload_(e){
  if(!e)return null;
  return {
   eventId:e.id,businessDate:businessDateForEvent(e),date:e.date||businessDateForEvent(e),
+  ...(e.timerId?{timerId:e.timerId,timerTemplateId:e.timerTemplateId||'',timerTemplateName:e.timerTemplateName||''}:{}),
   seq:+e.seq||1,name:eventDisplayName_(e),startTime:e.startTime||'',regClose:e.regCloseTime||'',endTime:e.endTime||'',
   earlyBirdDiscount:Math.max(0,+e.earlyBirdDiscount||0),lateBirdDiscount:Math.max(0,+e.lateBirdDiscount||0),ladiesDiscount:e.ladiesDiscount??null,
   birdDiscountDefaultsAt:+e.birdDiscountDefaultsAt||0,
@@ -4053,7 +4057,7 @@ function togglePricingMode(){
 function levelChanged(){let lv=+$('eLevel').value;if(lv===3400){$('ePoolUnit').value=3000;$('eAdmin').value=400}else{$('ePoolUnit').value=6000;$('eAdmin').value=600}}
 async function saveEvent(){
  let e=requireEvent();if(!e)return;
- 
+ const timerTemplateId=e.timerId?'':String($('eTimerTemplate')?.value||'');
  e.date=$('eDate').value;
  const name=($('eName')?.value||'').trim();
  e.name=name===eventDisplayName_({...e,name:''})?'':name;
@@ -4082,7 +4086,7 @@ async function saveEvent(){
  e.payout=$('ePayout').value;
  e.birdDiscountDefaultsAt=Date.now();
  touchEvent_(e);persist();render();
- try{await syncEventToFirestore_(e,true);}catch(err){return alert('賽事設定 Firebase 同步失敗：'+String(err?.message||err));}
+ try{await syncEventToFirestore_(e,true,{timerTemplateId});}catch(err){return alert('賽事設定 Firebase 同步失敗：'+String(err?.message||err));}
  try{localStorage.setItem('epcBirdDiscountDefaultsV1',JSON.stringify({earlyBirdDiscount:e.earlyBirdDiscount,lateBirdDiscount:e.lateBirdDiscount,ladiesDiscount:e.ladiesDiscount,birdDiscountDefaultsAt:e.birdDiscountDefaultsAt}))}catch(_){}
  alert('賽事設定已儲存並同步');
 }
@@ -4392,26 +4396,21 @@ function eventDisplayName_(e){
  const manual=String(e?.name||'').trim();
  return manual||`EPC#${Math.max(1,+e?.seq||1)} ${+e?.level||3400}限時錦標賽`;
 }
-async function newEvent(){
+async function createEventWithTemplate_(timerTemplateId='',name=''){
  let e=blankEvent();
  let bd=$('eventBusinessDate')?.value||new Date().toISOString().slice(0,10);
  e.date=bd;e.businessDate=bd;
  let same=db.events.filter(x=>businessDateForEvent(x)===bd);
- e.seq=same.length?Math.max(...same.map(x=>+x.seq||0))+1:1;
+ e.seq=same.length?Math.max(...same.map(x=>+x.seq||0))+1:1;if(name)e.name=String(name).trim();
  // The visible legacy button comes here. Firestore must be the first authoritative write.
  if(window.EPCFirestore?.ready&&typeof window.EPCFirestore.createEvent==='function'){
    try{
-     const remote=await window.EPCFirestore.createEvent({
-       eventId:e.id,businessDate:bd,date:bd,seq:e.seq,name:eventDisplayName_(e),startTime:e.startTime,endTime:e.endTime,
-       earlyBirdDiscount:e.earlyBirdDiscount,lateBirdDiscount:e.lateBirdDiscount,ladiesDiscount:e.ladiesDiscount,
-       level:e.level,buyin:e.poolUnit,fee:e.admin,buyinTotal:e.buyinTotal,buyinAdmin:e.buyinAdmin,
-       rebuyTotal:e.rebuyTotal,rebuyAdmin:e.rebuyAdmin,freeAdminFrom:(+e.overbuyThreshold||10)+1,
-       jpRate:e.jp,icmRound:e.jpRound,status:'open',revision:1
-     });
-     e.id=remote.eventId||e.id;
+     const remote=await window.EPCFirestore.createEvent({...firestoreEventPayload_(e),status:'open',revision:1},{timerTemplateId});
+     e.id=remote.eventId||e.id;e.chips=remote.chips??e.chips;
+     if(remote.timerId)Object.assign(e,{timerId:remote.timerId,timerTemplateId:remote.timerTemplateId,timerTemplateName:remote.timerTemplateName});
    }catch(err){actionMsg('Firebase 建立失敗：'+String(err?.message||err),true);return;}
  }else{actionMsg('Firebase 尚未連線，暫停建立賽事',true);return;}
- db.events.unshift(e); setCurrentEventDevice_(e.id); persist(); showPage('event');
+ const existing=db.events.find(x=>String(x.id)===String(e.id));if(existing)Object.assign(existing,e);else db.events.unshift(e);setCurrentEventDevice_(e.id);persist();showPage('event');return e;
 }
 function hydrateFirestoreEventsNow_(){
  if(Array.isArray(window.EPC_FIRESTORE_LAST_EVENTS))applyFirestoreEventsToLegacy_(window.EPC_FIRESTORE_LAST_EVENTS);
@@ -5301,6 +5300,7 @@ function applyFirestoreEventsToLegacy_(rows){
    if(!window.EPCMode?.isView()&&window.EPCEventPatch)v=EPCEventPatch.preview(v);
    const prev=previousById.get(String(v.eventId))||{};
    return ({
+   ...(v.timerId?{timerId:v.timerId,timerTemplateId:v.timerTemplateId||'',timerTemplateName:v.timerTemplateName||''}:{}),
    id:v.eventId,date:v.businessDate||v.date,name:v.name||'',startTime:v.startTime||'',regCloseTime:v.regClose||'',endTime:v.endTime||'',
    earlyBirdDiscount:Math.max(0,+v.earlyBirdDiscount||0),lateBirdDiscount:Math.max(0,+v.lateBirdDiscount||0),ladiesDiscount:v.ladiesDiscount??null,
    birdDiscountDefaultsAt:+v.birdDiscountDefaultsAt||0,
@@ -5320,7 +5320,7 @@ function applyFirestoreEventsToLegacy_(rows){
  });
  const remoteIds=new Set(remote.map(x=>String(x.id)));
  // Firestore is authoritative: never re-introduce stale local/legacy event rows.
- db.events=remote;
+ db.events=remote;epcTimerTemplateOptions_(currentEvent());
  epcLastPersistSnapshot_=cloneCloud_(db);
  if($('event')?.classList.contains('active')){
   const e=currentEvent(),prev=previousById.get(String(e?.id));
@@ -6672,12 +6672,14 @@ function renderActivities(){
  }finally{window.epcActivityIdentityMode_=previous;}
 }
 function render(){
+ if($('timers')?.classList.contains('active')&&!$('timerManagerFrame').getAttribute('src'))$('timerManagerFrame').src='timer-manager.html?v=20261021-3';
  if($('playerpayments')?.classList.contains('active'))window.PP?.renderPage();
  if(epcPlayerEditing_()){epcFullRenderPending_=true;return}
  renderDashboardSummary();
  if($('activities')?.classList.contains('active')){renderActivities();setTimeout(enhanceSearchCombos_,0);}
  syncAccountingBusinessHours();
  let ev=currentEvent();
+ epcTimerTemplateOptions_(ev);
  if($('btnUnlockEvent'))$('btnUnlockEvent').style.display=(ev?.status==='已結算'||ev?.status==='settled')?'inline-block':'none';
  renderEventList();
  if($('playercheckout')?.classList.contains('active'))renderPlayerCheckout_();
@@ -7355,6 +7357,7 @@ function printEventReport(){
  if(b&&b.parentElement)b.parentElement.style.display='none';
 })();
 
+let epcTimerTemplates_=[];let epcTimerRegistryPromise_;let epcCreatingEvent_=false;
 try{render();}catch(err){console.error('Initial render failed',err);setCloudState('初始畫面錯誤：'+err.message+'｜繼續載入雲端會員',true);}
 window.addEventListener('online',()=>{cloudReady=true;setCloudState('● 網路已恢復｜檢查資料庫同步…');scheduleCloudReconnect_();});
 window.addEventListener('offline',()=>{cloudReady=false;setCloudState('⚠ 網路已離線｜本機資料安全保存',true);});
@@ -7371,15 +7374,43 @@ async function autoRefreshMembers(){
 }
 // Eight Poker: no periodic/focus member rereads; Google data loads once at startup.
 
+function epcTimerRegistry_(){
+ return epcTimerRegistryPromise_||=(async()=>{
+  const api=await (await import('./timer-cloud.js?v=20261021-3')).timerCloud();
+  await new Promise((resolve,reject)=>api.subscribeTemplates(rows=>{epcTimerTemplates_=rows;epcTimerTemplateOptions_(currentEvent());resolve()},reject));
+  return api;
+ })().catch(err=>{epcTimerRegistryPromise_=null;throw err});
+}
+function epcTimerTemplateOptions_(event){
+ const escape=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+ const options='<option value="">不啟用計時器</option><option value="standard">20 分鐘標準賽（內建）</option>'+epcTimerTemplates_.map(t=>'<option value="'+escape(t.id)+'">'+escape(t.name)+'</option>').join('');
+ const create=$('newEventTimerTemplate');if(create){const previous=create.value;create.innerHTML=options;create.value=previous;}
+ const field=$('eTimerTemplate');if(!field)return;
+ const sameEvent=field.dataset.eventId===String(event?.id||''),previous=field.value;field.dataset.eventId=String(event?.id||'');field.innerHTML=options;
+ if(event?.timerId){if(![...field.options].some(o=>o.value===event.timerTemplateId))field.add(new Option(event.timerTemplateName||'本場計時器',event.timerTemplateId));field.value=event.timerTemplateId;field.disabled=true;$('eTimerTemplateHint').textContent='已產生本場計時器：'+(event.timerTemplateName||'既有範本')+'。控制請到左側「計時器」。'}
+ else{field.value=sameEvent?previous:'';field.disabled=!!window.EPCMode?.isView();$('eTimerTemplateHint').textContent='選擇範本並儲存賽事，即會自動產生本場計時器。範本請到左側「計時器」管理。';}
+}
+function epcEventTimerTemplateChanged_(){const e=currentEvent(),id=$('eTimerTemplate').value;if(!e?.timerId&&!(e?.players||[]).length&&id){const t=epcTimerTemplates_.find(t=>t.id===id);$('eChips').value=t?.startingStack||300000;}}
+function epcNewEventTimerHint_(){const id=$('newEventTimerTemplate').value,t=epcTimerTemplates_.find(x=>x.id===id);$('newEventTimerHint').textContent=id?'將同時建立獨立計時器｜範本：'+(t?.name||'20 分鐘標準賽')+'｜每組起始籌碼 '+Number(t?.startingStack||300000).toLocaleString():'只建立賽事，不啟用計時器。';$('newEventConfirm').textContent=id?'建立賽事與計時器':'建立賽事';}
+async function newEvent(){
+ try{window.EPCMode?.assertWrite();await epcTimerRegistry_();const e=blankEvent(),bd=$('eventBusinessDate')?.value||e.date,same=db.events.filter(x=>businessDateForEvent(x)===bd);e.seq=same.length?Math.max(...same.map(x=>+x.seq||0))+1:1;$('newEventName').value=eventDisplayName_(e);$('newEventName').dataset.defaultName=$('newEventName').value;$('newEventTimerTemplate').value='standard';epcNewEventTimerHint_();$('newEventDialog').showModal()}catch(err){actionMsg('建立視窗載入失敗：'+err.message,true)}
+}
+async function epcConfirmNewEvent_(){
+ if(epcCreatingEvent_)return;epcCreatingEvent_=true;$('newEventConfirm').disabled=true;
+ try{const e=await createEventWithTemplate_($('newEventTimerTemplate').value,$('newEventName').value===$('newEventName').dataset.defaultName?'':$('newEventName').value);if(e){$('newEventDialog').close();actionMsg(e.timerId?'賽事與計時器已同時建立，可至左側「計時器」控制。':'賽事已建立')}}finally{epcCreatingEvent_=false;$('newEventConfirm').disabled=false;}
+}
+setTimeout(()=>epcTimerRegistry_().catch(err=>console.warn('Timer templates:',err.message)),1800);
+
 /* Timer controls live separately from event/accounting records. */
 function epcOpenTimer_(eventId){
  if(!eventId)return actionMsg('請先選擇一場賽事',true);
- const dialog=$('epcTimerDialog'),frame=$('epcTimerFrame');frame.src='timer-control.html?eventId='+encodeURIComponent(String(eventId))+'&v=20261021-integrate2';dialog.showModal();
+ const e=findEventById_(eventId);if(e&&!e.timerId){setCurrentEventDevice_(e.id);showPage('event');return actionMsg('請在賽事設定選擇計時器範本並儲存，會自動產生本場計時器。')}
+ const dialog=$('epcTimerDialog'),frame=$('epcTimerFrame');frame.src='timer-control.html?eventId='+encodeURIComponent(String(eventId))+'&v=20261021-3';dialog.showModal();
 }
 function epcTimerDisplayControls_(deviceId,ui){
  const escape=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
  const rows=(db.events||[]).filter(e=>!['settled','已結算'].includes(e.status)||String(e.id)===String(ui.eventId));
- return '<div style="grid-column:1/-1"><label>投影賽事</label><select id="displayTimerEvent_'+escape(deviceId)+'"><option value="">請選擇賽事</option>'+rows.map(e=>'<option value="'+escape(e.id)+'" '+(String(e.id)===String(ui.eventId)?'selected':'')+'>'+escape((e.date||'')+' '+eventDisplayName_(e))+'</option>').join('')+'</select><p class="small">本場人數、組數、籌碼與獎池即時連動。請至「賽事管理 → 計時器」設定範本、時間及公告。</p></div>';
+ return '<div style="grid-column:1/-1"><label>投影賽事</label><select id="displayTimerEvent_'+escape(deviceId)+'"><option value="">請選擇賽事</option>'+rows.map(e=>'<option value="'+escape(e.id)+'" '+(String(e.id)===String(ui.eventId)?'selected':'')+'>'+escape((e.date||'')+' '+eventDisplayName_(e))+'</option>').join('')+'</select><p class="small">本場人數、組數、籌碼與獎池即時連動。範本與計時器控制請至左側「計時器」；建立賽事時選擇範本會自動產生。</p></div>';
 }
 
 /* ===== V1.50.0 Display Devices ===== */
@@ -7729,9 +7760,9 @@ async function epcShowRecoveryAudit_(){
 </script>
 <script src="firebase-config.js?v=20261007-0780"></script>
 <script src="phone/stack-core.js?v=20261009-settlement-confirmed"></script>
-<script src="firebase-events.js?v=20261017-rebuy1"></script>
+<script src="firebase-events.js?v=20261021-timer3"></script>
 <script src="sync-v3.js?v=20261007-0780"></script>
 <script src="app.js?v=20261018-no-diag1"></script><dialog id="ppDialog"><div class="toolbar" style="justify-content:space-between"><h2 id="ppDialogTitle">玩家帳務</h2><button onclick="document.getElementById('ppDialog').close()">關閉</button></div><div id="ppDialogBody"></div></dialog>
-<dialog id="ppRegistrationDialog"><div class="toolbar" style="justify-content:space-between"><h2 id="ppRegistrationTitle">加入本場</h2><button data-pp-action onclick="PP.cancelRegistration()">取消</button></div><div id="ppRegistrationBody"></div></dialog><script src="player-payments-core.js?v=20261017-remove1"></script><script src="player-payments.js?v=20261018-wallet-first1"></script><script src="ui-layout.js?v=20261018-layout1"></script><dialog id="epcTimerDialog" style="width:98vw;max-width:none;height:96vh;max-height:none;padding:0;background:#050505;border:1px solid #b7933b;border-radius:12px;color:white"><div style="height:44px;display:flex;justify-content:space-between;align-items:center;padding:4px 16px"><b>賽事計時器</b><button type="button" onclick="document.getElementById('epcTimerDialog').close()">關閉</button></div><iframe id="epcTimerFrame" title="賽事計時器後臺" style="width:100%;height:calc(100% - 48px);border:0"></iframe></dialog></body></html>
+<dialog id="ppRegistrationDialog"><div class="toolbar" style="justify-content:space-between"><h2 id="ppRegistrationTitle">加入本場</h2><button data-pp-action onclick="PP.cancelRegistration()">取消</button></div><div id="ppRegistrationBody"></div></dialog><script src="player-payments-core.js?v=20261017-remove1"></script><script src="player-payments.js?v=20261018-wallet-first1"></script><script src="ui-layout.js?v=20261018-layout1"></script><dialog id="epcTimerDialog" style="width:98vw;max-width:none;height:96vh;max-height:none;padding:0;background:#050505;border:1px solid #b7933b;border-radius:12px;color:white"><div style="height:44px;display:flex;justify-content:space-between;align-items:center;padding:4px 16px"><b>賽事計時器</b><button type="button" onclick="document.getElementById('epcTimerDialog').close()">關閉</button></div><iframe id="epcTimerFrame" title="賽事計時器後臺" style="width:100%;height:calc(100% - 48px);border:0"></iframe></dialog><dialog id="newEventDialog" style="width:min(580px,94vw);padding:24px;border:1px solid #b89340;border-radius:12px;background:var(--bg,#111);color:var(--text,#eee)"><h2>建立賽事</h2><label for="newEventName">賽事名稱</label><input id="newEventName"><label for="newEventTimerTemplate">計時器範本</label><select id="newEventTimerTemplate" onchange="epcNewEventTimerHint_()"><option value="">不啟用計時器</option><option value="standard">20 分鐘標準賽（內建）</option></select><p class="small" id="newEventTimerHint"></p><p class="small">範本請在獨立「計時器」管理。按建立後，賽事與該場計時器會一同產生。</p><div class="toolbar"><button id="newEventConfirm" class="primary" onclick="epcConfirmNewEvent_()">建立賽事與計時器</button><button onclick="document.getElementById('newEventDialog').close()">取消</button></div></dialog></body></html>
 
 

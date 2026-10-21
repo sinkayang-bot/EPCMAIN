@@ -9,6 +9,7 @@
   const db=fs.getFirestore(app);
   const col=fs.collection(db,'epc_events');
   const accountingCol=fs.collection(db,'epc_daily_accounting');
+  const timerStore=await import('./timer-store.js?v=20261021-3');
   const clean=x=>{const y={};Object.entries(x||{}).forEach(([k,v])=>{if(v!==undefined&&typeof v!=='function')y[k]=v});return y};
   window.EPCFirestore={
    ready:true,
@@ -54,13 +55,18 @@
      [...oldHistory,...newHistory].forEach((h,i)=>{if(h&&typeof h==='object')historyById.set(String(h.id||'legacy-'+i),h)});
      row.hunterHeadHistory=[...historyById.values()];
      if(options.unlock){row.finalJP=fs.deleteField();row.finalAccounting=fs.deleteField();}
+     if(options.timerTemplateId){
+      const linked=await timerStore.stageEventTimer({tx,fs,db,event:row,templateId:String(options.timerTemplateId)});
+      Object.assign(row,linked.event);
+      if(linked.timer)tx.set(linked.ref,{...linked.timer,updatedAt:fs.serverTimestamp()});
+     }
      tx.set(ref,row,{merge:true});
     });
     if(window.EPCMode)await EPCMode.runWrite(execute);else await execute();
     if(job)window.EPCEventPatch.ack(job);
    },
    async getEvent(id){const snap=await fs.getDocFromServer(fs.doc(col,String(id)));if(!snap.exists())throw Error('找不到賽事');return {...snap.data(),eventId:String(id)}},
-   async createEvent(e){window.EPCMode?.assertWrite();const eventId=String(e?.eventId||('EV-'+Date.now()+'-'+Math.random().toString(36).slice(2,8)));const row={...clean(e),eventId,status:e?.status||'open',revision:Number(e?.revision||1),createdAt:Date.now()};await fs.setDoc(fs.doc(col,eventId),{...row,updatedAt:fs.serverTimestamp()});return row},
+   async createEvent(e,options={}){window.EPCMode?.assertWrite();const eventId=String(e?.eventId||('EV-'+Date.now()+'-'+Math.random().toString(36).slice(2,8)));const row={...clean(e),eventId,status:e?.status||'open',revision:Number(e?.revision||1),createdAt:Date.now()};if(options.timerTemplateId)return timerStore.createEventWithTimer({fs,db,event:row,templateId:String(options.timerTemplateId),assertWrite:()=>window.EPCMode?.assertWrite()});await fs.setDoc(fs.doc(col,eventId),{...row,updatedAt:fs.serverTimestamp()});return row},
    async deleteEvent(id){window.EPCMode?.assertWrite();if(id)await fs.deleteDoc(fs.doc(col,String(id)))},
    async upsertDailyAccounting(row){
     window.EPCMode?.assertWrite();this.requireAccountingAccess();

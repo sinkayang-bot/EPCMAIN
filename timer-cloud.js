@@ -1,4 +1,5 @@
-import {command,newTimer,validateLevels} from './timer-core.js?v=20261021-2';
+import {command,newTimer,validateLevels} from './timer-core.js?v=20261021-3';
+import {templateData} from './timer-store.js?v=20261021-3';
 let connection;
 export function timerCloud(){return connection||=(async()=>{
  const [am,fs]=await Promise.all([import('https://www.gstatic.com/firebasejs/12.4.0/firebase-app.js'),import('https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js')]);
@@ -6,10 +7,12 @@ export function timerCloud(){return connection||=(async()=>{
  const timerRef=id=>fs.doc(db,'epc_events','_epc_timer','timers',String(id));
  const templates=fs.collection(db,'epc_events','_epc_timer','templates');
  function mode(){try{return window.parent!==window?window.parent.EPCMode:window.EPCMode}catch(_){return null}}
- function writable(fn){const guard=mode();if(!guard)throw Error('請從賽事管理開啟計時器後臺。');return guard.runWrite(fn)}
+ function writable(fn){const guard=mode();if(!guard)throw Error('請從 EPC 後臺的「計時器」開啟管理。');return guard.runWrite(fn)}
  return {
   subscribeTimer:(id,fn,error)=>fs.onSnapshot(timerRef(id),s=>fn(s.exists()?s.data():null),error),
   subscribeEvent:(id,fn,error)=>fs.onSnapshot(fs.doc(db,'epc_events',String(id)),s=>fn(s.exists()&&s.data().status!=='deleted'?{...s.data(),eventId:s.id}:null),error),
+  subscribeTimers:(fn,error)=>fs.onSnapshot(fs.collection(db,'epc_events','_epc_timer','timers'),s=>fn(s.docs.map(d=>({...d.data(),id:d.id}))),error),
+  subscribeEvents:(fn,error)=>fs.onSnapshot(fs.collection(db,'epc_events'),s=>fn(s.docs.map(d=>({...d.data(),eventId:d.id})).filter(e=>e.status!=='deleted')),error),
   subscribeTemplates:(fn,error)=>fs.onSnapshot(templates,s=>fn(s.docs.map(d=>({...d.data(),id:d.id}))),error),
   change:(id,revision,action,value)=>writable(()=>fs.runTransaction(db,async tx=>{
    mode().assertWrite();const ref=timerRef(id),[snap,event]=await Promise.all([tx.get(ref),tx.get(fs.doc(db,'epc_events',String(id)))]);
@@ -20,6 +23,10 @@ export function timerCloud(){return connection||=(async()=>{
    const next=command(current,action,value);next.revision=Number(current.revision||0)+1;next.eventId=String(id);next.updatedAt=fs.serverTimestamp();
    tx.set(ref,next);return next;
   })),
-  saveTemplate:(name,levels)=>writable(async()=>{name=String(name||'').trim();if(!name)throw Error('請輸入範本名稱。');await fs.addDoc(templates,{name:name.slice(0,100),levels:validateLevels(levels),updatedAt:fs.serverTimestamp()})})
+  saveTemplate:(name,levels,options={})=>writable(async()=>{
+   const data=templateData({name,levels,...options});
+   if(options.id&&options.id!=='standard')return fs.runTransaction(db,async tx=>{const ref=fs.doc(templates,String(options.id)),snap=await tx.get(ref);if(!snap.exists()||Number(snap.data().revision||0)!==Number(options.revision||0))throw Error('範本已更新，請重新讀取。');tx.set(ref,{...data,revision:Number(options.revision||0)+1,updatedAt:fs.serverTimestamp()});return options.id});
+   const ref=await fs.addDoc(templates,{...data,revision:1,updatedAt:fs.serverTimestamp()});return ref.id;
+  })
  };
 })();}
