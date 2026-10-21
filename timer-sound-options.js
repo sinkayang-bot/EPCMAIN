@@ -13,7 +13,7 @@ export const soundGroups=[
  ]}
 ];
 export const selectedTimerVoices={
- ten:soundGroups[0].options[0],five:soundGroups[0].options[0],level:soundGroups[2].options[2]
+ ten:soundGroups[0].options[0],five:soundGroups[0].options[0],level:soundGroups[2].options[2],end:soundGroups[3].options.find(v=>v.id==='G3')
 };
 // A flat sustained end-of-game buzzer: no siren sweeps or separate pulses.
 export function renderBasketballBuzzer(voice,sampleRate=44100){
