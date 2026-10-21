@@ -48,10 +48,11 @@ body.native{width:1920px;min-width:1920px;min-height:1080px;overflow:auto!import
 @media(max-width:1100px){.grid{grid-template-columns:1fr}.editor{display:grid;grid-template-columns:1fr 1fr;gap:16px}.editor .card{margin:0}}
 @media(max-width:650px){main{padding:10px}.editor{display:block}.editor .card{margin-bottom:12px}.levelrow{grid-template-columns:30px repeat(3,1fr) 55px 30px}.levelrow input{font-size:12px}}
 .payoutHeading,.payoutEntry{display:grid;grid-template-columns:150px minmax(0,1fr);gap:16px}.payoutHeading{margin:8px 32px 0;padding:4px 0 10px;border-bottom:1px solid #657040;color:#e5ce7c;font:600 28px/1.5 "Noto Sans TC",sans-serif}.payoutHeading span:last-child,.payoutEntry span:last-child{text-align:right}.payoutEntry{padding:8px 0;border-bottom:1px solid #233d2b;white-space:pre-wrap}.payoutNote{padding:8px 0;white-space:pre-wrap}
-</style></head><body><header><h1>EPC · TOURNAMENT CLOCK <span class="small">獨立測試版 V0.10</span></h1><div class="row"><span class="small">獨立測試資料</span><button onclick="toggleProjector()">1920×1080 投影預覽</button></div></header><main><div class="grid"><div class="editor">
+.dialSection.isBreak{border-color:#c84949;box-shadow:0 0 4px #ff9393,0 0 22px #dc303077,inset 0 0 20px #7a2020}.isBreak .timer,.isBreak .roundLabel,.isBreak .breakNumber,.isBreak .breakCaption{color:#ff6464}.isBreak .ringTicks i.lit{background:linear-gradient(100deg,#b91e2e,#ff8989 42%,#ef3d47);box-shadow:0 0 13px #ff354b70}.isBreak .dialInside{border-color:#b95555;box-shadow:0 0 17px #df353555,inset 0 0 35px #0006}
+</style></head><body><header><h1>EPC · TOURNAMENT CLOCK <span class="small">獨立測試版 V0.11</span></h1><div class="row"><span class="small">獨立測試資料</span><button onclick="toggleProjector()">1920×1080 投影預覽</button></div></header><main><div class="grid"><div class="editor">
 <section class="card"><h2>賽事與計時器</h2><label for="events">選擇測試賽事</label><select id="events"></select><div class="row"><button onclick="createEvent()">＋建立賽事與計時器</button><button class="danger" onclick="deleteEvent()">刪除賽事</button></div><button style="margin-top:10px;width:100%" onclick="createReferenceEvent()">＋新增示意圖測試資料</button><label for="eventName">賽事名稱</label><input id="eventName" placeholder="賽事名稱" onchange="renameEvent()"><label for="templates">選擇盲注範本</label><select id="templates"></select><div class="row"><button onclick="applyTemplate()">套用範本到本場</button><button onclick="saveTemplate()">儲存目前結構為新範本</button></div></section>
 <section class="card"><h2>盲注結構</h2><div class="levels" id="levelRows"></div><div class="row"><button onclick="addLevel()">＋新增級別</button><button onclick="addBreak()">＋休息</button></div><p class="small">欄位依序：級別、SB、BB、Ante、分鐘、刪除。休息列的盲注欄位留空。</p></section>
-<section class="card"><h2>後台即時控制</h2><div class="row"><button class="gold" onclick="toggleRun()" id="playBtn">▶ 開始</button><button onclick="shiftTime(-60)">－1 分鐘</button><button onclick="shiftTime(60)">＋1 分鐘</button></div><div class="row"><button onclick="changeLevel(-1)">上一級</button><button onclick="changeLevel(1)">下一級</button><button onclick="resetLevel()">重設本級時間</button></div><label for="setSeconds">指定剩餘秒數</label><div class="row"><input type="number" id="setSeconds" min="0" value="1200"><button onclick="setRemaining()">設定</button></div></section>
+<section class="card"><h2>後台即時控制</h2><div class="row"><button class="gold" onclick="toggleRun()" id="playBtn">▶ 開始</button><button onclick="shiftTime(-60)">－1 分鐘</button><button onclick="shiftTime(60)">＋1 分鐘</button></div><div class="row"><button onclick="changeLevel(-1)">上一級</button><button onclick="changeLevel(1)">下一級</button><button onclick="resetLevel()">重設本級時間</button></div><label for="remainingTime">設定剩餘時間（分：秒）</label><div class="row"><input type="text" id="remainingTime" value="20:00" placeholder="例如 12:35" aria-label="剩餘時間（分：秒）" oninput="this.setCustomValidity('')" onkeydown="if(event.key==='Enter')setRemaining()"><button onclick="setRemaining()">設定</button></div></section>
 <section class="card"><h2>參賽、籌碼與獎池（測試資料）</h2>
 <div class="row"><div><label for="players">參賽人數</label><input id="players" type="number" min="0" step="1" oninput="updateStats(this.id)"></div><div><label for="rebuyPlayers">重買人數</label><input id="rebuyPlayers" type="number" min="0" step="1" oninput="updateStats(this.id)"></div></div>
 <label for="rebuyGroups">重買／加購組數（同一人可多組）</label><input id="rebuyGroups" type="number" min="0" step="1" oninput="updateStats(this.id)">
@@ -113,7 +114,8 @@ function toggleRun(){const e=current();if(!e)return;const wasRunning=e.running;a
 function changeLevel(d){const e=current();if(!e)return;e.index=Math.max(0,Math.min(e.levels.length-1,e.index+d));e.remaining=e.levels[e.index].min*60;e.lastTick=Date.now();save();renderScreen()}
 function resetLevel(){const e=current();if(!e)return;e.remaining=e.levels[e.index].min*60;e.lastTick=Date.now();save();renderScreen()}
 function shiftTime(n){const e=current();if(!e)return;advanceTimers();e.remaining=Math.max(0,e.remaining+n);e.lastTick=Date.now();save();renderScreen()}
-function setRemaining(){const e=current();if(!e)return;e.remaining=Math.max(0,Math.floor(Number($('setSeconds').value)||0));e.lastTick=Date.now();save();renderScreen()}
+function parseRemainingTime(value){const match=value.trim().replace('：',':').match(/^(\d+):([0-5]\d)$/);if(!match)return null;const seconds=Number(match[1])*60+Number(match[2]);return Number.isSafeInteger(seconds)?seconds:null}
+function setRemaining(){const e=current();if(!e)return;const input=$('remainingTime'),seconds=parseRemainingTime(input.value);if(seconds===null){input.setCustomValidity('請輸入分：秒，例如 12:35；秒數須介於 00–59。');input.reportValidity();return}input.setCustomValidity('');e.remaining=seconds;if(seconds===0)e.running=false;e.lastTick=Date.now();save();renderScreen()}
 // This single calculation boundary will be fed by management totals at integration.
 // Rebuy people never stand in for rebuy/add-on groups.
 function calculateEventStats(e){
@@ -167,7 +169,7 @@ function renderPayouts(text){
  }
 }
 function renderScreen(){
- initRing();const e=current();const num=v=>Math.max(0,Number(v)||0).toLocaleString('en-US');
+ initRing();const e=current();$('progressRing').classList.toggle('isBreak',!!e?.levels[e.index]?.break);const num=v=>Math.max(0,Number(v)||0).toLocaleString('en-US');
  const clock=v=>{v=Math.max(0,Math.floor(v));return String(Math.floor(v/60)).padStart(2,'0')+':'+String(v%60).padStart(2,'0')};
  const duration=v=>String(Math.floor(v/3600)).padStart(2,'0')+':'+clock(v%3600);
  if(!e){for(const id of ['screenLevel','curSB','curBB','curAnte','nextSB','nextBB','nextAnte','levelTitle','clock','breakCountdown','sPlayers','sRebuys','sGroups','chipsInPlay','avgStack','extraContent'])$(id).textContent='—';$('screenEvent').textContent='請先建立測試賽事';$('announcementDisplay').textContent='暫無公告';$('payoutDisplay').replaceChildren();for(const tick of $('ringTicks').children)tick.classList.remove('lit');return}
@@ -175,6 +177,7 @@ function renderScreen(){
  $('screenDate').textContent=new Date().toLocaleString('sv-SE',{timeZone:'Asia/Taipei'}).slice(0,16);
  $('screenLevel').textContent='LEVEL '+level+' / '+e.levels.filter(x=>!x.break).length;
  $('screenEvent').textContent=e.name;$('levelTitle').textContent=l.break?'BREAK':'LEVEL '+level;$('clock').textContent=clock(e.remaining);
+ if(document.activeElement!==$('remainingTime'))$('remainingTime').value=clock(e.remaining);
  $('status').textContent=e.running?'計時中':e.remaining===0?'本級結束，請切換下一級':'暫停 / 待開始';
  for(const [id,val] of [['curSB',l.break?'—':num(l.sb)],['curBB',l.break?'—':num(l.bb)],['curAnte',l.break?'—':num(l.ante)],['nextSB',!n?'—':n.break?'休息':num(n.sb)],['nextBB',!n||n.break?'—':num(n.bb)],['nextAnte',!n||n.break?'—':num(n.ante)]])$(id).textContent=val;
  const totals=calculateEventStats(e);syncCalculationControls(e);
