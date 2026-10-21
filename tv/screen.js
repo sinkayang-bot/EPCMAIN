@@ -1,3 +1,4 @@
+import {effectiveDisplay} from '../display-assignment.js?v=20261022-assignment3';
 import {mountTimerFrame} from './timer-frame.js?v=20261022-stable2';
 import {displayCloud} from '../display-cloud.js';
 const host=document.getElementById('screen'),esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])),money=n=>'$'+Number(n||0).toLocaleString();
@@ -84,6 +85,7 @@ function show(data){
 try{
  cloud=await displayCloud();await cloud.register(id);cloud.subscribe(id,async data=>{
   if(!data&&!renewing){renewing=true;lastSignature='';try{await cloud.register(id)}finally{renewing=false}return}
+  data=effectiveDisplay(data);
   const sig=JSON.stringify([data?.paired,data?.code,data?.payload,data?.rotateSeconds]);if(sig!==lastSignature){lastSignature=sig;show(data)}
  },e=>{host.innerHTML=`<div class="center error"><h1>顯示連線失敗</h1><p>${esc(e.message)}</p><p>請重新整理後再試</p></div>`});
  setInterval(()=>cloud.heartbeat(id).catch(()=>{}),30000);

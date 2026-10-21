@@ -7446,7 +7446,7 @@ let displayCloudPromise_;
 async function enableBuiltinDisplay_(){localStorage.setItem(DISPLAY_API_KEY,'firebase');$('displayApiUrl').value='firebase';await saveDisplayApi_()}
 async function displayFetch_(params={},post=false){
  const base=displayApi_();
- if(base==='firebase'){displayCloudPromise_=displayCloudPromise_||import('./display-cloud.js?v=20261016-modes1').then(m=>m.displayCloud()).catch(e=>{displayCloudPromise_=null;throw e});return (await displayCloudPromise_).request(params)}if(!base)throw new Error('請先設定 Display API URL');
+ if(base==='firebase'){displayCloudPromise_=displayCloudPromise_||import('./display-cloud.js?v=20261022-assignment3').then(m=>m.displayCloud()).catch(e=>{displayCloudPromise_=null;throw e});return (await displayCloudPromise_).request(params)}if(!base)throw new Error('請先設定 Display API URL');
  if(post){
   const r=await fetch(base,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(params),redirect:'follow'});
   const t=await r.text();let j;try{j=JSON.parse(t)}catch(_){throw new Error('Display API 回傳格式錯誤')}
@@ -7509,7 +7509,7 @@ async function loadDisplays_(){
   const r=await displayFetch_({action:'devices'});displayDevicesCache=r.devices||[];
   const box=$('displayDeviceRows');if(!box)return;
   box.innerHTML=displayDevicesCache.length?displayDevicesCache.map(d=>{
-   const online=Date.now()-(+d.lastSeen||0)<30000,pref=displayPref_(d.deviceId),type=pref.type||d.contentType||'boss',sec=pref.sec||d.rotateSeconds||15,ui=pref.ui||d.payload?.ui||{};if(type==='timer'&&!ui.eventId)ui.eventId=d.payload?.eventId||'';
+   const online=Date.now()-(+d.lastSeen||0)<30000,pref=displayPref_(d.deviceId),type=d.contentType||pref.type||'boss',sec=d.rotateSeconds||pref.sec||15,ui=Object.assign({},d.payload?.ui||pref.ui||{});if(type==='timer'&&!ui.eventId)ui.eventId=d.payload?.eventId||'';
    return `<div class="display-device"><div class="display-device-head"><div><b>${d.name||'未命名顯示器'}</b> <span class="${online?'display-online':'display-offline'}">${online?'● 在線':'○ 離線'}</span><div class="small">設備 ID：${d.deviceId||''}</div></div><button class="danger" onclick="removeDisplay_('${d.deviceId}')">解除配對</button></div>
    <div class="formgrid" style="grid-template-columns:1fr 3fr;margin-top:10px">
     <div><label>顯示活動</label><select id="displayType_${d.deviceId}" onchange="refreshDisplayControls_('${d.deviceId}',this.value,${sec})">${displayContentOptions_(type)}</select></div>
@@ -7614,24 +7614,22 @@ async function publishDisplay_(deviceId,silent=false){
 async function publishAllDisplays_(){
  if(window.EPCMode?.isView())return;
  if(!displayApi_()||!displayDevicesCache.length)return;
- // Background activity refresh must never read transient/rebuilt form controls.
- // Republish each device from its last saved preference instead.
- for(const d of displayDevicesCache){
+ // Read the actual cloud assignment; local preferences may belong to an older terminal.
+ if(displayApi_()!=='firebase')return;
+ let devices;try{devices=(await displayFetch_({action:'devices'})).devices||[]}catch(_){return}
+ for(const d of devices){
   try{
-   const pref=displayPref_(d.deviceId);
-   // A viewing terminal must not replace a TV with its local/default activity data.
-   // Only terminals that explicitly applied this device may republish it automatically.
-   if(!pref.type)continue;
-   if(pref.type==='timer')continue; // Timer/event subscriptions drive TV updates directly.
-   const type=pref.type,sec=Math.max(5,+(pref.sec||d.rotateSeconds||15));
-   const ui=Object.assign({kind:type,limit:10,layout:'classic',showRank:true,showName:true,showMemberId:false,showScore:true,rankFontScale:100},pref.ui||{});
+   const type=d.contentType;
+   if(!type||type==='timer'||d.payload?.type==='timer')continue;
+   const sec=Math.max(5,+(d.rotateSeconds||15));
+   const ui=Object.assign({kind:type,limit:10,layout:'classic',showRank:true,showName:true,showMemberId:false,showScore:true,rankFontScale:100},d.payload?.ui||{});
    ui.kind=type;
    const payload=displayPayload_(type);payload.ui=ui;
  if(type==='rotateParallel'){const parallel=displayPayload_('parallel');parallel.ui=Object.assign({},ui,{kind:'parallel'});parallel.panels=(ui.parallelItems||[]).map(t=>{const panel=displayPayload_(t);panel.ui=Object.assign({},ui,{kind:t,compact:true});if(Array.isArray(panel.rows))panel.rows=panel.rows.slice(0,ui.limit);return panel});parallel.duration=ui.parallelSeconds||15;payload.slides=[parallel,...(ui.rotateItems||[]).map(t=>{const slide=displayPayload_(t);slide.ui=Object.assign({},ui,{kind:t});slide.duration=Math.max(5,Number(ui.rotateSeconds?.[t]||15));return slide})]}
    if(type==='rotate'){payload.slides=(ui.rotateItems||[]).map(t=>{const s=displayPayload_(t);s.ui=Object.assign({},ui,{kind:t});s.duration=Math.max(5,+(ui.rotateSeconds||{})[t]||15);return s})}
    if(type==='parallel'){payload.panels=(ui.parallelItems||[]).map(t=>{const panel=displayPayload_(t);panel.ui=Object.assign({},ui,{kind:t,compact:true});if(Array.isArray(panel.rows))panel.rows=panel.rows.slice(0,ui.limit);return panel})}
  if(Array.isArray(payload.rows))payload.rows=payload.rows.slice(0,ui.limit);
-   await displayFetch_({action:'publish',deviceId:d.deviceId,contentType:type,rotateSeconds:sec,payload},true);
+   await displayFetch_({action:'publish',deviceId:d.deviceId,contentType:type,rotateSeconds:sec,payload,background:true,expectedPublishedAt:d.publishedAt||0},true);
   }catch(_){}
  }
 }

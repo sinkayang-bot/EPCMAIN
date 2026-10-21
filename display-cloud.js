@@ -1,3 +1,5 @@
+import {effectiveDisplay} from './display-assignment.js?v=20261022-assignment3';
+import {refreshDisplay} from './display-refresh.js?v=20261022-assignment3';
 // Display documents live in a subcollection, separate from root event records.
 export async function displayCloud(){
  const [am,fs]=await Promise.all([import('https://www.gstatic.com/firebasejs/12.4.0/firebase-app.js'),import('https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js')]);
@@ -8,12 +10,13 @@ export async function displayCloud(){
   async request(p){
    if(!['ping','devices'].includes(p.action))window.EPCMode?.assertWrite();
    if(p.action==='ping'){await fs.getDocs(fs.query(devices,fs.limit(1)));return {ok:true,version:'Firebase 顯示連線'}}
-   if(p.action==='devices'){const snap=await fs.getDocs(devices);return {ok:true,devices:snap.docs.map(d=>({...d.data(),deviceId:d.id})).filter(d=>d.paired)}}
+   if(p.action==='devices'){const snap=await fs.getDocs(devices);return {ok:true,devices:snap.docs.map(d=>effectiveDisplay({...d.data(),deviceId:d.id})).filter(d=>d.paired)}}
    if(p.action==='pair'){
     await fs.runTransaction(db,async tx=>{const ref=fs.doc(codes,p.code),snap=await tx.get(ref);if(!snap.exists()||snap.data().expiresAt<Date.now())throw Error('配對碼已過期，請重新整理電視頁面');const d=snap.data(),target=device(d.deviceId),ds=await tx.get(target);if(!ds.exists()||ds.data().paired)throw Error('此設備已配對或已失效');tx.update(target,{paired:true,name:p.name,lastSeen:Date.now()});tx.delete(ref)});return {ok:true};
    }
    if(p.action==='remove'){await fs.deleteDoc(device(p.deviceId));return {ok:true}}
-   if(p.action==='publish'){await fs.updateDoc(device(p.deviceId),{contentType:p.contentType,rotateSeconds:p.rotateSeconds,payload:p.payload,publishedAt:Date.now()});return {ok:true}}
+   if(p.action==='publish'&&p.background)return refreshDisplay({fs,db,ref:device(p.deviceId),request:p});
+   if(p.action==='publish'){await fs.updateDoc(device(p.deviceId),{contentType:p.contentType,rotateSeconds:p.rotateSeconds,payload:p.payload,publishedAt:Date.now(),assignment:{id:crypto.randomUUID(),contentType:p.contentType,rotateSeconds:p.rotateSeconds,payload:p.payload}});return {ok:true}}
    throw Error('不支援的顯示操作');
   },
   async register(id){
