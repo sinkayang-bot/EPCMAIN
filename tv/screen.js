@@ -4,7 +4,7 @@ let id=localStorage.getItem('epcTvDeviceId');if(!id){id=Array.from(crypto.getRan
 let timer,cloud,lastSignature='',renewing=false;
 function identity(r,ui){return [ui.showName!==false?esc(r.name||r.member||''):null,ui.showMemberId?esc(r.memberId||r.id||''):null].filter(Boolean).join(' · ')}
 function render(p,target=host){
- if(p.type==='timer'){target.replaceChildren();const frame=document.createElement('iframe');frame.title='EPC 賽事計時器';frame.src='../timer.html?eventId='+encodeURIComponent(String(p.eventId||''))+'&v=20261021-3';frame.style.cssText='position:fixed;inset:0;width:100vw;height:100vh;border:0;background:#000';target.append(frame);return}
+ if(p.type==='timer'){target.replaceChildren();const frame=document.createElement('iframe');frame.title='EPC 賽事計時器';frame.src='../timer.html?eventId='+encodeURIComponent(String(p.eventId||''))+'&v=20261022-display1';frame.style.cssText='position:fixed;inset:0;width:100vw;height:100vh;border:0;background:#000';target.append(frame);return}
  const ui=p.ui||{},header=`<header><h1>${esc(p.title||'EPC')}</h1><span>${esc(p.activityFrom||'')} ～ ${esc(p.activityTo||'')}</span></header>`;
  if(p.type==='extremeTen'||ui.kind==='extremeTen'||String(p.title||'').replace(/\s/g,'')==='極限10秒'){
   const distance=r=>Number.isFinite(Number(r.seconds))?Math.abs(Math.round(Number(r.seconds)*100)-1000):Number.isFinite(Number(r.difference))?Math.round(Number(r.difference)*100):Infinity;
