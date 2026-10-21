@@ -29,6 +29,7 @@ export function validateLevels(levels){
 export function newTimer(levels=DEFAULT_LEVELS){const structure=validateLevels(levels);return {levels:structure,index:0,remaining:structure[0].min*60,running:false,endsAt:0,announcement:'歡迎參加 EPC 限時錦標賽',payoutInput:'依籌碼比例分配',revision:0}}
 export function command(timer,action,value,now=Date.now()){
  let t=structuredClone(timerAt(timer||newTimer(),now));const seconds=remaining(t,now);
+ if(action==='background'){t.background=['black-gold','light','emerald','velvet'].includes(value)?value:'classic';return t}
  if(action==='settings'){if(Object.hasOwn(value,'background'))t.background=['black-gold','light','emerald','velvet'].includes(value.background)?value.background:'classic';t.announcement=String(value.announcement||'').slice(0,6000);t.payoutInput=String(value.payoutInput||'').slice(0,6000);return t}
  if(action==='structure'){t.levels=validateLevels(value);t.index=0;t.remaining=t.levels[0].min*60;t.running=false;t.endsAt=0;return t}
  if(action==='toggle'){t.remaining=seconds;t.running=!t.running&&seconds>0}

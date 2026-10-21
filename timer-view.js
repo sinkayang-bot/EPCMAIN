@@ -1,5 +1,5 @@
 import {countdownSound} from './timer-sound.js?v=20261022-final22';
-import {remaining,timeText,eventTotals,newTimer,timerAt} from './timer-core.js?v=20261022-background25';
+import {remaining,timeText,eventTotals,newTimer,timerAt} from './timer-core.js?v=20261022-background26';
 const $=id=>document.getElementById(id),params=new URLSearchParams(location.search),demo=params.has('demo'),id=params.get('eventId');
 let event,timer,service;
 const sound=countdownSound();
@@ -40,7 +40,7 @@ if(params.has('templatePreview')){
  parent.postMessage({type:'epc-timer-preview-ready'},location.origin);
 }else try{
  if(!demo&&!id)throw Error('請從顯示設備選擇要投影的賽事。');
- service=demo?(await import('./timer-demo.js?v=20261022-background25')).demoCloud():await(await import('./timer-cloud.js?v=20261022-background25')).timerCloud();
+ service=demo?(await import('./timer-demo.js?v=20261022-background26')).demoCloud():await(await import('./timer-cloud.js?v=20261022-background26')).timerCloud();
  const error=e=>message('計時器連線失敗：'+e.message);
  service.subscribeEvent(id,e=>{event=e;message(!e?'找不到賽事，請從後臺重新選擇。':!timer?'此場尚未選用計時器範本，請回賽事設定儲存。':'');render()},error);
  service.subscribeTimer(id,t=>{timer=t;message(!event?'正在讀取賽事…':!t?'此場尚未選用計時器範本，請回賽事設定儲存。':'');render()},error);

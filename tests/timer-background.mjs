@@ -15,4 +15,8 @@ for(const background of ['classic','black-gold','light','emerald','velvet']){
 }
 assert.equal(templateData(STANDARD_TEMPLATE).background,'classic');
 assert.equal(templateData({...STANDARD_TEMPLATE,background:'https://untrusted.invalid'}).background,'classic');
+const running=command({...newTimer(),announcement:'保持公告'},'toggle',undefined,1000);
+const changed=command(running,'background','velvet',5000);assert.equal(changed.endsAt,running.endsAt);assert.equal(changed.announcement,'保持公告');assert.deepEqual(changed.levels,running.levels);assert.equal(changed.background,'velvet');
+assert(read('firebase-events.js').includes('timer-store.js?v=20261022-background26'));
+assert(read('index.html').includes('firebase-events.js?v=20261022-background26'));
 console.log('Backgrounds: template snapshots, all four art choices, legacy fallback, live countdown preservation, reload and old-client text edits passed.');

@@ -9,7 +9,7 @@
   const db=fs.getFirestore(app);
   const col=fs.collection(db,'epc_events');
   const accountingCol=fs.collection(db,'epc_daily_accounting');
-  const timerStore=await import('./timer-store.js?v=20261021-template5');
+  const timerStore=await import('./timer-store.js?v=20261022-background26');
   const clean=x=>{const y={};Object.entries(x||{}).forEach(([k,v])=>{if(v!==undefined&&typeof v!=='function')y[k]=v});return y};
   window.EPCFirestore={
    ready:true,
