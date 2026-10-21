@@ -7422,7 +7422,7 @@ async function epcPreviewTimerDisplay_(deviceId){
  if(!eventId)return actionMsg('請先選擇要預覽的投影賽事',true);
  const event=(db.events||[]).find(e=>String(e.id)===String(eventId));
  $('epcTimerProjectionTitle').textContent='投影預覽｜'+(event?eventDisplayName_(event):'EPC 賽事計時器');
- const {timerProjectionUrl}=await import('./tv/timer-frame.js?v=20261022-projection16');
+ const {timerProjectionUrl}=await import('./tv/timer-frame.js?v=20261022-projection17');
  $('epcTimerProjectionFrame').src=timerProjectionUrl(eventId,'');
  $('epcTimerProjectionDialog').showModal();
 }
