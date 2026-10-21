@@ -25,7 +25,7 @@ export function countdownSound(){
  details.ontoggle=()=>{panel.style.opacity=details.open?'.95':'.22'};
  function bell(kind='level'){
   if(!enabled||context?.state!=='running')return;
-  const presets={ten:{base:1318.51,duration:.85,strikes:1,gap:0},five:{base:1046.5,duration:.65,strikes:2,gap:.38},level:{base:659.25,duration:2.4,strikes:1,gap:0}},preset=presets[kind];
+  const presets={ten:{base:659.25,duration:.85,strikes:1,gap:0},five:{base:659.25,duration:.65,strikes:2,gap:.38},level:{base:659.25,duration:2.4,strikes:1,gap:0}},preset=presets[kind];
   for(let i=0;i<preset.strikes;i++){
    const start=context.currentTime+i*preset.gap;
    for(const [ratio,amplitude,decay] of [[1,.58,1],[2.01,.23,.7],[3.99,.1,.4]]){
