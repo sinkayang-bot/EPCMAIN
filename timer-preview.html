@@ -39,7 +39,7 @@
 .statsTop{height:108px;padding:10px 18px 8px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr))}.statCell{position:relative;text-align:center;border-right:1px solid #36613a;min-width:0}.statCell:last-child{border:0}.statLabel{display:block;font-size:22px;color:#e1e7de;white-space:nowrap;line-height:1.5;padding-left:25px}.statValue{display:block;font:700 44px/1.15 Arial,sans-serif;margin-top:5px;white-space:nowrap}
 .statsBottom{margin:0 22px;border-top:1px solid #b4a34f;display:grid;grid-template-columns:1.15fr 1fr;height:93px;padding-top:9px}.statsBottom .statLabel{text-align:left;padding-left:54px;font-size:21px;line-height:1.25}.statsBottom .statIcon{width:43px;height:43px;left:5px;top:10px}.chipValue{display:block;font:700 44px/1.15 Arial,sans-serif;text-align:left;padding-left:54px;margin-top:6px;letter-spacing:-1px;white-space:nowrap}
 .announcementBody{height:calc(100% - 66px);padding:25px 28px;display:grid;place-items:center;overflow:hidden}.announcementText{width:100%;max-height:100%;font-size:40px;font-weight:700;text-align:left;white-space:pre-wrap;overflow-wrap:anywhere;word-break:normal;line-height:1.5;overflow:auto;color:#fff;text-shadow:0 2px 3px #000;scrollbar-width:thin;scrollbar-color:#77833b transparent}
-.poolAmount{height:78px;display:flex;align-items:center;justify-content:center;font:700 64px/1 Arial,sans-serif;color:#fff;letter-spacing:-1px;text-shadow:0 2px 3px #000}.payouts{margin:8px 32px 0;max-height:355px;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;word-break:normal;font:500 32px/1.6 "Noto Sans TC","Microsoft JhengHei",sans-serif;color:#fff;scrollbar-width:thin;scrollbar-color:#77833b transparent}
+.poolAmount{height:78px;display:flex;align-items:center;justify-content:center;font:700 64px/1 Arial,sans-serif;color:#f4d974;letter-spacing:-1px;text-shadow:0 2px 3px #000}.payouts{margin:0 32px;max-height:310px;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;word-break:normal;font:500 32px/1.6 "Noto Sans TC","Microsoft JhengHei",sans-serif;color:#fff;scrollbar-width:thin;scrollbar-color:#77833b transparent}
 
 .screenControls{position:absolute;left:47px;bottom:12px;display:flex;gap:8px;opacity:0;transition:opacity .15s;z-index:10}.screen:hover .screenControls,.screenControls:focus-within{opacity:1}.screenControls button{background:#00190eeb;border:1px solid #ae923f;color:#f6d585;font-size:15px;padding:6px 12px}
 .clockStatus{position:absolute;left:780px;right:780px;bottom:3px;text-align:center;opacity:0;color:#b1c4b0;font-size:13px}.screen:hover .clockStatus{opacity:1}
@@ -47,7 +47,8 @@ body.projector{background:#000;overflow:hidden}body.projector header,body.projec
 body.native{width:1920px;min-width:1920px;min-height:1080px;overflow:auto!important}body.native .previewViewport{position:relative;inset:auto;width:1920px!important;height:1080px!important}
 @media(max-width:1100px){.grid{grid-template-columns:1fr}.editor{display:grid;grid-template-columns:1fr 1fr;gap:16px}.editor .card{margin:0}}
 @media(max-width:650px){main{padding:10px}.editor{display:block}.editor .card{margin-bottom:12px}.levelrow{grid-template-columns:30px repeat(3,1fr) 55px 30px}.levelrow input{font-size:12px}}
-</style></head><body><header><h1>EPC · TOURNAMENT CLOCK <span class="small">獨立測試版 V0.9</span></h1><div class="row"><span class="small">獨立測試資料</span><button onclick="toggleProjector()">1920×1080 投影預覽</button></div></header><main><div class="grid"><div class="editor">
+.payoutHeading,.payoutEntry{display:grid;grid-template-columns:150px minmax(0,1fr);gap:16px}.payoutHeading{margin:8px 32px 0;padding:4px 0 10px;border-bottom:1px solid #657040;color:#e5ce7c;font:600 28px/1.5 "Noto Sans TC",sans-serif}.payoutHeading span:last-child,.payoutEntry span:last-child{text-align:right}.payoutEntry{padding:8px 0;border-bottom:1px solid #233d2b;white-space:pre-wrap}.payoutNote{padding:8px 0;white-space:pre-wrap}
+</style></head><body><header><h1>EPC · TOURNAMENT CLOCK <span class="small">獨立測試版 V0.10</span></h1><div class="row"><span class="small">獨立測試資料</span><button onclick="toggleProjector()">1920×1080 投影預覽</button></div></header><main><div class="grid"><div class="editor">
 <section class="card"><h2>賽事與計時器</h2><label for="events">選擇測試賽事</label><select id="events"></select><div class="row"><button onclick="createEvent()">＋建立賽事與計時器</button><button class="danger" onclick="deleteEvent()">刪除賽事</button></div><button style="margin-top:10px;width:100%" onclick="createReferenceEvent()">＋新增示意圖測試資料</button><label for="eventName">賽事名稱</label><input id="eventName" placeholder="賽事名稱" onchange="renameEvent()"><label for="templates">選擇盲注範本</label><select id="templates"></select><div class="row"><button onclick="applyTemplate()">套用範本到本場</button><button onclick="saveTemplate()">儲存目前結構為新範本</button></div></section>
 <section class="card"><h2>盲注結構</h2><div class="levels" id="levelRows"></div><div class="row"><button onclick="addLevel()">＋新增級別</button><button onclick="addBreak()">＋休息</button></div><p class="small">欄位依序：級別、SB、BB、Ante、分鐘、刪除。休息列的盲注欄位留空。</p></section>
 <section class="card"><h2>後台即時控制</h2><div class="row"><button class="gold" onclick="toggleRun()" id="playBtn">▶ 開始</button><button onclick="shiftTime(-60)">－1 分鐘</button><button onclick="shiftTime(60)">＋1 分鐘</button></div><div class="row"><button onclick="changeLevel(-1)">上一級</button><button onclick="changeLevel(1)">下一級</button><button onclick="resetLevel()">重設本級時間</button></div><label for="setSeconds">指定剩餘秒數</label><div class="row"><input type="number" id="setSeconds" min="0" value="1200"><button onclick="setRemaining()">設定</button></div></section>
@@ -62,7 +63,7 @@ body.native{width:1920px;min-width:1920px;min-height:1080px;overflow:auto!import
 <label for="unit">每組獎池金額（輸入即切回自動計算）</label><input id="unit" type="number" min="0" oninput="updateStats(this.id)">
 <label for="manualPool">手動總獎池（輸入即採用此金額）</label><input id="manualPool" type="number" min="0" oninput="updateStats(this.id)">
 <p class="small" id="calculationSummary" aria-live="polite"></p>
-<label for="payoutInput">獎池分佈／補充說明（自由輸入文字）</label><textarea id="payoutInput" rows="6" placeholder="第一名 10,000&#10;第二名 5,000&#10;或輸入依籌碼比例分配等說明" oninput="updateStats(this.id)"></textarea>
+<label for="payoutInput">獎池分佈（每行輸入：名次 獎勵；也可輸入補充說明）</label><textarea id="payoutInput" rows="6" placeholder="第一名 10,000&#10;第二名 5,000&#10;或輸入依籌碼比例分配等說明" oninput="updateStats(this.id)"></textarea>
 <label for="announcement">場內公告（左上方即時顯示）</label><textarea id="announcement" rows="5" oninput="updateStats(this.id)"></textarea>
 <p class="small">測試預設：每組起始籌碼 300,000、每組獎池 3,000，可修改。重買人數與重買組數分開記錄。正式整合後由賽事管理帶入組數、籌碼及可分配獎池。</p></section>
 </div><div class="previewViewport" id="previewViewport"><section class="screen" id="broadcastScreen" aria-label="EPC 賽事計時器"><svg aria-hidden="true" width="0" height="0" style="position:absolute"><defs>
@@ -81,7 +82,7 @@ body.native{width:1920px;min-width:1920px;min-height:1080px;overflow:auto!import
 <div class="chipLegend" aria-label="籌碼面額"><div><div class="chipBadge" style="--chip:#101d20"><span>100</span></div><span>100</span></div><div><div class="chipBadge" style="--chip:#11642c"><span>500</span></div><span>500</span></div><div><div class="chipBadge" style="--chip:#7624a3"><span>1K</span></div><span>1K</span></div><div><div class="chipBadge" style="--chip:#e1a312"><span>5K</span></div><span>5K</span></div><div><div class="chipBadge" style="--chip:#173b99"><span>10K</span></div><span>10K</span></div><div><div class="chipBadge" style="--chip:#bd161e"><span>25K</span></div><span>25K</span></div><div><div class="chipBadge" style="--chip:#dd630c"><span>100K</span></div><span>100K</span></div></div>
 <section class="panel infoPanel" aria-label="賽事資訊"><h2 class="panelHeader lowerHeader"><svg class="icon" aria-hidden="true"><use href="#icon-trophy"/></svg>賽事資訊 <small>TOURNAMENT INFO</small></h2><div class="statsTop"><div class="statCell"><svg class="icon statIcon" aria-hidden="true"><use href="#icon-players"/></svg><span class="statLabel">參賽人數</span><strong class="statValue" id="sPlayers"></strong></div><div class="statCell"><svg class="icon statIcon" aria-hidden="true"><use href="#icon-rebuy"/></svg><span class="statLabel">重買人數</span><strong class="statValue" id="sRebuys"></strong></div><div class="statCell"><svg class="icon statIcon" aria-hidden="true"><use href="#icon-coins"/></svg><span class="statLabel">總買入組數</span><strong class="statValue" id="sGroups"></strong></div></div><div class="statsBottom"><div class="statCell"><svg class="icon statIcon" aria-hidden="true"><use href="#icon-coins"/></svg><span class="statLabel">總籌碼</span><strong class="chipValue" id="chipsInPlay"></strong></div><div class="statCell"><svg class="icon statIcon" aria-hidden="true"><use href="#icon-chart"/></svg><span class="statLabel">平均籌碼</span><strong class="chipValue" id="avgStack"></strong></div></div></section>
 <section class="panel noticePanel" aria-label="場內公告"><h2 class="panelHeader lowerHeader"><svg class="icon" aria-hidden="true"><use href="#icon-notice"/></svg>場內公告 <small>ANNOUNCEMENT</small></h2><div class="announcementBody" id="announcementBody"><div class="announcementText" id="announcementDisplay"></div></div></section>
-<section class="panel poolPanel" aria-label="總獎池"><h2 class="panelHeader lowerHeader"><svg class="icon" aria-hidden="true"><use href="#icon-coins"/></svg>總獎池 <small>PRIZE POOL</small></h2><div class="poolAmount" id="extraContent"></div><div class="payouts" id="payoutDisplay" role="region" aria-label="獎池分佈"></div></section>
+<section class="panel poolPanel" aria-label="總獎池"><h2 class="panelHeader lowerHeader"><svg class="icon" aria-hidden="true"><use href="#icon-coins"/></svg>總獎池 <small>PRIZE POOL</small></h2><div class="poolAmount" id="extraContent"></div><div class="payoutHeading"><span>名次</span><span>獎勵</span></div><div class="payouts" id="payoutDisplay" role="region" aria-label="獎池分佈"></div></section>
 <div class="clockStatus" id="status" aria-live="off"></div><div class="screenControls"><button onclick="toggleProjector()">⛶ 全螢幕 / 返回</button><button onclick="toggleRun()">開始 / 暫停</button></div>
 </section></div></div></main><script>
 const KEY='epc-timer-prototype-v1';const base=[{sb:100,bb:200,ante:200,min:20},{sb:200,bb:400,ante:400,min:20},{sb:300,bb:600,ante:600,min:20},{sb:500,bb:1000,ante:1000,min:20},{break:true,min:5},{sb:1000,bb:1500,ante:1500,min:20},{sb:1000,bb:2000,ante:2000,min:20}];let state;try{state=JSON.parse(localStorage.getItem(KEY))}catch{}if(!state||!Array.isArray(state.events))state={templates:[{id:'standard',name:'20分鐘標準賽',levels:base}],events:[],selected:null};
@@ -155,6 +156,16 @@ function fitAnnouncement(){
  const el=$('announcementDisplay'),body=$('announcementBody');let size=40;el.style.fontSize=size+'px';
  while(size>18&&el.scrollHeight>body.clientHeight-50){size-=2;el.style.fontSize=size+'px'}
 }
+function renderPayouts(text){
+ const target=$('payoutDisplay');target.replaceChildren();
+ for(const line of text.split('\n')){
+  const row=document.createElement('div');
+  const match=line.match(/^\s*((?:第\s*)?[0-9一二三四五六七八九十百]+\s*名|[0-9]+[.、．]?|冠軍|亞軍|季軍|殿軍|第一名|第二名|第三名)(?:[\s,，:：]+)(.*)$/);
+  if(match){row.className='payoutEntry';for(const value of [match[1],match[2]]){const cell=document.createElement('span');cell.textContent=value;row.append(cell)}}
+  else{row.className='payoutNote';row.textContent=line}
+  target.append(row);
+ }
+}
 function renderScreen(){
  initRing();const e=current();const num=v=>Math.max(0,Number(v)||0).toLocaleString('en-US');
  const clock=v=>{v=Math.max(0,Math.floor(v));return String(Math.floor(v/60)).padStart(2,'0')+':'+String(v%60).padStart(2,'0')};
@@ -172,7 +183,7 @@ function renderScreen(){
  $('extraContent').textContent=e.mode==='prize'?'$'+num(totals.pool):'—';
  $('announcementDisplay').textContent=e.announcement||'暫無公告';
  fitAnnouncement();
- $('payoutDisplay').textContent=e.mode==='prize'?(e.payoutInput||''):'';
+ renderPayouts(e.mode==='prize'?(e.payoutInput||''):'');
  const total=Math.max(1,Number(l.min||20)*60),pct=Math.max(0,Math.min(1,e.remaining/total));
  for(const tick of $('ringTicks').children)tick.classList.toggle('lit',Number(tick.dataset.tick)<Math.ceil(pct*72));
  let until=0;for(let i=e.index;i<e.levels.length;i++){if(e.levels[i].break)break;until+=i===e.index?e.remaining:e.levels[i].min*60}
