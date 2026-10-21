@@ -1,4 +1,4 @@
-import {newTimer,command} from './timer-core.js?v=20261021-3';
+import {newTimer,command} from './timer-core.js?v=20261022-auto6';
 import {STANDARD_TEMPLATE,templateData,buildEventTimer} from './timer-store.js?v=20261021-3';
 const KEY='epc-connected-timer-demo-v1';
 export const DEMO_EVENT={eventId:'demo',name:'EPC 計時器連線測試',buyin:3000,fee:400,jpRate:3,jpRound:100,chips:300000,status:'open',players:[{buyin:1,rebuy:2,addon:0},{buyin:1,rebuy:0,addon:0},{buyin:1,rebuy:1,addon:0},{buyin:1,rebuy:0,addon:1},{buyin:1,rebuy:0,addon:0},{buyin:1,rebuy:0,addon:0}]};

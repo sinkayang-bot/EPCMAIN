@@ -1,4 +1,4 @@
-import {command,newTimer,validateLevels} from './timer-core.js?v=20261021-3';
+import {command,newTimer,validateLevels} from './timer-core.js?v=20261022-auto6';
 import {templateData} from './timer-store.js?v=20261021-3';
 let connection;
 export function timerCloud(){return connection||=(async()=>{

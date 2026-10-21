@@ -1,17 +1,18 @@
-import {DEFAULT_LEVELS,newTimer,remaining,timeText,eventTotals,parseTime,validateLevels} from './timer-core.js?v=20261022-count4';
+import {DEFAULT_LEVELS,newTimer,remaining,timeText,eventTotals,parseTime,validateLevels,timerAt} from './timer-core.js?v=20261022-auto6';
 const $=id=>document.getElementById(id),params=new URLSearchParams(location.search),demo=params.has('demo'),id=params.get('eventId'),esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 let event,timer,service,templates=[],busy=false,draft=structuredClone(DEFAULT_LEVELS),textLoaded=false,structureLoaded=false,textDirty=false,structureDirty=false,textRevision=0,structureRevision=0;
 function canWrite(){try{return demo||window.parent!==window&&!window.parent.EPCMode.isView()}catch(_){return false}}
 function message(s){$('message').textContent=s}
 function update(){
+ const now=Date.now(),state=timerAt(timer,now);
  const settled=['settled','已結算'].includes(event?.status),allowed=canWrite()&&!busy&&!settled&&!!event;
  $('mode').textContent=demo?'練習模式：不會寫入正式資料':canWrite()?'操作模式':'檢視模式：請在主後臺切換操作模式';
  document.querySelectorAll('[data-write]').forEach(el=>el.disabled=!allowed||(el.hasAttribute('data-command')&&!timer));
- $('timeNow').textContent=timer?timeText(remaining(timer)):'未建立';
- const l=timer?.levels[timer.index];$('timeNow').style.color=l?.break?'#ff6464':'#fff';
- $('currentLevel').textContent=timer?(l?.break?'休息':'第 '+timer.levels.slice(0,timer.index+1).filter(l=>!l.break).length+' 級')+' · '+(timer.running&&remaining(timer)>0?'計時中':remaining(timer)===0?'本級結束，請切換下一級':'已暫停'):'';
- $('toggle').textContent=timer?.running&&remaining(timer)>0?'暫停':'開始';
- if(document.activeElement!==$('remainingTime'))$('remainingTime').value=timer?timeText(remaining(timer)):'';
+ $('timeNow').textContent=timer?timeText(remaining(state,now)):'未建立';
+ const l=state?.levels[state.index];$('timeNow').style.color=l?.break?'#ff6464':'#fff';
+ $('currentLevel').textContent=timer?(l?.break?'休息':'第 '+state.levels.slice(0,state.index+1).filter(l=>!l.break).length+' 級')+' · '+(state.running&&remaining(state,now)>0?'計時中':remaining(state,now)===0?'全部級別已結束':'已暫停'):'';
+ $('toggle').textContent=state?.running&&remaining(state,now)>0?'暫停':'開始';
+ if(document.activeElement!==$('remainingTime'))$('remainingTime').value=timer?timeText(remaining(state,now)):'';
  if(event){$('title').textContent=(event.name||'EPC')+' · 計時器';const s=eventTotals(event),n=v=>Number(v||0).toLocaleString();$('stats').textContent=`參賽 ${s.players} 人／重買 ${s.rebuyGroups} 組／總買入 ${s.groups} 組\n總籌碼 ${n(s.chips)}／平均籌碼 ${s.average===null?'—':n(s.average)}\n總獎池 $${n(s.pool)}（原獎池 $${n(s.gross)} − JP $${n(s.jp)}）`;$('stats').style.whiteSpace='pre-line'}
 }
 function levels(){
@@ -35,7 +36,7 @@ function setTime(){try{parseTime($('remainingTime').value);send('set',$('remaini
  $('levels').onclick=e=>{const el=e.target.closest('[data-remove]');if(!el||!canWrite())return;if(draft.length===1)return message('至少保留一個級別');dirtyStructure();draft.splice(Number(el.dataset.remove),1);levels()};
 try{
  if(!demo&&!id)throw Error('請從賽事管理選擇一場賽事。');
- service=demo?(await import('./timer-demo.js?v=20261021-3')).demoCloud():await(await import('./timer-cloud.js?v=20261021-3')).timerCloud();
+ service=demo?(await import('./timer-demo.js?v=20261022-auto6')).demoCloud():await(await import('./timer-cloud.js?v=20261022-auto6')).timerCloud();
  const error=e=>message('連線失敗：'+e.message);
  service.subscribeEvent(id,e=>{event=e;message(e?(timer?'已連線':'請回賽事設定選擇計時器範本並儲存，將自動產生本場計時器。'):'找不到賽事');update()},error);
  service.subscribeTimer(id,t=>{timer=t;if(!busy)message(['settled','已結算'].includes(event?.status)?'此場賽事已結算，僅供檢視。':t?'已連線，時間與公告同步中。':'請回賽事設定選擇計時器範本並儲存，將自動產生本場計時器。');if(t&&!textDirty){$('announcement').value=t.announcement||'';$('payoutInput').value=t.payoutInput||'';textRevision=t.revision;textLoaded=true}if(t&&!structureDirty){structureRevision=t.revision;if(!structureLoaded||JSON.stringify(draft)!==JSON.stringify(t.levels)){draft=structuredClone(t.levels);structureLoaded=true;levels()}}update()},error);

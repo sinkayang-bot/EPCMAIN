@@ -1,0 +1,16 @@
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+const read=n=>readFileSync(new URL('../'+n,import.meta.url),'utf8'),url=s=>'data:text/javascript;base64,'+Buffer.from(s).toString('base64');
+const core=read('timer-core.js').replace("'./player-pricing.js'",JSON.stringify(url(read('player-pricing.js'))));
+const {newTimer,command,timerAt,remaining}=await import(url(core));
+const levels=[{min:.1,sb:100,bb:200,ante:200},{break:true,min:.1},{min:.2,sb:200,bb:400,ante:400}];
+const t=command(newTimer(levels),'toggle',null,1000),original=structuredClone(t);
+assert.equal(remaining(t,6999),1);assert.equal(timerAt(t,7000).index,1);assert.equal(remaining(t,7000),6);assert(timerAt(t,7000).levels[1].break);
+assert.equal(timerAt(t,13000).index,2);assert.equal(remaining(t,13000),12);assert.equal(remaining(t,15000),10,'Delayed clients catch up across multiple levels without drift');
+const refreshed=JSON.parse(JSON.stringify(t));assert.deepEqual(timerAt(refreshed,15000),timerAt(t,15000),'Refresh restores the same level and remaining time');assert.deepEqual(t,original,'Read-only viewers do not modify the shared timer');
+const paused=command(t,'toggle',null,8000);assert.equal(paused.index,1);assert.equal(paused.running,false);assert.equal(remaining(paused,18000),5);
+const resumed=command(paused,'toggle',null,18000);assert.equal(timerAt(resumed,23000).index,2);assert.equal(remaining(resumed,23000),12);
+const text=command(t,'settings',{announcement:'測試',payoutInput:''},8000);assert.equal(text.index,1);assert.equal(text.endsAt,13000,'Text edits preserve the original schedule');
+const next=command(t,'level',1,8000);assert.equal(next.index,2);assert.equal(next.remaining,12);assert.equal(next.running,true);
+const end=timerAt(t,25000);assert.equal(end.index,2);assert.equal(end.remaining,0);assert.equal(end.running,false);assert.equal(remaining(t,100000),0);
+console.log('Automatic levels: exact transitions, break entry/exit, delayed refresh, pause/resume, manual controls and final stop passed.');
