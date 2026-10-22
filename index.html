@@ -7409,7 +7409,17 @@ setTimeout(()=>epcTimerRegistry_().catch(err=>console.warn('Timer templates:',er
 function epcOpenTimer_(eventId){
  if(!eventId)return actionMsg('請先選擇一場賽事',true);
  const e=findEventById_(eventId);if(e&&!e.timerId){setCurrentEventDevice_(e.id);showPage('event');return actionMsg('請在賽事設定選擇計時器範本並儲存，會自動產生本場計時器。')}
- const dialog=$('epcTimerDialog'),frame=$('epcTimerFrame');frame.src='timer-control.html?eventId='+encodeURIComponent(String(eventId))+'&v=20261022-total28';dialog.showModal();
+ const dialog=$('epcTimerDialog'),frame=$('epcTimerFrame'),guard=window.EPCMode;
+ const settled=['settled','已結算'].includes(e?.status),restoreView=!settled&&!!guard?.isView();
+ if(restoreView&&!guard.set('operate'))return actionMsg('仍有資料儲存中，請稍後再開啟計時器控制。',true);
+ const session=Symbol('timer-control');dialog.timerControlSession=session;
+ dialog.addEventListener('close',()=>{
+  if(!restoreView)return;
+  const restore=()=>{if(dialog.timerControlSession!==session||guard.isView())return;if(!guard.set('view'))setTimeout(restore,250)};
+  restore();
+ },{once:true});
+ dialog.querySelector('b').textContent=settled?'計時器控制（已結算，僅供檢視）':'計時器控制';
+ frame.src='timer-control.html?eventId='+encodeURIComponent(String(eventId))+'&v=20261022-control29';dialog.showModal();
 }
 function epcChooseTimerDisplay_(deviceId){
  const select=$('displayType_'+deviceId);if(!select)return;

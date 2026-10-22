@@ -1,0 +1,10 @@
+const fs=require('fs'),vm=require('vm'),assert=require('node:assert/strict');
+const source=fs.readFileSync('index.html','utf8'),fn=source.slice(source.indexOf('function epcOpenTimer_(eventId){'),source.indexOf('function epcChooseTimerDisplay_'));
+let mode='view',writePending=false,listeners=[],shown=0,delayed=[],message='';const frame={},title={},dialog={querySelector:()=>title,showModal:()=>shown++,addEventListener:(type,fn)=>listeners.push(fn)};
+const ctx={window:{EPCMode:{isView:()=>mode==='view',set:next=>{if(writePending)return false;mode=next;return true}}},findEventById_:id=>({id,timerId:id,status:id==='ended'?'已結算':'進行中'}),$:id=>id==='epcTimerDialog'?dialog:frame,actionMsg:s=>message=s,setTimeout:fn=>delayed.push(fn),Symbol,encodeURIComponent};vm.createContext(ctx);vm.runInContext(fn,ctx);
+ctx.epcOpenTimer_('live');assert.equal(mode,'operate');assert.equal(shown,1);assert.match(frame.src,/timer-control.html\?eventId=live/);assert.equal(title.textContent,'計時器控制');listeners.shift()();assert.equal(mode,'view');
+mode='operate';ctx.epcOpenTimer_('live');listeners.shift()();assert.equal(mode,'operate','Existing operate mode is preserved');
+mode='view';ctx.epcOpenTimer_('ended');assert.equal(mode,'view','Settled events do not activate editing');listeners.shift()();
+ctx.epcOpenTimer_('live');writePending=true;listeners.shift()();assert.equal(mode,'operate');writePending=false;delayed.shift()();assert.equal(mode,'view','Wait for in-flight writes before restoring view');
+writePending=true;const before=shown;ctx.epcOpenTimer_('live');assert.equal(shown,before);assert(message.includes('儲存中'));
+console.log('Timer entry: live event opens editable control, close restores view, active mode preserved, settled events remain readonly, pending writes protected.');
