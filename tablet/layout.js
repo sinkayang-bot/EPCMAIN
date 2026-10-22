@@ -1,8 +1,9 @@
 (function(){
  'use strict';if(new URLSearchParams(location.search).get('layout')!=='tablet')return;
  document.documentElement.classList.add('epc-tablet');
- const link=document.createElement('link');link.rel='stylesheet';link.href='tablet/layout.css?v=41';document.head.append(link);
+ const link=document.createElement('link');link.rel='stylesheet';link.href='tablet/layout.css?v=42';document.head.append(link);
  function mount(){
+  if(document.getElementById('tabletModes'))return;
   const nav=document.getElementById('nav'),header=document.querySelector('body>header'),bar=document.getElementById('epcTerminalModeBar');if(!nav||!header||!bar||!window.EPCMode)return;
   document.title='EPC 平板管理';
   const menu=document.createElement('button');menu.id='tabletMenu';menu.type='button';menu.textContent='☰ 功能選單';menu.setAttribute('data-mode-control','');menu.setAttribute('aria-controls','nav');menu.setAttribute('aria-expanded','false');header.prepend(menu);
@@ -18,5 +19,5 @@
   const activePage=()=>{const active=nav.querySelector('button[data-page].active');if(active)title.textContent=active.textContent.trim()};activePage();
   new MutationObserver(changes=>{if(changes.some(c=>c.target.matches?.('button[data-page]'))){activePage();close()}}).observe(nav,{subtree:true,attributes:true,attributeFilter:['class']});
  }
- if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',mount,{once:true});else mount();
+ if(document.getElementById('epcTerminalModeBar'))mount();else document.addEventListener('DOMContentLoaded',mount,{once:true});
 })();
