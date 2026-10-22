@@ -64,9 +64,13 @@ main.parallel-screen{height:100vh;min-height:0;padding:1.5vh 1.5vw;display:grid;
 #tvChooseEvent{z-index:2147483646;pointer-events:auto;min-height:40px;min-width:110px;touch-action:manipulation}
 #tvEventPicker{position:fixed;inset:50% auto auto 50%;transform:translate(-50%,-50%);margin:0;z-index:2147483647;max-height:92vh;overflow:auto;box-shadow:0 0 0 100vmax #000b;pointer-events:auto;isolation:isolate}
 #tvEventPicker[hidden]{display:none!important}
+
+#tvPickerEvent{display:grid;gap:8px;max-height:40vh;overflow:auto;margin-top:10px;padding:2px}
+#tvPickerEvent button{display:block;width:100%;text-align:left;min-height:56px;white-space:normal;touch-action:manipulation}
+#tvPickerEvent button[aria-pressed="true"]{background:#4b3b14;border:2px solid #f1ce6c;color:#fff3c4;box-shadow:inset 5px 0 #f1ce6c}
 </style><main id="screen"><iframe title="計時器示意" src="../timer.html?eventId=EV179268755662220&v=20261023-large-clock32" style="position:fixed;inset:0;width:100vw;height:100vh;border:0"></iframe></main><div id="demoStatus" style="position:fixed;top:0;left:0;padding:5px 10px;background:#111;color:white;font:14px system-ui">獨立驗證頁，不會切換現場設備</div><script src="../firebase-config.js"></script><script type="module">
-import {installEventPicker} from '../tv/event-picker.js?v=20261023-picker-overlay35';
-import {displayCloud} from '../display-cloud.js?v=20261023-picker-overlay35';
+import {installEventPicker} from '../tv/event-picker.js?v=20261023-picker-list36';
+import {displayCloud} from '../display-cloud.js?v=20261023-picker-list36';
 const service=await displayCloud();const cloud={timerEvents:()=>service.timerEvents(),selectTimer:async(_,eventId)=>{document.getElementById('demoStatus').textContent='驗證成功：已選 '+eventId+'（獨立驗證，未更動現場設備）'}};
 const picker=installEventPicker({cloud,deviceId:'read-only-preview'});picker.update({paired:true,payload:{type:'timer',eventId:'EV179267913469127'}});
 document.getElementById('demoStatus').textContent='雲端清單驗證：讀取真實賽事，切換不會寫入現場設備';
