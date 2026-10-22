@@ -22,6 +22,8 @@ export function timerAt(timer,now=Date.now()){
  return {...timer,index,endsAt:end,remaining:Math.max(0,Math.ceil((end-now)/1000))};
 }
 export function remaining(timer,now=Date.now()){return Math.max(0,Number(timerAt(timer,now)?.remaining)||0)}
+export function tournamentRemaining(timer,now=Date.now()){const state=timerAt(timer,now);if(!state?.levels?.length)return 0;return Math.max(0,Math.ceil(remaining(state,now)+state.levels.slice(state.index+1).reduce((n,l)=>n+l.min*60,0)))}
+export function durationText(seconds){const n=Math.max(0,Math.ceil(Number(seconds)||0));return String(Math.floor(n/3600)).padStart(2,'0')+':'+timeText(n%3600)}
 export function validateLevels(levels){
  if(!Array.isArray(levels)||!levels.length||levels.length>100)throw Error('盲注結構須為 1–100 級。');
  return levels.map(l=>{const min=Number(l.min);if(!Number.isFinite(min)||min<=0||min>600)throw Error('每級時間須大於 0 且不超過 600 分鐘。');if(l.break)return {break:true,min};const row={min};for(const k of ['sb','bb','ante']){row[k]=Number(l[k]);if(!Number.isSafeInteger(row[k])||row[k]<0)throw Error('盲注須為非負整數。')}return row});
