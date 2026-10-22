@@ -1,5 +1,5 @@
-import {command,newTimer,validateLevels} from './timer-core.js?v=20261022-total28';
-import {templateData} from './timer-store.js?v=20261022-total28';
+import {command,newTimer,validateLevels} from './timer-core.js?v=20261023-tablet-rgb41';
+import {templateData} from './timer-store.js?v=20261023-tablet-rgb41';
 let connection;
 export function timerCloud(){return connection||=(async()=>{
  const [am,fs]=await Promise.all([import('https://www.gstatic.com/firebasejs/12.4.0/firebase-app.js'),import('https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js')]);

@@ -1,0 +1,2 @@
+import {normalizeAppearance} from './timer-core.js?v=20261023-tablet-rgb41';
+export function applyAppearance(stage,raw){const a=normalizeAppearance(raw),key=JSON.stringify(a);if(stage.dataset.appearance===key)return;stage.dataset.appearance=key;stage.dataset.customColors=String(a.enabled);for(const name of ['border','clock','ring','glow'])stage.style.setProperty('--rgb-'+name,a[name]);stage.style.setProperty('--rgb-blur',Math.round(a.strength*.65)+'px');stage.style.setProperty('--rgb-glow-alpha',a.glow+Math.round(a.strength/100*100).toString(16).padStart(2,'0'));}

@@ -1,7 +1,9 @@
-import {DEFAULT_LEVELS,newTimer,remaining,timeText,eventTotals,parseTime,validateLevels,timerAt,tournamentRemaining,durationText} from './timer-core.js?v=20261023-large-clock32';
-import {STANDARD_TEMPLATE} from './timer-store.js?v=20261023-large-clock32';
+import {mountAppearanceEditor} from './timer-appearance-editor.js?v=20261023-tablet-rgb41';
+import {DEFAULT_LEVELS,newTimer,remaining,timeText,eventTotals,parseTime,validateLevels,timerAt,tournamentRemaining,durationText} from './timer-core.js?v=20261023-tablet-rgb41';
+import {STANDARD_TEMPLATE} from './timer-store.js?v=20261023-tablet-rgb41';
 const $=id=>document.getElementById(id),params=new URLSearchParams(location.search),demo=params.has('demo'),id=params.get('eventId'),esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 let event,timer,service,templates=[],busy=false,draft=structuredClone(DEFAULT_LEVELS),textLoaded=false,structureLoaded=false,textDirty=false,structureDirty=false,textRevision=0,structureRevision=0;
+const appearanceEditor=mountAppearanceEditor($('appearanceEditor'),()=>{if(!textDirty)textRevision=timer?.revision||0;textDirty=true});
 function canWrite(){try{return demo||window.parent!==window&&!window.parent.EPCMode.isView()}catch(_){return false}}
 function message(s){$('message').textContent=s}
 function update(){
@@ -29,20 +31,20 @@ function setTime(){try{parseTime($('remainingTime').value);send('set',$('remaini
  $('setTime').onclick=setTime;$('remainingTime').onkeydown=e=>{if(e.key==='Enter')setTime()};
  $('applyStructure').onclick=structure;
  $('applyTemplateBackground').onclick=()=>{const t=timer?.templateId==='standard'?STANDARD_TEMPLATE:templates.find(t=>t.id===timer?.templateId);if(!t)return message('找不到本場範本，請先重新讀取或直接選擇背景。');send('background',t.background||'classic')};
- $('saveText').onclick=()=>send('settings',{background:$('background').value,announcement:$('announcement').value,payoutInput:$('payoutInput').value},textRevision);
+ $('saveText').onclick=()=>send('settings',{background:$('background').value,appearance:appearanceEditor.read(),announcement:$('announcement').value,payoutInput:$('payoutInput').value},textRevision);
  for(const field of ['announcement','payoutInput','background'])$(field).oninput=()=>{if(!textDirty)textRevision=timer?.revision||0;textDirty=true};
  $('reloadSettings').onclick=()=>location.reload();
- $('previewTimer').onclick=()=>{if(!timer)return message('本場尚未產生計時器');$('timerPreviewFrame').src='timer.html?'+(demo?'demo=1':'eventId='+encodeURIComponent(id))+'&v=20261023-large-clock32';$('timerPreviewDialog').showModal()};$('closePreview').onclick=()=>$('timerPreviewDialog').close();
+ $('previewTimer').onclick=()=>{if(!timer)return message('本場尚未產生計時器');$('timerPreviewFrame').src='timer.html?'+(demo?'demo=1':'eventId='+encodeURIComponent(id))+'&v=20261023-tablet-rgb41';$('timerPreviewDialog').showModal()};$('closePreview').onclick=()=>$('timerPreviewDialog').close();
  function dirtyStructure(){if(!structureDirty)structureRevision=timer?.revision||0;structureDirty=true}
  $('addLevel').onclick=()=>{dirtyStructure();draft.push({sb:1000,bb:2000,ante:2000,min:20});levels()};$('addBreak').onclick=()=>{dirtyStructure();draft.push({break:true,min:5});levels()};
  $('levels').oninput=e=>{const el=e.target;if(el.dataset.field){dirtyStructure();draft[el.dataset.index][el.dataset.field]=Number(el.value)}};
  $('levels').onclick=e=>{const el=e.target.closest('[data-remove]');if(!el||!canWrite())return;if(draft.length===1)return message('至少保留一個級別');dirtyStructure();draft.splice(Number(el.dataset.remove),1);levels()};
 try{
  if(!demo&&!id)throw Error('請從賽事管理選擇一場賽事。');
- service=demo?(await import('./timer-demo.js?v=20261023-large-clock32')).demoCloud():await(await import('./timer-cloud.js?v=20261023-large-clock32')).timerCloud();
+ service=demo?(await import('./timer-demo.js?v=20261023-tablet-rgb41')).demoCloud():await(await import('./timer-cloud.js?v=20261023-tablet-rgb41')).timerCloud();
  const error=e=>message('連線失敗：'+e.message);
  service.subscribeTemplates(rows=>{templates=rows},error);
  service.subscribeEvent(id,e=>{event=e;message(e?(timer?'已連線':'請回賽事設定選擇計時器範本並儲存，將自動產生本場計時器。'):'找不到賽事');update()},error);
- service.subscribeTimer(id,t=>{timer=t;if(!busy)message(['settled','已結算'].includes(event?.status)?'此場賽事已結算，僅供檢視。':t?'已連線，時間與公告同步中。':'請回賽事設定選擇計時器範本並儲存，將自動產生本場計時器。');if(t&&!textDirty){$('background').value=t.background||'classic';$('announcement').value=t.announcement||'';$('payoutInput').value=t.payoutInput||'';textRevision=t.revision;textLoaded=true}if(t&&!structureDirty){structureRevision=t.revision;if(!structureLoaded||JSON.stringify(draft)!==JSON.stringify(t.levels)){draft=structuredClone(t.levels);structureLoaded=true;levels()}}update()},error);
+ service.subscribeTimer(id,t=>{timer=t;if(!busy)message(['settled','已結算'].includes(event?.status)?'此場賽事已結算，僅供檢視。':t?'已連線，時間與公告同步中。':'請回賽事設定選擇計時器範本並儲存，將自動產生本場計時器。');if(t&&!textDirty){appearanceEditor.fill(t.appearance);$('background').value=t.background||'classic';$('announcement').value=t.announcement||'';$('payoutInput').value=t.payoutInput||'';textRevision=t.revision;textLoaded=true}if(t&&!structureDirty){structureRevision=t.revision;if(!structureLoaded||JSON.stringify(draft)!==JSON.stringify(t.levels)){draft=structuredClone(t.levels);structureLoaded=true;levels()}}update()},error);
 }catch(e){message(e.message)}
 levels();setInterval(()=>{update();document.querySelectorAll('#levels [data-field]').forEach(el=>{if(draft[el.dataset.index]?.break&&el.dataset.field!=='min')el.disabled=true})},250);

@@ -32,7 +32,7 @@ export function newTimer(levels=DEFAULT_LEVELS){const structure=validateLevels(l
 export function command(timer,action,value,now=Date.now()){
  let t=structuredClone(timerAt(timer||newTimer(),now));const seconds=remaining(t,now);
  if(action==='background'){t.background=['black-gold','light','emerald','velvet'].includes(value)?value:'classic';return t}
- if(action==='settings'){if(Object.hasOwn(value,'background'))t.background=['black-gold','light','emerald','velvet'].includes(value.background)?value.background:'classic';t.announcement=String(value.announcement||'').slice(0,6000);t.payoutInput=String(value.payoutInput||'').slice(0,6000);return t}
+ if(action==='settings'){if(Object.hasOwn(value,'appearance'))t.appearance=normalizeAppearance(value.appearance);if(Object.hasOwn(value,'background'))t.background=['black-gold','light','emerald','velvet'].includes(value.background)?value.background:'classic';t.announcement=String(value.announcement||'').slice(0,6000);t.payoutInput=String(value.payoutInput||'').slice(0,6000);return t}
  if(action==='structure'){t.levels=validateLevels(value);t.index=0;t.remaining=t.levels[0].min*60;t.running=false;t.endsAt=0;return t}
  if(action==='toggle'){t.remaining=seconds;t.running=!t.running&&seconds>0}
  else if(action==='set'){t.remaining=parseTime(value);if(t.remaining===0)t.running=false}
@@ -50,4 +50,10 @@ export function eventTotals(raw){
  const gross=rows.reduce((n,r)=>n+r.pool,0),rate=Math.max(0,Number(e.jp)||0),unit=Math.max(1,Number(e.jpRound)||1);
  const jp=raw?.finalJP!=null?Number(raw.finalJP)||0:gross*rate>0?Math.ceil(gross*rate/100/unit)*unit:0;
  return {players:players.length,rebuyGroups:players.reduce((n,p)=>n+Math.max(0,Number(p.rebuy)||0),0),rebuyPlayers:players.filter(p=>Number(p.rebuy)>0||Number(p.addon)>0).length,groups,chips,average:players.length?Math.floor(chips/players.length):null,pool:Math.max(0,gross-jp),gross,jp};
+}
+
+export function normalizeAppearance(raw={}){
+ const defaults={enabled:false,border:'#d4af37',clock:'#ffffff',ring:'#e7c669',glow:'#d4af37',strength:35},v=raw&&typeof raw==='object'?raw:{};
+ const out={...defaults,enabled:v.enabled===true,strength:Number.isFinite(Number(v.strength))?Math.max(0,Math.min(100,Number(v.strength))):defaults.strength};
+ for(const key of ['border','clock','ring','glow'])out[key]=/^#[0-9a-f]{6}$/i.test(v[key]||'')?v[key].toLowerCase():defaults[key];return out;
 }

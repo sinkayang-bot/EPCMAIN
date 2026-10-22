@@ -1,5 +1,6 @@
+import {applyAppearance} from './timer-appearance-view.js?v=20261023-tablet-rgb41';
 import {countdownSound} from './timer-sound.js?v=20261023-start39';
-import {remaining,timeText,eventTotals,newTimer,timerAt,tournamentRemaining,durationText} from './timer-core.js?v=20261022-total28';
+import {remaining,timeText,eventTotals,newTimer,timerAt,tournamentRemaining,durationText} from './timer-core.js?v=20261023-tablet-rgb41';
 const $=id=>document.getElementById(id),params=new URLSearchParams(location.search),demo=params.has('demo'),id=params.get('eventId');
 let event,timer,service;
 const sound=countdownSound();
@@ -13,6 +14,7 @@ function render(){
  if(!event||!timer){sound.observe(null);$('broadcastScreen').hidden=true;return}
  const now=Date.now(),state=timerAt(timer,now);
  $('broadcastScreen').hidden=false;
+ applyAppearance($('broadcastScreen'),state.appearance);
  const background=['black-gold','light','emerald','velvet'].includes(state.background)?state.background:'classic';
  if($('broadcastScreen').dataset.background!==background)$('broadcastScreen').dataset.background=background;
  const levels=state.levels,l=levels[state.index],next=levels[state.index+1];if(!l)return message('計時器結構不完整，請在後臺重新套用範本。');
@@ -37,11 +39,11 @@ fit();addEventListener('resize',fit);setInterval(render,250);
 addEventListener('offline',()=>message('連線中斷，正在顯示最後同步資料'));addEventListener('online',()=>message('正在重新連線…'));
 if(params.has('templatePreview')){
  message('正在載入範本預覽…');
- addEventListener('message',e=>{if(e.origin!==location.origin||e.source!==parent||e.data?.type!=='epc-template-preview')return;try{const t=e.data.template;timer={...newTimer(t.levels),background:t.background,announcement:String(t.announcement||''),payoutInput:String(t.payoutInput||'')};event={name:'範本預覽｜'+String(t.name||'EPC'),players:[],chips:Number(t.startingStack)||0,buyin:0,jpRate:0,jpRound:100};message('');render()}catch(err){message('範本預覽失敗：'+err.message)}});
+ addEventListener('message',e=>{if(e.origin!==location.origin||e.source!==parent||e.data?.type!=='epc-template-preview')return;try{const t=e.data.template;timer={...newTimer(t.levels),background:t.background,appearance:t.appearance,announcement:String(t.announcement||''),payoutInput:String(t.payoutInput||'')};event={name:'範本預覽｜'+String(t.name||'EPC'),players:[],chips:Number(t.startingStack)||0,buyin:0,jpRate:0,jpRound:100};message('');render()}catch(err){message('範本預覽失敗：'+err.message)}});
  parent.postMessage({type:'epc-timer-preview-ready'},location.origin);
 }else try{
  if(!demo&&!id)throw Error('請從顯示設備選擇要投影的賽事。');
- service=demo?(await import('./timer-demo.js?v=20261022-total28')).demoCloud():await(await import('./timer-cloud.js?v=20261022-total28')).timerCloud();
+ service=demo?(await import('./timer-demo.js?v=20261023-tablet-rgb41')).demoCloud():await(await import('./timer-cloud.js?v=20261023-tablet-rgb41')).timerCloud();
  const error=e=>message('計時器連線失敗：'+e.message);
  service.subscribeEvent(id,e=>{event=e;message(!e?'找不到賽事，請從後臺重新選擇。':!timer?'此場尚未選用計時器範本，請回賽事設定儲存。':'');render()},error);
  service.subscribeTimer(id,t=>{timer=t;message(!event?'正在讀取賽事…':!t?'此場尚未選用計時器範本，請回賽事設定儲存。':'');render()},error);

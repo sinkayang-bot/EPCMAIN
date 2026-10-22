@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 const read=n=>readFileSync(new URL('../'+n,import.meta.url),'utf8'),data=s=>'data:text/javascript;base64,'+Buffer.from(s).toString('base64');
 const core=data(read('timer-core.js').replace("'./player-pricing.js'",JSON.stringify(data(read('player-pricing.js')))));
-const {STANDARD_TEMPLATE,buildEventTimer,createEventWithTimer,stageEventTimer}=await import(data(read('timer-store.js').replace("'./timer-core.js?v=20261021-3'",JSON.stringify(core))));
+const {STANDARD_TEMPLATE,buildEventTimer,createEventWithTimer,stageEventTimer}=await import(data(read('timer-store.js').replace("'./timer-core.js?v=20261023-tablet-rgb41'",JSON.stringify(core))));
 const template={...STANDARD_TEMPLATE,name:'EPC 3400 範本',startingStack:50000,levels:[{sb:100,bb:200,ante:200,min:12},{break:true,min:5}],announcement:'歡迎參賽',payoutInput:'第一名 10,000'};
 const event={eventId:'E-test',name:'EPC 測試',chips:300000,players:[],status:'open'};
 const built=buildEventTimer(event,template,'T-test',{creating:true});assert.equal(built.event.chips,50000);assert.equal(built.event.timerId,event.eventId);assert.equal(built.timer.remaining,720);assert.equal(built.timer.running,false);assert.equal(built.timer.announcement,'歡迎參賽');

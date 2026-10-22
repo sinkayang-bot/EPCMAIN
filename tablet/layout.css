@@ -1,0 +1,37 @@
+@media screen{
+ html.epc-tablet{--tablet-header:68px;--tablet-nav:208px;scroll-padding-top:150px}
+ html.epc-tablet body{padding-left:0!important;overflow-x:hidden;font-size:16px}
+ html.epc-tablet body>header{position:sticky!important;inset:0 0 auto!important;width:100%!important;height:var(--tablet-header)!important;min-height:var(--tablet-header);padding:10px 18px!important;display:flex!important;flex-direction:row!important;align-items:center!important;gap:16px;z-index:400!important;background:var(--bg)!important;border-bottom:1px solid var(--line)}
+ html.epc-tablet header .brand{font-size:19px!important;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+ html.epc-tablet .brand-version{display:none!important}#tabletSection{font-size:16px;color:var(--accent);font-weight:800;white-space:nowrap}
+ html.epc-tablet #nav{position:fixed!important;top:var(--tablet-header)!important;left:0!important;bottom:0;width:var(--tablet-nav)!important;z-index:300!important;display:flex!important;background:var(--bg);overscroll-behavior:contain;padding-bottom:max(18px,env(safe-area-inset-bottom))!important}
+ html.epc-tablet #nav button[data-page]{z-index:auto!important}html.epc-tablet #nav button{font-size:16px!important;min-height:50px!important;touch-action:manipulation}
+ html.epc-tablet main{margin-left:var(--tablet-nav)!important;width:auto!important;min-width:0;padding:18px!important}
+ html.epc-tablet #epcTerminalModeBar{position:sticky;top:var(--tablet-header);z-index:100;background:var(--card)!important;box-shadow:0 6px 18px #0005;gap:10px!important}
+ html.epc-tablet #epcTerminalModeBar>label,html.epc-tablet #epcTerminalMode{display:none!important}
+ #tabletModes{display:flex;gap:6px;flex:none}#tabletModes button{min-width:78px;font-weight:800}#tabletModes [aria-pressed=true]{background:var(--accent);color:#111;border-color:var(--accent)}
+ html.epc-tablet #epcTerminalModeMessage{font-size:14px!important;flex:1;min-width:200px;line-height:1.5}
+ html.epc-tablet button,html.epc-tablet .btn{min-height:46px;touch-action:manipulation}
+ html.epc-tablet .page button,html.epc-tablet .page .btn{font-size:16px!important}
+ html.epc-tablet input:not([type=checkbox]):not([type=radio]):not([type=range]),html.epc-tablet select,html.epc-tablet textarea,html.epc-tablet .page input:not([type=checkbox]):not([type=radio]):not([type=range]),html.epc-tablet .page select,html.epc-tablet .page textarea{font-size:16px!important;min-height:46px}
+ html.epc-tablet input[type=checkbox],html.epc-tablet input[type=radio]{width:22px;height:22px;vertical-align:middle}
+ html.epc-tablet .page label{font-size:14px!important}html.epc-tablet .page .small{font-size:13px;line-height:1.5}
+ html.epc-tablet .tablewrap{max-width:100%;overflow-x:auto;overscroll-behavior-x:contain;-webkit-overflow-scrolling:touch}
+ html.epc-tablet .grid,html.epc-tablet .formgrid{grid-template-columns:repeat(2,minmax(0,1fr))!important;min-width:0!important;gap:14px}
+ html.epc-tablet .grid>*,html.epc-tablet .formgrid>*{min-width:0}
+ html.epc-tablet .page table{min-width:760px;font-size:15px}html.epc-tablet .page td,html.epc-tablet .page th{padding:12px 9px!important}
+ html.epc-tablet .card{padding:16px!important}html.epc-tablet .toolbar{gap:10px}
+ html.epc-tablet dialog{max-width:95vw!important;max-height:90dvh!important;overflow:auto}
+ html.epc-tablet #actionMsg{top:140px!important}
+ #tabletMenu{display:none!important}#tabletMenuBackdrop[hidden]{display:none!important}
+ @media(max-width:1099px){
+  html.epc-tablet main{margin-left:0!important;padding:14px!important}
+  html.epc-tablet #nav{transform:translateX(-100%);visibility:hidden;pointer-events:none!important;width:250px!important;transition:transform .18s ease}
+  html.epc-tablet.tablet-menu-open #nav{transform:translateX(0);visibility:visible;pointer-events:auto!important}
+  html.epc-tablet #tabletMenu{display:block!important;width:auto!important;flex:none;font-size:15px;padding:8px 12px}
+  #tabletMenuBackdrop{position:fixed;inset:var(--tablet-header) 0 0;z-index:250;background:#0009;border:0;border-radius:0;width:100%;height:calc(100dvh - var(--tablet-header))}
+  html.epc-tablet header .brand{font-size:17px!important}html.epc-tablet body>header{padding:8px 12px!important;gap:10px}
+ }
+ @media(max-width:650px){html.epc-tablet .grid,html.epc-tablet .formgrid{grid-template-columns:minmax(0,1fr)!important}#tabletSection{display:none}html.epc-tablet #epcTerminalModeMessage{min-width:100%}}
+}
+@media print{#tabletMenu,#tabletModes,#tabletMenuBackdrop,#tabletSection,#epcTerminalModeBar{display:none!important}}
