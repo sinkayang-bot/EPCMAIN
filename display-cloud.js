@@ -1,4 +1,4 @@
-import {displayTimerEvents} from './display-timer-events.js?v=20261023-picker-fix34';
+import {displayTimerEvents} from './display-timer-events.js?v=20261023-remote37';
 import {selectDisplayTimer} from './display-timer-selection.js?v=20261023-device-picker33';
 import {effectiveDisplay,pendingTimerAssignment,syncTimerAssignment} from './display-assignment.js?v=20261022-switch5';
 import {refreshDisplay} from './display-refresh.js?v=20261022-switch5';
