@@ -1,0 +1,20 @@
+<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><base href="../"><title>計時器操作入口驗證</title><script src="terminal-mode.js?v=20261016-modes1"></script><style>body{margin:0;background:#090909;color:white;font:18px system-ui}main{padding:24px}button{padding:12px 22px;background:#c4a24a;border:0;border-radius:8px}dialog{width:96vw;height:92vh;padding:0;background:#050505;color:white;border:1px solid #c4a24a}dialog>div{height:44px;display:flex;justify-content:space-between;padding:8px;box-sizing:border-box}iframe{border:0;width:100%;height:calc(100% - 44px)}#epcTerminalModeBar{display:flex;gap:12px;margin-bottom:20px}#epcTerminalModeBar select{width:auto!important}</style></head><body><main><h1>計時器操作入口驗證</h1><p>獨立練習資料，開啟與關閉使用正式後臺相同流程。</p><button id="open">計時器</button></main><dialog id="epcTimerDialog"><div><b>計時器控制</b><button onclick="document.getElementById('epcTimerDialog').close()">關閉</button></div><iframe id="realFrame" title="計時器控制"></iframe></dialog><script>
+const $=id=>id==='epcTimerFrame'?{set src(v){document.getElementById('realFrame').src=v.replace('eventId=demo','demo=1')}}:document.getElementById(id);
+function findEventById_(id){return{id,timerId:id,status:'進行中'}}
+function actionMsg(s){document.querySelector('p').textContent=s}
+function epcOpenTimer_(eventId){
+ if(!eventId)return actionMsg('請先選擇一場賽事',true);
+ const e=findEventById_(eventId);if(e&&!e.timerId){setCurrentEventDevice_(e.id);showPage('event');return actionMsg('請在賽事設定選擇計時器範本並儲存，會自動產生本場計時器。')}
+ const dialog=$('epcTimerDialog'),frame=$('epcTimerFrame'),guard=window.EPCMode;
+ const settled=['settled','已結算'].includes(e?.status),restoreView=!settled&&!!guard?.isView();
+ if(restoreView&&!guard.set('operate'))return actionMsg('仍有資料儲存中，請稍後再開啟計時器控制。',true);
+ const session=Symbol('timer-control');dialog.timerControlSession=session;
+ dialog.addEventListener('close',()=>{
+  if(!restoreView)return;
+  const restore=()=>{if(dialog.timerControlSession!==session||guard.isView())return;if(!guard.set('view'))setTimeout(restore,250)};
+  restore();
+ },{once:true});
+ dialog.querySelector('b').textContent=settled?'計時器控制（已結算，僅供檢視）':'計時器控制';
+ frame.src='timer-control.html?eventId='+encodeURIComponent(String(eventId))+'&v=20261022-control29';dialog.showModal();
+}
+</script><script type="module">const api=(await import('./timer-demo.js?v=20261022-total28')).demoCloud();await api.createDemoEvent('standard');document.getElementById('open').onclick=()=>epcOpenTimer_('demo');</script></body></html>
