@@ -3,7 +3,7 @@ import {readFileSync} from 'node:fs';
 const optionsUrl='data:text/javascript;base64,'+Buffer.from(readFileSync(new URL('../timer-sound-options.js',import.meta.url))).toString('base64');
 const {selectedTimerVoices}=await import(optionsUrl);assert.equal(selectedTimerVoices.ten.id,'A1');assert.equal(selectedTimerVoices.five,selectedTimerVoices.ten);assert.equal(selectedTimerVoices.level.id,'C3');assert.equal(selectedTimerVoices.end.id,'G3');assert.equal(selectedTimerVoices.end.duration,1);
 const soundSource=readFileSync(new URL('../timer-sound.js',import.meta.url),'utf8').replace("'./timer-sound-options.js?v=20261022-final22'",JSON.stringify(optionsUrl));
-const {countdownCue,countdownSound,levelChangeCue,finishedCue}=await import('data:text/javascript;base64,'+Buffer.from(soundSource).toString('base64'));
+const {countdownCue,countdownSound,levelChangeCue,finishedCue,startedCue}=await import('data:text/javascript;base64,'+Buffer.from(soundSource).toString('base64'));
 const state=seconds=>({seconds,running:true,key:'E1:0',endsAt:12345});
 assert.equal(countdownCue(state(11),state(10)),10);
 assert.equal(countdownCue(state(6),state(5)),5);
@@ -49,3 +49,15 @@ sound.observe({...timer,levels:structure,index:2,running:false,endsAt:0},0,'E1')
 assert.equal(tones.length,beforeEnd+1,'Finished redraw does not replay alarm');Date.now=realNow;
 assert.equal(bufferStarts.length,1);assert(Math.abs(bufferStops[0]-bufferStarts[0]-1)<1e-9,'G3 finishes after exactly one second');
 console.log('Final alarm: natural completion only, no pause/reload/duplicate triggers passed.');
+
+const ready={key:'E1:0',running:false,seconds:60,index:0,at:1000};
+const started={...ready,running:true,duration:60,seconds:60,at:1100};
+assert(startedCue(ready,started));
+assert(!startedCue(null,started));assert(!startedCue({...ready,seconds:40},started));assert(!startedCue(ready,{...started,key:'E2:0'}));assert(!startedCue(ready,{...started,index:1}));
+const beforeStart=tones.length;
+sound.observe({...timer,running:false,remaining:60,endsAt:0},60,'start-test');
+sound.observe({...timer,running:true,remaining:60,endsAt:Date.now()+60000},60,'start-test');
+assert.equal(tones.length,beforeStart+3,'Start uses the same C3 partials as a level transition');
+sound.observe({...timer,running:true,remaining:60,endsAt:Date.now()+60000},60,'start-test');assert.equal(tones.length,beforeStart+3,'Redraw does not replay start cue');
+sound.observe({...timer,running:false,endsAt:0},40,'start-test');sound.observe({...timer,running:true,endsAt:Date.now()+40000},40,'start-test');assert.equal(tones.length,beforeStart+3,'Mid-level pause/resume does not replay opening cue');
+console.log('Start sound: same C3 bell as level transition; no reload, duplicate or mid-level resume cue.');
