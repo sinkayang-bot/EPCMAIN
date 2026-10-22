@@ -2145,7 +2145,7 @@ window.addEventListener('error',function(e){
 </section>
 
 
-<section id="timers" class="page"><iframe id="timerManagerFrame" loading="lazy" src="timer-manager.html?v=20261023-right-panel31" title="獨立計時器管理" style="width:100%;height:calc(100vh - 130px);min-height:720px;border:0;background:#090909"></iframe></section>
+<section id="timers" class="page"><iframe id="timerManagerFrame" loading="lazy" src="timer-manager.html?v=20261023-large-clock32" title="獨立計時器管理" style="width:100%;height:calc(100vh - 130px);min-height:720px;border:0;background:#090909"></iframe></section>
 <section id="events" class="page">
  <h2>賽事管理</h2>
  <div class="card" style="margin-bottom:12px">
@@ -6676,7 +6676,7 @@ function renderActivities(){
  }finally{window.epcActivityIdentityMode_=previous;}
 }
 function render(){
- if($('timers')?.classList.contains('active')&&!$('timerManagerFrame').getAttribute('src'))$('timerManagerFrame').src='timer-manager.html?v=20261023-right-panel31';
+ if($('timers')?.classList.contains('active')&&!$('timerManagerFrame').getAttribute('src'))$('timerManagerFrame').src='timer-manager.html?v=20261023-large-clock32';
  if($('playerpayments')?.classList.contains('active'))window.PP?.renderPage();
  if(epcPlayerEditing_()){epcFullRenderPending_=true;return}
  renderDashboardSummary();
@@ -7380,7 +7380,7 @@ async function autoRefreshMembers(){
 
 function epcTimerRegistry_(){
  return epcTimerRegistryPromise_||=(async()=>{
-  const api=await (await import('./timer-cloud.js?v=20261023-right-panel31')).timerCloud();
+  const api=await (await import('./timer-cloud.js?v=20261023-large-clock32')).timerCloud();
   await new Promise((resolve,reject)=>api.subscribeTemplates(rows=>{epcTimerTemplates_=rows;epcTimerTemplateOptions_(currentEvent());resolve()},reject));
   return api;
  })().catch(err=>{epcTimerRegistryPromise_=null;throw err});
@@ -7419,7 +7419,7 @@ function epcOpenTimer_(eventId){
   restore();
  },{once:true});
  dialog.querySelector('b').textContent=settled?'計時器控制（已結算，僅供檢視）':'計時器控制';
- frame.src='timer-control.html?eventId='+encodeURIComponent(String(eventId))+'&v=20261023-right-panel31';dialog.showModal();
+ frame.src='timer-control.html?eventId='+encodeURIComponent(String(eventId))+'&v=20261023-large-clock32';dialog.showModal();
 }
 function epcChooseTimerDisplay_(deviceId){
  const select=$('displayType_'+deviceId);if(!select)return;
@@ -7432,7 +7432,7 @@ async function epcPreviewTimerDisplay_(deviceId){
  if(!eventId)return actionMsg('請先選擇要預覽的投影賽事',true);
  const event=(db.events||[]).find(e=>String(e.id)===String(eventId));
  $('epcTimerProjectionTitle').textContent='投影預覽｜'+(event?eventDisplayName_(event):'EPC 賽事計時器');
- const {timerProjectionUrl}=await import('./tv/timer-frame.js?v=20261023-right-panel31');
+ const {timerProjectionUrl}=await import('./tv/timer-frame.js?v=20261023-large-clock32');
  $('epcTimerProjectionFrame').src=timerProjectionUrl(eventId,'');
  $('epcTimerProjectionDialog').showModal();
 }

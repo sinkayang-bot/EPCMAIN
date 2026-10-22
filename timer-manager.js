@@ -1,5 +1,5 @@
-import {STANDARD_TEMPLATE,templateData} from './timer-store.js?v=20261023-right-panel31';
-import {remaining,timeText,timerAt} from './timer-core.js?v=20261023-right-panel31';
+import {STANDARD_TEMPLATE,templateData} from './timer-store.js?v=20261023-large-clock32';
+import {remaining,timeText,timerAt} from './timer-core.js?v=20261023-large-clock32';
 const $=id=>document.getElementById(id),demo=new URLSearchParams(location.search).has('demo'),esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 // Forward the existing terminal guard to a nested control frame.
 try{if(parent!==window)Object.defineProperty(window,'EPCMode',{get:()=>parent.EPCMode})}catch(_){}
@@ -13,7 +13,7 @@ function options(){const values=[STANDARD_TEMPLATE,...templates],selectedId=$('t
 function drawTimers(){const byId=new Map(events.map(e=>[String(e.eventId),e]));$('timerRows').innerHTML=timers.filter(t=>byId.has(String(t.eventId))).map(t=>{t=timerAt(t);const e=byId.get(String(t.eventId)),ended=['settled','已結算'].includes(e.status);return `<tr><td>${esc(e.name||t.eventName||'EPC')}</td><td>${esc(t.templateName||'既有計時器')}</td><td>${ended?'已結算':t.levels[t.index]?.break?'休息':t.running&&remaining(t)>0?'計時中':'暫停'}</td><td>${timeText(remaining(t))}</td><td><button data-event="${esc(t.eventId)}">${ended?'查看':'控制'}</button></td></tr>`}).join('')||'<tr><td colspan="5">尚無計時器。請到「賽事管理」選擇計時器範本，建立賽事時會一同產生。</td></tr>'}
 function tab(which){$('templatePanel').hidden=which!=='templates';$('timerPanel').hidden=which!=='timers';$('templatesTab').setAttribute('aria-selected',String(which==='templates'));$('timersTab').setAttribute('aria-selected',String(which==='timers'))}
 let previewDraft;
-$('previewTemplate').onclick=()=>{try{previewDraft=templateData({...draft,name:$('templateName').value||'計時器範本預覽',startingStack:$('startingStack').value,background:$('background').value,announcement:$('announcement').value,payoutInput:$('payoutInput').value});$('templatePreviewFrame').src='timer.html?templatePreview=1&v=20261023-right-panel31';$('templatePreviewDialog').showModal()}catch(e){status(e.message)}};
+$('previewTemplate').onclick=()=>{try{previewDraft=templateData({...draft,name:$('templateName').value||'計時器範本預覽',startingStack:$('startingStack').value,background:$('background').value,announcement:$('announcement').value,payoutInput:$('payoutInput').value});$('templatePreviewFrame').src='timer.html?templatePreview=1&v=20261023-large-clock32';$('templatePreviewDialog').showModal()}catch(e){status(e.message)}};
 $('closeTemplatePreview').onclick=()=>$('templatePreviewDialog').close();
 addEventListener('message',e=>{if(e.origin===location.origin&&e.source===$('templatePreviewFrame').contentWindow&&e.data?.type==='epc-timer-preview-ready'&&previewDraft)e.source.postMessage({type:'epc-template-preview',template:previewDraft},location.origin)});
 $('templatesTab').onclick=()=>tab('templates');$('timersTab').onclick=()=>tab('timers');
@@ -26,10 +26,10 @@ $('saveTemplate').onclick=async()=>{
  if(busy||!canWrite())return;let data;try{data=templateData({...draft,name:$('templateName').value,startingStack:$('startingStack').value,background:$('background').value,announcement:$('announcement').value,payoutInput:$('payoutInput').value})}catch(e){return status(e.message)}busy=true;controls();
  try{const id=await service.saveTemplate(data.name,data.levels,{...data,id:['standard','new'].includes(selected)?null:selected,revision});selected=id;revision=['standard','new'].includes($('templatePicker').value)?1:revision+1;options();$('templatePicker').value=id;fillEditor({...data,revision});status('範本已儲存，可到賽事管理選擇。已建立的計時器維持原本內容。')}catch(e){status('未儲存：'+e.message)}finally{busy=false;controls()}
 };
-$('timerRows').onclick=e=>{const button=e.target.closest('[data-event]');if(!button)return;$('controlFrame').src='timer-control.html?'+(demo?'demo=1':'eventId='+encodeURIComponent(button.dataset.event))+'&v=20261023-right-panel31';$('controlDialog').showModal()};$('closeControl').onclick=()=>$('controlDialog').close();
+$('timerRows').onclick=e=>{const button=e.target.closest('[data-event]');if(!button)return;$('controlFrame').src='timer-control.html?'+(demo?'demo=1':'eventId='+encodeURIComponent(button.dataset.event))+'&v=20261023-large-clock32';$('controlDialog').showModal()};$('closeControl').onclick=()=>$('controlDialog').close();
 $('simulateCreate').onclick=async()=>{try{await service.createDemoEvent($('demoTemplate').value);tab('timers');status('練習賽事與計時器已同時產生；不需另外按建立計時器。')}catch(e){status(e.message)}};
 try{
- service=demo?(await import('./timer-demo.js?v=20261023-right-panel31')).demoCloud():await(await import('./timer-cloud.js?v=20261023-right-panel31')).timerCloud();
+ service=demo?(await import('./timer-demo.js?v=20261023-large-clock32')).demoCloud():await(await import('./timer-cloud.js?v=20261023-large-clock32')).timerCloud();
  const error=e=>status('連線失敗：'+e.message);
  service.subscribeTemplates(rows=>{templates=rows;options()},error);service.subscribeEvents(rows=>{events=rows;drawTimers()},error);service.subscribeTimers(rows=>{timers=rows;drawTimers()},error);
  $('demoCreate').hidden=!demo;status('先建立共用範本，再於建立賽事時選用。');

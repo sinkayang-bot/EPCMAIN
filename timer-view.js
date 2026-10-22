@@ -22,7 +22,7 @@ function render(){
  text($('screenEvent'),event.name||'EPC 限時錦標賽');text($('screenLevel'),'LEVEL '+level+' / '+levels.filter(l=>!l.break).length);
  text($('tournamentCountdown'),durationText(tournamentRemaining(state,now)));
  const finished=state.index===levels.length-1&&seconds===0;
- text($('levelTitle'),l.break?'BREAK':'LEVEL '+level);text($('clock'),finished?'Finish':timeText(seconds));flag($('progressRing'),'isBreak',!!l.break);flag($('progressRing'),'isFinished',finished);
+ text($('levelTitle'),l.break?'BREAK':'LEVEL '+level);text($('clock'),finished?'Finish':timeText(seconds));const digits=String($('clock').textContent.length);if($('clock').dataset.digits!==digits)$('clock').dataset.digits=digits;flag($('progressRing'),'isBreak',!!l.break);flag($('progressRing'),'isFinished',finished);
  for(const [p,row] of [['cur',l],['next',next]])for(const [suffix,key] of [['SB','sb'],['BB','bb'],['Ante','ante']])text($(p+suffix),!row?'—':row.break?(p==='next'&&suffix==='SB'?'休息':'—'):num(row[key]));
  for(const [field,key] of [['sPlayers','players'],['sRebuys','rebuyGroups'],['sGroups','groups'],['chipsInPlay','chips'],['avgStack','average']])text($(field),totals[key]===null?'—':num(totals[key]));
  text($('extraContent'),'$'+num(totals.pool));payout(state.payoutInput||'');
@@ -32,7 +32,7 @@ function render(){
  const hasBreak=levels.slice(state.index).some(l=>l.break),value=l.break?seconds:until;
  text($('breakCaption'),finished?'TOURNAMENT FINISHED':l.break?'BREAK REMAINING':'NEXT BREAK IN');text($('breakCountdown'),!finished&&hasBreak?String(Math.floor(value/3600)).padStart(2,'0')+':'+timeText(value%3600):'—');
 }
-for(let i=0;i<72;i++){const tick=document.createElement('i');tick.style.transform='rotate('+(i*5)+'deg) translateY(-249px)';$('ringTicks').append(tick)}
+for(let i=0;i<72;i++){const tick=document.createElement('i');tick.style.transform='rotate('+(i*5)+'deg) translateY(-285px)';$('ringTicks').append(tick)}
 fit();addEventListener('resize',fit);setInterval(render,250);
 addEventListener('offline',()=>message('連線中斷，正在顯示最後同步資料'));addEventListener('online',()=>message('正在重新連線…'));
 if(params.has('templatePreview')){

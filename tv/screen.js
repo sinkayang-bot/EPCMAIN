@@ -1,6 +1,6 @@
 import {pairingMarkup} from '../display-pairing.js?v=20261022-qr27';
 import {effectiveDisplay} from '../display-assignment.js?v=20261022-switch5';
-import {mountTimerFrame} from './timer-frame.js?v=20261023-right-panel31';
+import {mountTimerFrame} from './timer-frame.js?v=20261023-large-clock32';
 import {displayCloud} from '../display-cloud.js';
 const host=document.getElementById('screen'),esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])),money=n=>'$'+Number(n||0).toLocaleString();
 let id=localStorage.getItem('epcTvDeviceId');if(!id){id=Array.from(crypto.getRandomValues(new Uint8Array(16)),x=>x.toString(16).padStart(2,'0')).join('');localStorage.setItem('epcTvDeviceId',id)}
