@@ -18,13 +18,13 @@ require('../player-payments-core.js');
  const source=fs.readFileSync(require.resolve('../phone/phone.js'),'utf8').replace(/^import .*;\n/gm,'');w.eval(source);
  const $=id=>w.document.getElementById(id),tick=()=>new Promise(r=>setImmediate(r));await tick();await tick();
  function snapshot(){eventCallback({docs:[{id:'E',data:()=>clone(records.get('events/E'))}],metadata:{fromCache:false}});}
- snapshot();assert(!$('registrationLadies'));assert(!$('rebuyLadies'));assert($('birdType').querySelector('[value=ladies]'));assert($('rebuyDiscountType'));
+ snapshot();assert(!$('registrationLadies'));assert(!$('rebuyLadies'));assert($('birdType').querySelector('[value=ladies]'));assert(!$('rebuyDiscountType'));
  async function click(id){$(id).click();await tick();await lock;await tick();}
  function choose(id){$('memberSearch').value=id;$('memberSearch').dispatchEvent(new w.Event('input'));w.document.querySelector(`[data-memberkey="${id}"]`).click();}
  choose('42');$('birdType').value='ladies';$('birdType').dispatchEvent(new w.Event('change'));assert.equal($('amountPaid').value,'3200');assert($('amountPaid').readOnly);
  assert.equal($('registrationUnpaid').checked,false);assert.equal($('rebuyUnpaid').checked,false);$('registrationUnpaid').checked=true;await click('registerBtn');assert.equal($('registrationUnpaid').checked,false);
  let ledger=records.get('accounting/PLAYER_PAYMENTS_42');assert(ledger);assert.equal(ledger.accounts.E.charge,3200);assert.equal(ledger.accounts.E.paid,0);assert(records.get('events/E').players[0].ladies);assert.equal(records.get('events/E').players[0].registrationUnpaid,true);
- snapshot();assert($('rebuyPriceNote').textContent.includes('3,200'));assert($('rebuyDiscountType').disabled);assert($('overviewPlayers').textContent.includes('未結帳 $3,200'));
+ snapshot();assert($('rebuyPriceNote').textContent.includes('3,200'));assert(!$('rebuyDiscountType'));assert($('overviewPlayers').textContent.includes('未結帳 $3,200'));
  $('rebuyManualDiscount').value='20';assert.equal($('rebuyUnpaid').checked,false);await click('rebuySaveBtn');assert.equal($('rebuyUnpaid').checked,false);
  ledger=records.get('accounting/PLAYER_PAYMENTS_42');assert.equal(ledger.accounts.E.charge,6380);assert.equal(ledger.accounts.E.paid,3180);assert.equal(ledger.items.at(-1).kind,'rebuy');assert.equal(ledger.items.at(-1).cashAmount,3180);assert.equal(records.get('events/E').players[0].rebuy,1);
  // A deposit is spent before cash; marking the new rebuy paid must retain previous debt.

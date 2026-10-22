@@ -37,7 +37,7 @@ export function setupPlayerPayments({fs,db,col,accountingCol,bridge}){
      if(!Number.isSafeInteger(groups)||groups<1||groups>100||!Number.isSafeInteger(discount)||discount<0)throw Error('重買組數或優惠不正確');
      const oldCharge=window.epcPlayerPaymentPrice_(old,p);
      p.rebuy=Number(p.rebuy||0)+groups;p.manualDiscount=Number(p.manualDiscount||0)+discount;
-     if(cmd.ladies)p.ladies=true;
+     // Rebuys preserve the registration discount; they cannot add a ladies discount.
      if(discount){p._manualDiscountEditedAt=Date.now();p._manualDiscountEditedValue=p.manualDiscount;}
      p._rebuyRevision=Number(p._rebuyRevision||0)+1;
      const delta=window.epcPlayerPaymentPrice_(old,p)-oldCharge;

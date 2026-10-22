@@ -1,0 +1,11 @@
+import assert from 'node:assert/strict';
+import {registrationPrice,rebuyPrice} from '../player-pricing.js';
+const e={buyin:3000,fee:400,ladiesDiscount:200,rebuyTotal:3400,rebuyAdmin:400};
+const woman=registrationPrice(e,1,'none',true,0).p,regular=registrationPrice(e,1,'none',false,0).p;
+assert.equal(registrationPrice(e,1,'none',true,0).paid,3200);
+const standard=rebuyPrice(e,regular,1,0,false),female=rebuyPrice(e,woman,1,0,true);
+assert.equal(female.amount,standard.amount,'First-time ladies discount does not reduce the next rebuy');
+assert.equal(rebuyPrice(e,regular,1,0,true).amount,standard.amount,'Legacy fifth argument cannot activate ladies discount');
+assert.equal(rebuyPrice(e,woman,2,50).amount,standard.amount*2-50,'Women can receive the normal manual rebuy discount');
+assert.equal(female.before.ladiesDiscount,200);assert.equal(female.after.ladiesDiscount,200);
+console.log('PASS: registration ladies discount retained, rebuy adds no ladies discount, manual discounts remain usable.');

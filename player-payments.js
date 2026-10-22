@@ -255,7 +255,7 @@
   const groups=Number(el('ppRebuyGroups').value),discount=Number(el('ppRebuyManual').value||0);
   if(!Number.isSafeInteger(groups)||groups<1||groups>100)throw Error('重買組數須為 1～100 組');
   if(!Number.isSafeInteger(discount)||discount<0)throw Error('手動優惠須為非負整數');
-  const ladies=!!p.ladies||el('ppRebuyLadies').checked;
+  const ladies=!!p.ladies;
   const before=Number(calcPlayerForEvent(p,e).paid),after=Number(calcPlayerForEvent({...p,rebuy:Number(p.rebuy||0)+groups,manualDiscount:Number(p.manualDiscount||0)+discount,ladies},e).paid),amount=after-before;
   if(!Number.isSafeInteger(amount)||amount<0)throw Error('本次優惠不能超過重買金額');
   return {e,p,groups,discount,ladies,amount};
@@ -281,7 +281,7 @@
    }
    rebuy={eventId:String(eventId),memberId:String(memberId)};
    const ladies=e.ladiesDiscount??Math.floor(Number((e.pricingMode==='custom'?e.buyinAdmin:e.admin)||0)/2);
-   el('ppRebuyDialog').innerHTML=`<h2>${esc(name(memberId))}｜重買</h2><p>${esc(businessDateForEvent(e))}｜${esc(eventDisplayName_(e))}</p><div class="formgrid" style="grid-template-columns:1fr 1fr"><div><label>新增重買組數</label><input id="ppRebuyGroups" type="number" min="1" max="100" step="1" value="1" oninput="PP.rebuyPreview()"></div><div><label>本次手動優惠</label><input id="ppRebuyManual" type="number" min="0" step="1" value="0" oninput="PP.rebuyPreview()"></div></div><label style="display:flex;align-items:center;gap:8px;margin-top:14px"><input id="ppRebuyLadies" type="checkbox" style="width:auto" ${p.ladies?'checked disabled':''} onchange="PP.rebuyPreview()">女士優惠 −${cash(ladies)}（每場一次${p.ladies?'，本場已使用':''}）</label><label style="margin-top:16px">本次應付金額</label><div class="pp-reg-total" id="ppRebuyTotal"></div><p class="small" id="ppRebuyBreakdown"></p><label style="display:flex;align-items:center;gap:8px"><input id="ppRebuyUnpaid" type="checkbox" style="width:auto" onchange="PP.rebuyPreview()">本次未付款（預設已付款；寄存金優先抵扣）</label><div class="toolbar"><button id="ppRebuyConfirm" class="primary" type="button" data-pp-action onclick="PP.confirmRebuy()">確認重買</button><button type="button" data-pp-action onclick="PP.closeRebuy()">取消</button></div><div id="ppRebuyStatus" class="pp-reg-feedback" role="status"></div><button id="ppRebuyRetry" type="button" data-pp-action hidden onclick="PP.retryPending()">確認上一筆重買結果</button>`;
+   el('ppRebuyDialog').innerHTML=`<h2>${esc(name(memberId))}｜重買</h2><p>${esc(businessDateForEvent(e))}｜${esc(eventDisplayName_(e))}</p><div class="formgrid" style="grid-template-columns:1fr 1fr"><div><label>新增重買組數</label><input id="ppRebuyGroups" type="number" min="1" max="100" step="1" value="1" oninput="PP.rebuyPreview()"></div><div><label>本次手動優惠</label><input id="ppRebuyManual" type="number" min="0" step="1" value="0" oninput="PP.rebuyPreview()"></div></div><p class="small">重買不適用女士優惠，可使用本次手動優惠。</p><label style="margin-top:16px">本次應付金額</label><div class="pp-reg-total" id="ppRebuyTotal"></div><p class="small" id="ppRebuyBreakdown"></p><label style="display:flex;align-items:center;gap:8px"><input id="ppRebuyUnpaid" type="checkbox" style="width:auto" onchange="PP.rebuyPreview()">本次未付款（預設已付款；寄存金優先抵扣）</label><div class="toolbar"><button id="ppRebuyConfirm" class="primary" type="button" data-pp-action onclick="PP.confirmRebuy()">確認重買</button><button type="button" data-pp-action onclick="PP.closeRebuy()">取消</button></div><div id="ppRebuyStatus" class="pp-reg-feedback" role="status"></div><button id="ppRebuyRetry" type="button" data-pp-action hidden onclick="PP.retryPending()">確認上一筆重買結果</button>`;
    rebuyPreview();el('ppRebuyDialog').showModal();
   }catch(err){actionMsg(err.message||String(err),true);}
  }
@@ -294,7 +294,7 @@
    if(typeof EPC_FIRESTORE_EVENT_SAVE_TIMERS!=='undefined'){
     const t=EPC_FIRESTORE_EVENT_SAVE_TIMERS.get(eventId);if(t){clearTimeout(t);EPC_FIRESTORE_EVENT_SAVE_TIMERS.delete(eventId);await syncEventToFirestore_(cost.e,true);}
    }
-   const result=await run({kind:'rebuy',eventId,memberId,groups:cost.groups,manualDiscount:cost.discount,ladies:cost.ladies,paidNow,expectedDelta:cost.amount,note:'電腦重買｜'+(paidNow?'本次已收款':'本次待收')});
+   const result=await run({kind:'rebuy',eventId,memberId,groups:cost.groups,manualDiscount:cost.discount,paidNow,expectedDelta:cost.amount,note:'電腦重買｜'+(paidNow?'本次已收款':'本次待收')});
    if(!result)return;
    saved=true;rebuy=null;el('ppRebuyDialog').close();actionMsg('已新增 '+cost.groups+' 組重買，'+(paidNow?'本次款項已結帳':'本次未付款已記入欠款'));
   }catch(err){el('ppRebuyStatus').textContent=err.message||String(err);}

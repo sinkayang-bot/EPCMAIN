@@ -3,8 +3,8 @@ import {getFirestore,collection,doc,onSnapshot,runTransaction,serverTimestamp} f
 import * as fs from 'https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js';
 import * as authMod from 'https://www.gstatic.com/firebasejs/12.4.0/firebase-auth.js';
 import {setupAccountingAuth} from '../firebase-accounting-auth.js?v=20261016-phone-payments1';
-import {setupPlayerPayments} from '../player-payments-cloud.js?v=20261017-rebuy1';
-import {pricePlayer,registrationPrice,rebuyPrice} from '../player-pricing.js?v=20261016-phone-payments1';
+import {setupPlayerPayments} from '../player-payments-cloud.js?v=20261023-rebuy-no-ladies30';
+import {pricePlayer,registrationPrice,rebuyPrice} from '../player-pricing.js?v=20261023-rebuy-no-ladies30';
 const $=id=>document.getElementById(id),esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const app=initializeApp(window.EPC_FIREBASE_CONFIG,'epc-phone'),store=getFirestore(app),col=collection(store,'epc_events');
 let events=[],selected='',unsubscribe,members=new Map(),memberRows=[];const drafts=new Map(),busy=new Set();
@@ -143,10 +143,9 @@ function renderRebuy(){
  const e=events.find(x=>x.eventId===selected),sel=$('rebuyPlayer');if(!sel)return;
  const old=sel.value;sel.innerHTML=(e?.players||[]).map(p=>'<option value="'+esc(p.memberId)+'">'+esc(seatLabel(p))+'｜已重買 '+num(p.rebuy)+' 組'+(playerDue(e,p)?'｜未結帳 $'+num(playerDue(e,p)):'｜已結帳')+'</option>').join('');
  if((e?.players||[]).some(p=>String(p.memberId)===old))sel.value=old;
- const p=(e?.players||[]).find(p=>String(p.memberId)===sel.value),ladies=$('rebuyDiscountType');
- if(p?.ladies){ladies.value='ladies';ladies.disabled=true;ladies.dataset.player=sel.value;}else{if(ladies.dataset.player!==sel.value){ladies.value='none';ladies.dataset.player=sel.value;}ladies.disabled=false;}
+ const p=(e?.players||[]).find(p=>String(p.memberId)===sel.value);
  try{
-  const cost=rebuyPrice(e,p,Number($('rebuyGroups').value),Number($('rebuyManualDiscount').value||0),ladies.value==='ladies'),due=playerDue(e,p),wallet=paymentRows.get(String(p.memberId))?.wallet||0;
+  const cost=rebuyPrice(e,p,Number($('rebuyGroups').value),Number($('rebuyManualDiscount').value||0)),due=playerDue(e,p),wallet=paymentRows.get(String(p.memberId))?.wallet||0;
   const used=Math.min(wallet,due+cost.amount),cashDue=Math.max(0,cost.amount-Math.max(0,used-due));
   $('rebuyPriceNote').textContent='本次新增 '+$('rebuyGroups').value+' 組｜應付 '+num(cost.amount)+' 元｜原欠 '+num(due)+' 元｜寄存抵扣 '+num(used)+' 元｜本次另收 '+num(cashDue)+' 元（不含原欠款）';
  }catch(err){$('rebuyPriceNote').textContent=err.message;}
@@ -155,15 +154,14 @@ $('overviewPlayers').addEventListener('click',ev=>{const b=ev.target.closest('[d
 $('rebuyPlayer').addEventListener('change',renderRebuy);
 $('rebuyGroups').addEventListener('input',renderRebuy);
 $('rebuyManualDiscount').addEventListener('input',renderRebuy);
-$('rebuyDiscountType').addEventListener('change',renderRebuy);
 $('rebuySaveBtn').addEventListener('click',async()=>{
  const e=events.find(x=>x.eventId===selected),id=$('rebuyPlayer').value,groups=Number($('rebuyGroups').value),discount=Number($('rebuyManualDiscount').value||0),msg=$('rebuyMessage'),btn=$('rebuySaveBtn');
  if(btn.disabled||mobilePaymentBusy)return;
  try{
-  const p=e?.players?.find(p=>String(p.memberId)===id),cost=rebuyPrice(e,p,groups,discount,$('rebuyDiscountType').value==='ladies'),unpaid=$('rebuyUnpaid').checked;
+  const p=e?.players?.find(p=>String(p.memberId)===id),cost=rebuyPrice(e,p,groups,discount),unpaid=$('rebuyUnpaid').checked;
   if(!confirm('新增 '+groups+' 組重買｜本次應付 '+num(cost.amount)+' 元｜'+(unpaid?'尚未付款':'確認已收本次款項')+'（寄存金優先抵扣）'))return;
   btn.disabled=true;msg.textContent='正在儲存重買與付款…';msg.className='message';
-  await mobilePayment({kind:'rebuy',eventId:e.eventId,memberId:id,groups,manualDiscount:discount,ladies:$('rebuyDiscountType').value==='ladies',paidNow:!unpaid,expectedDelta:cost.amount,note:'手機重買｜'+(unpaid?'本次待收':'本次已收款')});
+  await mobilePayment({kind:'rebuy',eventId:e.eventId,memberId:id,groups,manualDiscount:discount,paidNow:!unpaid,expectedDelta:cost.amount,note:'手機重買｜'+(unpaid?'本次待收':'本次已收款')});
   msg.textContent='重買成功，新增 '+groups+' 組｜款項已同步玩家帳務';msg.className='message good';$('rebuyGroups').value='1';$('rebuyManualDiscount').value='0';$('rebuyUnpaid').checked=false;
  }catch(err){msg.textContent='重買失敗：'+err.message;msg.className='message error';}
  finally{btn.disabled=false;renderRebuy();}

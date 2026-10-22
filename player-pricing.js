@@ -90,9 +90,9 @@ export function registrationPrice(raw,groups,bird,ladies,manual){
  const cost=pricePlayer(raw,p),base=pricePlayer(raw,{...p,earlyBird:false,lateBird:false,ladies:false,manualDiscount:0});
  if(cost.manual>base.paid)throw Error('優惠不能超過買入金額');return {p,...cost};
 }
-export function rebuyPrice(raw,p,groups,manual,ladies){
+export function rebuyPrice(raw,p,groups,manual){
  if(!p)throw Error('請先選擇玩家');
  if(!Number.isSafeInteger(groups)||groups<1||groups>100||!Number.isSafeInteger(manual)||manual<0)throw Error('重買須為 1～100 組；優惠須為非負整數');
- const before=pricePlayer(raw,p),after=pricePlayer(raw,{...p,rebuy:Number(p.rebuy||0)+groups,manualDiscount:Number(p.manualDiscount||0)+manual,ladies:!!p.ladies||!!ladies});
+ const before=pricePlayer(raw,p),after=pricePlayer(raw,{...p,rebuy:Number(p.rebuy||0)+groups,manualDiscount:Number(p.manualDiscount||0)+manual,ladies:!!p.ladies});
  const amount=after.paid-before.paid;if(amount<0)throw Error('本次優惠不能超過重買金額');return {amount,before,after};
 }
