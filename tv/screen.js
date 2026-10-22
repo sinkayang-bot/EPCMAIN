@@ -1,7 +1,8 @@
+import {installEventPicker} from './event-picker.js?v=20261023-device-picker33';
 import {pairingMarkup} from '../display-pairing.js?v=20261022-qr27';
 import {effectiveDisplay} from '../display-assignment.js?v=20261022-switch5';
 import {mountTimerFrame} from './timer-frame.js?v=20261023-large-clock32';
-import {displayCloud} from '../display-cloud.js';
+import {displayCloud} from '../display-cloud.js?v=20261023-device-picker33';
 const host=document.getElementById('screen'),esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])),money=n=>'$'+Number(n||0).toLocaleString();
 let id=localStorage.getItem('epcTvDeviceId');if(!id){id=Array.from(crypto.getRandomValues(new Uint8Array(16)),x=>x.toString(16).padStart(2,'0')).join('');localStorage.setItem('epcTvDeviceId',id)}
 let timer,cloud,lastSignature='',renewing=false;
@@ -84,9 +85,9 @@ function show(data){
  let i=0;const next=()=>{const slide=slides[i++%slides.length];if(slide.type==='parallel')renderParallel(slide);else {host.className='';host.style.removeProperty?.('--panel-columns');host.style.removeProperty?.('--panel-rows');render(slide)};if(slides.length>1)timer=setTimeout(next,Math.max(5,slide.duration||data.rotateSeconds||15)*1000)};next();
 }
 try{
- cloud=await displayCloud();await cloud.register(id);cloud.subscribe(id,async data=>{
+ cloud=await displayCloud();const picker=installEventPicker({cloud,deviceId:id});await cloud.register(id);cloud.subscribe(id,async data=>{
   if(!data&&!renewing){renewing=true;lastSignature='';try{await cloud.register(id)}finally{renewing=false}return}
-  data=effectiveDisplay(data);
+  data=effectiveDisplay(data);picker.update(data);
   const sig=JSON.stringify([data?.paired,data?.code,data?.payload,data?.rotateSeconds]);if(sig!==lastSignature){lastSignature=sig;show(data)}
  },e=>{host.innerHTML=`<div class="center error"><h1>顯示連線失敗</h1><p>${esc(e.message)}</p><p>請重新整理後再試</p></div>`});
  setInterval(()=>cloud.heartbeat(id).catch(()=>{}),30000);
