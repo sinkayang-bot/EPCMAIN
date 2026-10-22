@@ -1,3 +1,4 @@
+import {displayTimerEvents} from './display-timer-events.js?v=20261023-picker-fix34';
 import {selectDisplayTimer} from './display-timer-selection.js?v=20261023-device-picker33';
 import {effectiveDisplay,pendingTimerAssignment,syncTimerAssignment} from './display-assignment.js?v=20261022-switch5';
 import {refreshDisplay} from './display-refresh.js?v=20261022-switch5';
@@ -8,11 +9,7 @@ export async function displayCloud(){
  const db=fs.getFirestore(app),devices=fs.collection(db,'epc_events','_epc_display','devices'),codes=fs.collection(db,'epc_events','_epc_display','codes');
  const device=id=>fs.doc(devices,String(id));
  const service={fs,device,
-  async timerEvents(){
-   const timers=await fs.getDocs(fs.collection(db,'epc_events','_epc_timer','timers'));
-   const rows=await Promise.all(timers.docs.map(async t=>{const event=await fs.getDoc(fs.doc(db,'epc_events',t.id));if(!event.exists()||event.data().status==='deleted')return null;const e=event.data();return {eventId:t.id,name:String(e.name||t.data().eventName||'EPC 賽事'),date:String(e.date||''),settled:['settled','已結算'].includes(e.status)}}));
-   return rows.filter(Boolean).sort((a,b)=>Number(a.settled)-Number(b.settled)||b.date.localeCompare(a.date)||b.name.localeCompare(a.name));
-  },
+  timerEvents:()=>displayTimerEvents({fs,db}),
   selectTimer:(id,eventId)=>window.EPCMode?window.EPCMode.runWrite(()=>selectDisplayTimer({fs,db,ref:device(id),eventId})):selectDisplayTimer({fs,db,ref:device(id),eventId}),
   async request(p){
    if(!['ping','devices'].includes(p.action))window.EPCMode?.assertWrite();

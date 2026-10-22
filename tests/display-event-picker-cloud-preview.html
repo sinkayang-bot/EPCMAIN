@@ -1,0 +1,68 @@
+<!doctype html><html lang="zh-Hant"><meta charset="utf-8"><meta name="color-scheme" content="only light"><meta name="viewport" content="width=device-width,initial-scale=1"><title>EPC 顯示設備</title><style>
+:root{color-scheme:only light}*{box-sizing:border-box}body{font-size:clamp(20px,1.35vw,28px);margin:0;background:#0d1015;color:#f3f4f6;font-family:system-ui,"Microsoft JhengHei",sans-serif}main{padding:4vh 5vw;min-height:100vh}header{display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #454039;padding-bottom:2vh;color:#d8b65f}h1{font-size:clamp(28px,3vw,60px);margin:1vh 0}h2{font-size:clamp(24px,2.5vw,48px)}.center{text-align:center;padding:10vh 0}.code{font-size:clamp(70px,12vw,180px);letter-spacing:.12em;color:#dfbd68;font-weight:800}.muted{color:#aab3c1}.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:2vw}.card{border:1px solid #42464f;background:#1b2028;border-radius:16px;padding:2vw}.value{font-size:clamp(32px,4vw,80px);font-weight:800;color:#e3c36d}.hp{height:3vh;background:#343a43;border-radius:20px;overflow:hidden}.hp>div{height:100%;background:#d5b05c}table{width:100%;border-collapse:collapse;font-size:clamp(20px,2vw,38px)}td,th{padding:1.3vh 1vw;text-align:left;border-bottom:1px solid #343a43}th{color:#bdc6d4;font-size:.9em;font-weight:700}.badge{font-size:clamp(22px,2vw,40px);color:#dfbd68}footer{margin-top:2vh;color:#bdc6d4;font-size:clamp(18px,1.25vw,26px);line-height:1.5}.error{color:#ff9b9b}@media(max-width:650px){.grid{grid-template-columns:1fr}.value{font-size:36px}}
+
+header>span{font-size:clamp(20px,1.35vw,28px);font-weight:600}
+.boss-metrics{grid-template-columns:repeat(4,minmax(0,1fr));gap:1.4vw}
+.boss-metrics .card{padding:1.5vw;border-radius:18px;border-top:3px solid #c7a85f;background:linear-gradient(145deg,#222832,#171c24);min-height:190px}
+.metric-label{font-size:clamp(24px,1.7vw,36px);font-weight:750;color:#f3f4f6;letter-spacing:.04em}
+.boss-metrics .value{font-size:clamp(38px,3.4vw,72px);line-height:1.15;margin:14px 0;font-variant-numeric:tabular-nums;white-space:nowrap;letter-spacing:-.03em}
+.metric-note{font-size:clamp(20px,1.35vw,28px);color:#bdc6d4;line-height:1.55}
+.hp-total{font-size:.55em;color:#bdc6d4;letter-spacing:0}
+.boss-metrics .hp{height:18px;margin-top:18px}
+@media(max-width:1100px){.boss-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.boss-metrics .card{padding:24px}.boss-metrics .value{font-size:48px}}
+@media(max-width:650px){.boss-metrics{grid-template-columns:1fr}.boss-metrics .value{font-size:44px}}
+
+main.parallel-screen{height:100vh;min-height:0;padding:1.5vh 1.5vw;display:grid;grid-template-columns:repeat(var(--panel-columns),minmax(0,1fr));grid-template-rows:repeat(var(--panel-rows),minmax(0,1fr));gap:1.5vh 1.2vw}
+.activity-panel{min-width:0;min-height:0;overflow:auto;background:#141920;border:1px solid #514735;border-radius:16px;padding:1.2vh 1vw}
+.activity-panel header{display:block;padding-bottom:.7vh}.activity-panel h1{font-size:clamp(20px,1.7vw,36px);margin:.4vh 0}.activity-panel header>span{font-size:clamp(12px,1vw,20px)}
+.activity-panel h2{font-size:clamp(16px,1.3vw,28px);margin:1vh 0}.activity-panel .badge{font-size:clamp(12px,1vw,20px)}
+.activity-panel table{font-size:clamp(14px,1.3vw,28px)!important;table-layout:fixed}.activity-panel td,.activity-panel th{padding:.65vh .3vw;overflow-wrap:anywhere}
+.activity-panel .boss-metrics{grid-template-columns:repeat(2,minmax(0,1fr));gap:.7vh .6vw}.activity-panel .boss-metrics .card{padding:.7vh .6vw;min-height:0;border-radius:10px}
+.activity-panel .metric-label{font-size:clamp(14px,1vw,22px)}.activity-panel .boss-metrics .value{font-size:clamp(22px,2vw,42px);margin:.5vh 0}.activity-panel .metric-note{font-size:clamp(12px,.85vw,18px);line-height:1.3}.activity-panel .boss-metrics .hp{height:10px;margin-top:.5vh}
+.activity-panel footer{font-size:clamp(11px,.8vw,16px);margin-top:.8vh;line-height:1.35}
+
+.activity-panel.boss-panel{overflow:hidden}
+.boss-panel-content{transform-origin:center top;display:grid;grid-template-columns:1.15fr 1fr;gap:.7vh 1vw}
+.boss-panel-content>header,.boss-panel-content>h2:first-of-type,.boss-panel-content>footer{grid-column:1/-1}
+.boss-panel-content>.boss-metrics{grid-column:1;grid-row:3/span 2;align-content:start}
+.boss-panel-content>h2:nth-of-type(2){grid-column:2;grid-row:3;margin:0}
+.boss-panel-content>table{grid-column:2;grid-row:4;align-self:start}
+.boss-panel-content>footer{margin-top:0}
+
+.activity-panel .leaderboard .col-rank{width:10%}
+.activity-panel .leaderboard .col-score{width:11%}
+.activity-panel .leaderboard .col-count{width:10%}
+.activity-panel .leaderboard .col-member{width:27%}
+.activity-panel .leaderboard .member-number{white-space:nowrap;font-variant-numeric:tabular-nums}
+.activity-panel .leaderboard .player-identity{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;overflow-wrap:normal}
+.activity-panel .leaderboard td:last-child,.activity-panel .leaderboard th:last-child{text-align:right}
+
+/* Extreme10: keep the ranking above the fold, including parallel panels. */
+.ten-content{min-width:0}
+.ten-summary{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:12px 0 16px;font-size:clamp(16px,1.4vw,28px);border-bottom:1px solid #454039}
+.ten-summary b{color:#e3c36d}.ten-summary small{display:block;font-size:.65em;color:#bdc6d4}
+.ten-ranking{table-layout:fixed;font-size:clamp(22px,2vw,40px);font-variant-numeric:tabular-nums}
+.ten-ranking .ten-rank-col{width:12%}.ten-ranking .ten-id-col{width:24%}.ten-ranking .ten-seconds-col{width:36%}
+.ten-ranking .ten-rank{font-weight:900;color:#e3c36d;font-size:1.2em}
+.ten-ranking td,.ten-ranking th{padding:.8vh .7vw}
+.ten-ranking .ten-seconds{white-space:nowrap;text-align:right}
+.ten-ranking small{display:block;font-size:.52em;color:#aeb9c9;line-height:1.3;font-weight:400}
+.ten-ranking .ten-success b{color:#49c27d}.ten-ranking tbody tr:nth-child(-n+3){background:#d8b65f0c}
+.activity-panel .ten-summary{font-size:clamp(12px,1vw,20px);padding:.6vh 0;gap:.4vw}
+.activity-panel .ten-summary small{font-size:.65em}
+.activity-panel .ten-ranking{font-size:clamp(13px,1.2vw,25px)!important}
+.activity-panel .ten-ranking td,.activity-panel .ten-ranking th{padding:.35vh .3vw}
+.activity-panel .ten-ranking .ten-seconds{overflow-wrap:normal}
+.activity-panel .ten-ranking .ten-seconds-col{width:39%}
+.activity-panel .ten-ranking .ten-rank-col{width:12%}
+.activity-panel .ten-ranking small{font-size:.58em}
+.ten-ranking .player-identity .ten-result{white-space:normal}
+
+.umbrella-boards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:22px;min-height:0;flex:1;overflow:auto;align-items:start}.umbrella-board{min-width:0;border:1px solid #5b4b2a;border-radius:12px;padding:12px}.umbrella-board h2{margin:0 0 6px;font-size:clamp(20px,2.1vw,48px)}.umbrella-board p{font-size:clamp(12px,1.2vw,26px);margin:4px 0 12px}.umbrella-board table{font-size:clamp(16px,calc(1.8vw * var(--umbrella-scale,1)),44px)}.umbrella-boards.compact{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.umbrella-boards.compact .umbrella-board{padding:6px}.umbrella-boards.compact h2{font-size:clamp(16px,1.3vw,30px);margin-bottom:4px}.umbrella-boards.compact p{font-size:clamp(12px,.85vw,18px);margin:2px 0 6px}.activity-panel .umbrella-board td,.activity-panel .umbrella-board th{padding:.45vh .25vw}
+.pairing-screen{padding:2vh 0}.pairing-screen p{margin:1.5vh 0}.pairing-qr{display:block;width:clamp(220px,28vh,340px);margin:20px auto;background:#fff;border-radius:10px;padding:0}.pairing-qr svg{display:block;width:100%;height:auto}.pairing-screen .code{font-size:clamp(40px,7vh,80px)}#tvChooseEvent{position:fixed;left:10px;bottom:8px;z-index:10000;border:1px solid #d4af37;background:#000a;color:#f6df9d;font:600 14px system-ui;padding:7px 12px;border-radius:6px;opacity:.25;cursor:pointer}#tvChooseEvent:hover,#tvChooseEvent:focus-visible{opacity:1}#tvChooseEvent[hidden]{display:none}#tvEventPicker{width:min(640px,94vw);padding:24px;background:#101010;color:#fff;border:1px solid #d4af37;border-radius:14px;font:18px/1.5 system-ui}#tvEventPicker::backdrop{background:#000b}.pickerHeading{display:flex;justify-content:space-between;align-items:center;gap:12px}#tvEventPicker h2{font-size:28px;margin:0}#tvEventPicker select{width:100%;padding:14px;background:#202020;color:#fff;border:1px solid #9b813b;border-radius:8px;font:18px system-ui}#tvEventPicker button{padding:12px 18px;background:#242424;color:#fff;border:1px solid #9b813b;border-radius:8px;font:17px system-ui;cursor:pointer}#tvEventPicker button:disabled{opacity:.4;cursor:default}.pickerActions{display:flex;gap:12px;justify-content:flex-end;flex-wrap:wrap}#tvPickerApply{background:#d4af37!important;color:#080808!important}#tvPickerStatus{min-height:28px;color:#e9c568}</style><main id="screen"><iframe title="計時器示意" src="../timer-background-light.html?v=20261023-large-clock32" style="position:fixed;inset:0;width:100vw;height:100vh;border:0"></iframe></main><div id="demoStatus" style="position:fixed;top:0;left:0;padding:5px 10px;background:#111;color:white;font:14px system-ui">獨立驗證頁，不會切換現場設備</div><script src="../firebase-config.js"></script><script type="module">
+import {installEventPicker} from '../tv/event-picker.js?v=20261023-picker-fix34';
+import {displayCloud} from '../display-cloud.js?v=20261023-picker-fix34';
+const service=await displayCloud();const cloud={timerEvents:()=>service.timerEvents(),selectTimer:async(_,eventId)=>{document.getElementById('demoStatus').textContent='驗證成功：已選 '+eventId+'（獨立驗證，未更動現場設備）'}};
+const picker=installEventPicker({cloud,deviceId:'read-only-preview'});picker.update({paired:true,payload:{type:'timer',eventId:'EV179267913469127'}});
+document.getElementById('demoStatus').textContent='雲端清單驗證：讀取真實賽事，切換不會寫入現場設備';
+</script></html>
