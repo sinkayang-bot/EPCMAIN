@@ -1,7 +1,7 @@
 const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
 const html=fs.readFileSync('index.html','utf8'),nodes=new Map();
 const node=id=>{if(!nodes.has(id))nodes.set(id,{value:'',textContent:'',innerHTML:''});return nodes.get(id)};
-const c=vm.createContext({db:{settings:{businessEnd:'07:00'},events:[]},$:node,Date,Map,Set,Number,String,Object,Array,isSettledAccountingEvent_:e=>['已結算','settled'].includes(e.status),epcDisplayEscape_:s=>String(s).replaceAll('<','&lt;')});
+const c=vm.createContext({db:{settings:{businessEnd:'07:00'},events:[]},$:node,Date,Map,Set,Number,String,Object,Array,dashboardDefaultRange:()=>({first:'2026-10-01',end:'2026-10-02'}),isSettledAccountingEvent_:e=>['已結算','settled'].includes(e.status),epcDisplayEscape_:s=>String(s).replaceAll('<','&lt;')});
 vm.runInContext(html.slice(html.indexOf('function hmMinutes('),html.indexOf('function saveAccountingBusinessHours(')),c);
 vm.runInContext(html.slice(html.indexOf('function participationStats_('),html.indexOf('function renderDashboardSummary(')),c);
 const p=(memberId,rebuy=0,flags={})=>({memberId,buyin:1,rebuy,...flags});
@@ -24,10 +24,11 @@ assert.equal(c.participationStats_(events,'2027-01-01','2027-01-31').total.group
 const legacy=[{createdAt:'2026-10-02T02:00:00',players:[p('',0),{buyin:0,rebuy:0,ladies:true},null,{memberId:'invalid',buyin:'NaN',rebuy:-5}]}];
 r=c.participationStats_(legacy,'2026-10-01','2026-10-01');assert.equal(r.total.entries,1,'overnight timestamps belong to previous business day; empty/invalid registrations do not count');assert.equal(r.members,0);assert.equal(r.unknownMembers,1);
 assert.equal(JSON.stringify(events),before,'report never mutates tournament or payment data');
-c.db.events=events;c.renderParticipationStats_('2026-10-01','2026-10-02');
+c.db.events=events;c.renderParticipationStats_();
 assert.equal(node('prEntries').textContent,'6');assert.equal(node('prRebuys').textContent,'3');assert.equal(node('prGroups').textContent,'11');assert.equal(node('prLadies').textContent,'2');assert.match(node('participationDailyRows').innerHTML,/2026-10-02/);
-node('participationStatus').value='settled';c.renderParticipationStats_('2026-10-01','2026-10-02');assert.equal(node('prGroups').textContent,'6');
-c.db.events[0].players[0].rebuy=3;c.renderParticipationStats_('2026-10-01','2026-10-02');assert.equal(node('prGroups').textContent,'7','remote data refresh uses latest groups');assert.equal(node('prEarly').textContent,'1','rebuy never multiplies registration discounts');
-c.renderParticipationStats_('2026-10-02','2026-10-01');assert.equal(node('prEntries').textContent,'0');assert.match(node('participationDailyRows').innerHTML,/修正/);
-assert.match(html,/dashboardDateFrom[^>]+renderDashboardSummary/);assert.match(html,/renderParticipationStats_\(from,to\);/);
+node('participationStatus').value='settled';c.renderParticipationStats_();assert.equal(node('prGroups').textContent,'6');
+c.db.events[0].players[0].rebuy=3;c.renderParticipationStats_();assert.equal(node('prGroups').textContent,'7','remote data refresh uses latest groups');assert.equal(node('prEarly').textContent,'1','rebuy never multiplies registration discounts');
+node('participationDateFrom').value='2026-10-02';node('participationDateTo').value='2026-10-01';c.renderParticipationStats_();assert.equal(node('prEntries').textContent,'0');assert.match(node('participationDailyRows').innerHTML,/修正/);
+assert.match(html,/dashboardDateFrom[^>]+renderDashboardSummary/);assert.match(html,/renderParticipationStats_\(\);/);
+node('participationDateFrom').value='2026-10-01';node('participationDateTo').value='2026-10-01';node('dashboardDateFrom').value='2027-01-01';node('dashboardDateTo').value='2027-01-31';c.renderParticipationStats_();assert.equal(node('prEntries').textContent,'4','independent report dates ignore dashboard date range');
 console.log('PASS: inclusive business dates, overnight fallback, 4+2=6, additive groups, unique members, per-event discount counts, statuses, independent events, deleted events, empty/invalid data, daily totals, live rerender and no writes.');

@@ -2066,25 +2066,6 @@ window.addEventListener('error',function(e){
   <div class="card kpi"><div class="l">區間賽事場次</div><div class="v" id="kMonthEvents">0 場</div><div class="small" id="kLevelBreakdown">尚無賽事</div></div>
  </div>
 
- <div class="card" id="participationReport" style="margin-top:14px">
-  <div class="report-topbar" style="margin-bottom:12px">
-   <div><h3 style="margin:0">區間參賽統計</h3><div class="small" id="participationRange" aria-live="polite"></div></div>
-   <div style="min-width:180px"><label for="participationStatus">統計賽事</label><select id="participationStatus" onchange="renderDashboardSummary()"><option value="all">全部賽事</option><option value="settled">只看已結算</option><option value="open">只看進行中</option></select></div>
-  </div>
-  <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(200px,1fr))">
-   <div class="card kpi"><div class="l">統計賽事場次</div><div class="v" id="prEvents">0</div></div>
-   <div class="card kpi"><div class="l">參賽人次</div><div class="v" id="prEntries">0</div></div>
-   <div class="card kpi"><div class="l">不重複會員數</div><div class="v" id="prMembers">0</div><div class="small" id="prUnknownMembers"></div></div>
-   <div class="card kpi"><div class="l">重買組數</div><div class="v" id="prRebuys">0</div></div>
-   <div class="card kpi"><div class="l">總買入組數</div><div class="v" id="prGroups">0</div><div class="small" id="prGroupBreakdown"></div></div>
-   <div class="card kpi"><div class="l">早鳥人次</div><div class="v" id="prEarly">0</div></div>
-   <div class="card kpi"><div class="l">晚鳥人次</div><div class="v" id="prLate">0</div></div>
-   <div class="card kpi"><div class="l">女士優惠人次</div><div class="v" id="prLadies">0</div></div>
-  </div>
-  <p class="small">依上方開始／結束營業日查詢，包含一般帳與獨立帳賽事。參賽人次＝每位玩家每場計一次；不重複會員數＝區間內同一會員只計一次。總組數＝首次買入＋重買＋加購。優惠依各場登記計一次，不隨重買增加；女士優惠依優惠登記計算。</p>
-  <div class="tablewrap"><table><thead><tr><th>營業日</th><th>場次</th><th>參賽人次</th><th>首次買入組數</th><th>重買組數</th><th>加購組數</th><th>總組數</th><th>早鳥</th><th>晚鳥</th><th>女士優惠</th></tr></thead><tbody id="participationDailyRows"></tbody><tfoot id="participationTotals"></tfoot></table></div>
- </div>
-
  <div class="card" style="margin-top:14px">
   <div class="report-topbar" style="margin-bottom:10px">
    <div><h3 style="margin:0">日報表</h3><div class="small">查看指定營業日的 EPC 總帳收支；獨立帳務不納入。</div></div>
@@ -2119,6 +2100,26 @@ window.addEventListener('error',function(e){
   <p class="small" style="margin-top:12px">點月份查看各營業日，再點日期展開當天收支；下方合計依目前篩選條件計算。</p>
   <div id="ledgerAnalysisRows"></div>
  </div>
+ <details class="card" id="participationReport" style="margin-top:14px">
+  <summary style="cursor:pointer;font-size:18px;font-weight:700">區間參賽統計 <span class="small" style="font-weight:400">（點擊展開／收起）</span><span class="small" id="participationRange" aria-live="polite" style="display:block;font-weight:400;margin-top:4px"></span></summary>
+  <div class="formgrid" style="grid-template-columns:repeat(auto-fit,minmax(200px,1fr));margin-top:12px;margin-bottom:12px">
+   <div><label for="participationDateFrom">統計開始營業日</label><input type="date" id="participationDateFrom" onchange="renderParticipationStats_()"></div>
+   <div><label for="participationDateTo">統計結束營業日</label><input type="date" id="participationDateTo" onchange="renderParticipationStats_()"></div>
+   <div><label for="participationStatus">統計賽事</label><select id="participationStatus" onchange="renderParticipationStats_()"><option value="all">全部賽事</option><option value="settled">只看已結算</option><option value="open">只看進行中</option></select></div>
+  </div>
+  <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(200px,1fr))">
+   <div class="card kpi"><div class="l">統計賽事場次</div><div class="v" id="prEvents">0</div></div>
+   <div class="card kpi"><div class="l">參賽人次</div><div class="v" id="prEntries">0</div></div>
+   <div class="card kpi"><div class="l">不重複會員數</div><div class="v" id="prMembers">0</div><div class="small" id="prUnknownMembers"></div></div>
+   <div class="card kpi"><div class="l">重買組數</div><div class="v" id="prRebuys">0</div></div>
+   <div class="card kpi"><div class="l">總買入組數</div><div class="v" id="prGroups">0</div><div class="small" id="prGroupBreakdown"></div></div>
+   <div class="card kpi"><div class="l">早鳥人次</div><div class="v" id="prEarly">0</div></div>
+   <div class="card kpi"><div class="l">晚鳥人次</div><div class="v" id="prLate">0</div></div>
+   <div class="card kpi"><div class="l">女士優惠人次</div><div class="v" id="prLadies">0</div></div>
+  </div>
+  <p class="small">依本區獨立設定的開始／結束營業日查詢，包含一般帳與獨立帳賽事。參賽人次＝每位玩家每場計一次；不重複會員數＝區間內同一會員只計一次。總組數＝首次買入＋重買＋加購。優惠依各場登記計一次，不隨重買增加；女士優惠依優惠登記計算。</p>
+  <div class="tablewrap"><table><thead><tr><th>營業日</th><th>場次</th><th>參賽人次</th><th>首次買入組數</th><th>重買組數</th><th>加購組數</th><th>總組數</th><th>早鳥</th><th>晚鳥</th><th>女士優惠</th></tr></thead><tbody id="participationDailyRows"></tbody><tfoot id="participationTotals"></tfoot></table></div>
+ </details>
 </section>
 
 <section id="playerpayments" class="page"><h2>玩家帳務</h2><p id="ppConnection" class="small"></p><div class="card"><div class="formgrid" style="grid-template-columns:1fr 1fr"><div><label>搜尋寄存／欠款玩家</label><input id="ppSearch" placeholder="姓名、綽號、會員編號" oninput="PP.renderPage()"></div><div><label>新增寄存／查看玩家</label><input id="ppMember" list="ppMemberList" placeholder="輸入姓名或會員編號"><datalist id="ppMemberList"></datalist></div></div><div class="toolbar"><button onclick="PP.openMember()">開啟玩家帳務／寄存金</button><button onclick="showPage('accounting')">前往 EPC帳務登入</button></div></div><div id="ppPageBody"></div></section>
@@ -5788,7 +5789,11 @@ function participationStats_(events,from,to,status='all'){
  }
  return {total,days:[...days.values()].sort((a,b)=>a.date.localeCompare(b.date)),members:members.size,unknownMembers,invalid:false};
 }
-function renderParticipationStats_(from,to){
+function renderParticipationStats_(){
+ const def=dashboardDefaultRange();
+ const from=$('participationDateFrom')?.value||def.first,to=$('participationDateTo')?.value||def.end;
+ if($('participationDateFrom')&&!$('participationDateFrom').value)$('participationDateFrom').value=from;
+ if($('participationDateTo')&&!$('participationDateTo').value)$('participationDateTo').value=to;
  const report=participationStats_(db.events,from,to,$('participationStatus')?.value||'all'),t=report.total;
  const put=(id,value)=>{if($(id))$(id).textContent=value};
  const n=value=>Number(value).toLocaleString('zh-TW');
@@ -5806,7 +5811,7 @@ function renderDashboardSummary(){
  let to=$('dashboardDateTo')?.value||def.end;
  if($('dashboardDateFrom')&&!$('dashboardDateFrom').value)$('dashboardDateFrom').value=from;
  if($('dashboardDateTo')&&!$('dashboardDateTo').value)$('dashboardDateTo').value=to;
- renderParticipationStats_(from,to);
+ renderParticipationStats_();
 
  const settled=(db.events||[]).filter(isSettledAccountingEvent_);
  const inRange=settled.filter(e=>{
