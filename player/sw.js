@@ -1,0 +1,5 @@
+const CACHE='epc-player-shell-v1';const SHELL=['./','style.css?v=1','app.js?v=1','model.js','service.js','config.js','../assets/epc-brand.png?v=46','../timer-core.js','../player-pricing.js'];
+self.addEventListener('install',event=>event.waitUntil(caches.open(CACHE).then(c=>c.addAll(SHELL))));
+self.addEventListener('activate',event=>event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k.startsWith('epc-player-shell-')&&k!==CACHE).map(k=>caches.delete(k))))));
+// Only the public application shell is cached. Authenticated records and API responses are never cached here.
+self.addEventListener('fetch',event=>{const u=new URL(event.request.url);if(event.request.method!=='GET'||u.origin!==self.location.origin)return;const shell=SHELL.map(x=>new URL(x,self.location.href).href);if(!shell.includes(u.href))return;event.respondWith(fetch(event.request).then(r=>{if(r.ok){const copy=r.clone();caches.open(CACHE).then(c=>c.put(event.request,copy))}return r}).catch(()=>caches.match(event.request)))});

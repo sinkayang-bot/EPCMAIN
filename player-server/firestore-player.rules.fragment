@@ -1,0 +1,17 @@
+// Merge these matches inside the existing /databases/{database}/documents block.
+// Do not deploy this fragment as a complete rules file.
+match /epc_player_public_events/{id} { allow read: if true; allow write: if false; }
+match /epc_player_profiles/{uid} {
+ function owner() { return request.auth != null && request.auth.uid == uid && resource.data.active == true; }
+ allow get: if owner(); allow list, write: if false;
+ match /{collection}/{record} {
+  allow read: if request.auth != null && request.auth.uid == uid
+   && get(/databases/$(database)/documents/epc_player_profiles/$(uid)).data.active == true
+   && collection in ['history','coupons','points'];
+  allow write: if false;
+ }
+}
+match /epc_player_members/{id} { allow read, write: if false; }
+match /epc_player_bindings/{id} { allow read, write: if false; }
+match /epc_player_binding_codes/{id} { allow read, write: if false; }
+match /epc_player_audit/{id} { allow read, write: if false; }
