@@ -1,6 +1,6 @@
-import {money,signed,taipeiDate,monthRange,historySummary,clock,couponState,demoData,activityRows} from './model.js';
+import {money,signed,taipeiDate,monthRange,historySummary,clock,couponState,demoData,activityRows} from './model.js?v=2';
 import {playerConfig} from './config.js';
-import {connect} from './service.js';
+import {connect} from './service.js?v=2';
 const $=id=>document.getElementById(id),esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])),demo=new URLSearchParams(location.search).get('demo')==='1';
 let page='home',data=demo?demoData():{profile:null,live:[],history:[],coupons:[],points:[],activities:[]},user=null,service=null,error='',busy=false;
 let selectedActivity='';let range=monthRange(),lastSync=Date.now();const name=()=>data.profile?.nickname||'EPC 玩家',linked=()=>!!data.profile;
