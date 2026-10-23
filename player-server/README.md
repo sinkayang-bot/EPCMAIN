@@ -38,3 +38,8 @@ firebase deploy --config firebase.staging.json --project <已確認的測試專�
 已做：手機 PWA 外觀、自己的紀錄與日期查詢、優惠券／點數頁、相同倒數核心、離線提示、登入／登出與綁定流程程式、伺服器投影與權限設計、管理頁、單元測試、GitHub Pages 示範。
 
 尚未做：Firebase 部署、來源資料權限改造、真實會員綁定、正式優惠／點數制度確認、真實 Google 登入與跨會員隔離的端到端驗證、原生 App Store／Google Play 上架。
+
+### 活動排行榜（第二版，尚未正式接通）
+玩家版新增活動與排行示範。正式讀取 `epc_player_public_activities` 中 `active: true` 的已核定公開投影；目前未建置活動來源的發布器，不會直接讀取後台原始活動、會員或帳務集合。
+每份投影包含 `name, subtitle, from, to, status, metric, unit, rules: string[], entries: [{key, displayName, rank, value}]`。名次由後台活動規則核定，可包含並列名次；前端不重新推算。`key` 必須使用會員私有 profile 的隨機 `leaderboardKey`，絕不可使用會員編號、電話或登入 UID；displayName 僅放經同意公開的暱稱。綁定時建立隨機 key，舊綁定需先由可信任後端補齊。排行榜不得含個人輸贏或付款資訊。
+正式啟用前仍需實作活動投影發布器、暱稱同意流程、撤回公開資料同步及測試；現有 config.enabled 維持 false，示範不寫入真實活動成績。
