@@ -1,0 +1,14 @@
+const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
+const html=fs.readFileSync('index.html','utf8'),nodes=new Map();
+const c=vm.createContext({window:{},$:id=>{if(!nodes.has(id))nodes.set(id,{textContent:'',style:{}});return nodes.get(id)},money:n=>'$'+n.toLocaleString('en-US')});
+vm.runInContext(html.slice(html.indexOf('function calcPlayerForEvent(p,e)'),html.indexOf('function memberHistoryInRange(')),c);
+vm.runInContext(html.slice(html.indexOf('function settlementPaymentTotals_('),html.indexOf('function epcCheckoutName_(')),c);
+const e={id:'E',poolUnit:3000,admin:400,players:[{memberId:'A',buyin:1,rebuy:1,registrationUnpaidAmount:3200,rebuyUnpaidAmount:1000},{memberId:'B',buyin:1}]};
+const before=JSON.stringify(e);let t=c.settlementPaymentTotals_(e);assert.equal(t.unpaid,4200);assert.equal(t.received,5800);assert.equal(t.received+t.unpaid,10000);
+c.window.PP={info:(event,p)=>({due:p.memberId==='A'?1500:0})};t=c.settlementPaymentTotals_(e);assert.equal(t.unpaid,1500);assert.equal(t.received,8500,'protected ledger overrides stale legacy due');
+c.renderSettlementPaymentSummary_(e);assert.equal(nodes.get('sTotalPaid').textContent,'$8,500');assert.equal(nodes.get('sUnpaid').textContent,'（未收款：$1,500）');
+c.window.PP.info=()=>({due:0});c.renderSettlementPaymentSummary_(e);assert.equal(nodes.get('sTotalPaid').textContent,'$10,000');assert.equal(nodes.get('sUnpaid').textContent,'（未收款：$0）');
+assert.equal(JSON.stringify(e),before,'display never changes balances, discounts or event pricing');
+assert.equal(c.settlementPaymentTotals_(null).unpaid,0);assert.equal(c.settlementPaymentTotals_({players:[]}).received,0);
+assert.match(fs.readFileSync('player-payments.js','utf8'),/el\('settle'\).*renderSettlementPaymentSummary_/);
+console.log('PASS: registration/rebuy balances, partial collections, ledger authority, zero debt, empty events, no data writes and live refresh hook.');

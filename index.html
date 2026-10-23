@@ -3,7 +3,7 @@
 <head><script defer src="tablet/layout.js?v=42"></script><script src="terminal-mode.js?v=20261016-modes1"></script><script src="event-patch-core.js?v=20261016-modes1"></script>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>EPC POKER MANAGEMENT V3.0</title>
+<link rel="icon" type="image/png" sizes="32x32" href="assets/epc-icon-32.png?v=20261024-brand46"><link rel="apple-touch-icon" sizes="180x180" href="assets/epc-icon-180.png?v=20261024-brand46"><meta name="apple-mobile-web-app-title" content="EPC"><link rel="stylesheet" href="brand.css?v=20261024-brand46"><link rel="manifest" href="manifest.webmanifest?v=20261024-brand46"><title>EPC POKER MANAGEMENT V3.0</title>
 <style>
 :root{--bg:#0b0f14;--card:#121922;--card2:#17212c;--text:#eef3f8;--muted:#91a0b2;--line:#263443;--accent:#d6b35a;--good:#49c27d;--bad:#ff6b6b}
 *{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans TC",sans-serif}
@@ -2011,7 +2011,7 @@ button.epc-clicked-now,.btn.epc-clicked-now{transform:scale(.985);filter:brightn
  }catch(_){document.documentElement.setAttribute('data-epc-theme','dark')}
 })();
 </script><body><script>window.EPC_RECOVERY_READONLY=false;</script>
-<header><div class="brand"><b>EPC</b> Poker Management <span class="brand-version">V3.0</span></div></header>
+<header><div class="brand"><img class="epc-brand-logo" src="assets/epc-brand.png?v=20261024-brand46" alt="EPC 原版 LOGO" width="128" height="58"></div></header>
 <nav id="nav">
 <button data-page="dashboard" class="active">總覽</button>
 <button data-page="members">會員</button>
@@ -2280,7 +2280,7 @@ window.addEventListener('error',function(e){
   </div>
 
   <div class="grid" style="margin-top:6px">
-   <div class="card kpi" style="margin-bottom:0"><div class="l">總實收</div><div class="v" id="sTotalPaid">$0</div></div>
+   <div class="card kpi" style="margin-bottom:0"><div class="l">總實收</div><div class="v" id="sTotalPaid">$0</div><div class="small" id="sUnpaid" aria-live="polite" style="margin-top:5px">（未收款：$0）</div></div>
    <div class="card kpi" style="margin-bottom:0"><div class="l">總獎池</div><div class="v" id="sPool">$0</div></div>
    <div class="card kpi" style="margin-bottom:0"><div class="l">實收行政費</div><div class="v" id="sNetAdmin">$0</div></div>
    <div class="card kpi" style="margin-bottom:0"><div class="l">JP 提撥</div><div class="v" id="sJP">$0</div></div>
@@ -5364,6 +5364,20 @@ function applyFirestoreEventsToLegacy_(rows){
 window.epcModeRefreshEventFields_=function(e){if(!e)return;const fields={eDate:'date',eName:'name',eStartTime:'startTime',eRegCloseTime:'regCloseTime',eLevel:'level',ePoolUnit:'poolUnit',eAdmin:'admin',ePricingMode:'pricingMode',eBuyinTotal:'buyinTotal',eBuyinAdmin:'buyinAdmin',eRebuyTotal:'rebuyTotal',eRebuyAdmin:'rebuyAdmin',eOverbuyThreshold:'overbuyThreshold',eEarlyBirdDiscount:'earlyBirdDiscount',eLateBirdDiscount:'lateBirdDiscount',eLadiesDiscount:'ladiesDiscount',eChips:'chips',eJP:'jp',eJPRound:'jpRound',ePayout:'payout'};for(const [id,key] of Object.entries(fields)){const el=$(id);if(el&&e[key]!=null)el.value=e[key];}};
 window.addEventListener('epcTerminalModeChanged',ev=>{if(ev.detail.mode==='view'){clearTimeout(cloudSaveTimer);clearTimeout(epcFieldPublishTimer_);for(const t of EPC_FIRESTORE_EVENT_SAVE_TIMERS.values())clearTimeout(t);EPC_FIRESTORE_EVENT_SAVE_TIMERS.clear();}if(Array.isArray(window.EPC_FIRESTORE_LAST_EVENTS))applyFirestoreEventsToLegacy_(window.EPC_FIRESTORE_LAST_EVENTS);});
 window.addEventListener('epcFirestoreEvents',ev=>{try{applyFirestoreEventsToLegacy_(ev.detail?.events||[])}catch(err){console.warn(err)}});
+// Display-only collection totals: the payment ledger is authoritative when available.
+function settlementPaymentTotals_(e){
+ return (e?.players||[]).reduce((a,p)=>{
+  const charge=Math.max(0,Number(calcPlayerForEvent(p,e).paid)||0);
+  const info=window.PP?.info(e,p);
+  const due=Math.min(charge,Math.max(0,Number(info?info.due:epcCheckoutDue_(p))||0));
+  a.unpaid+=due;a.received+=charge-due;return a;
+ },{received:0,unpaid:0});
+}
+function renderSettlementPaymentSummary_(e){
+ const t=settlementPaymentTotals_(e);
+ if($('sTotalPaid'))$('sTotalPaid').textContent=money(t.received);
+ if($('sUnpaid')){$('sUnpaid').textContent='（未收款：'+money(t.unpaid)+'）';$('sUnpaid').style.color=t.unpaid?'var(--bad,#ff6b6b)':'var(--muted,#91a0b2)';}
+}
 function epcCheckoutDue_(p){return Math.max(0,Number(p.registrationUnpaidAmount)||0)+Math.max(0,Number(p.rebuyUnpaidAmount)||0)}
 function epcCheckoutName_(p){const m=(db.members||[]).find(x=>String(x.id)===String(p.memberId));return String(p.nickname||m?.nickname||m?.name||p.name||p.memberId||'玩家').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'}[c]))}
 function renderEventUnpaidStatus_(){
@@ -6861,7 +6875,7 @@ function render(){
  // renderDashboardSummary() already calculates the authoritative ledger KPIs.
  let settledEvents=db.events.filter(x=>x.status==='已結算');
  $('kMembers').textContent=db.members.length;
- $('sPool').textContent=money(info.pool);$('sJP').textContent=money(info.jp);const settleTotals=ev.players.reduce((a,p)=>{const c=calcPlayerForEvent(p,ev);a.discount+=(+c.totalDiscount||0);a.netAdmin+=(+c.netAdmin||0);a.paid+=(+c.paid||0);return a;},{discount:0,netAdmin:0,paid:0});if($('sTotalPaid'))$('sTotalPaid').textContent=money(settleTotals.paid);if($('sTotalDiscount'))$('sTotalDiscount').textContent=money(settleTotals.discount);if($('sNetAdmin'))$('sNetAdmin').textContent=money(settleTotals.netAdmin);$('sAvail').textContent=money(info.avail);if($('sEntrants'))$('sEntrants').textContent=ev.players.reduce((sum,p)=>sum+calcPlayerForEvent(p,ev).groups,0);if($('sStartingChips'))$('sStartingChips').textContent=Number(ev.chips||0).toLocaleString();$('sChipDiff').textContent=chipDiff.toLocaleString();$('sChipDiff').className='v '+(chipDiff===0?'pos':'neg');
+ $('sPool').textContent=money(info.pool);$('sJP').textContent=money(info.jp);const settleTotals=ev.players.reduce((a,p)=>{const c=calcPlayerForEvent(p,ev);a.discount+=(+c.totalDiscount||0);a.netAdmin+=(+c.netAdmin||0);a.paid+=(+c.paid||0);return a;},{discount:0,netAdmin:0,paid:0});renderSettlementPaymentSummary_(ev);if($('sTotalDiscount'))$('sTotalDiscount').textContent=money(settleTotals.discount);if($('sNetAdmin'))$('sNetAdmin').textContent=money(settleTotals.netAdmin);$('sAvail').textContent=money(info.avail);if($('sEntrants'))$('sEntrants').textContent=ev.players.reduce((sum,p)=>sum+calcPlayerForEvent(p,ev).groups,0);if($('sStartingChips'))$('sStartingChips').textContent=Number(ev.chips||0).toLocaleString();$('sChipDiff').textContent=chipDiff.toLocaleString();$('sChipDiff').className='v '+(chipDiff===0?'pos':'neg');
  if($('btnCalcICM')){$('btnCalcICM').disabled=chipDiff!==0;$('btnCalcICM').style.opacity=$('btnCalcICM').disabled?'.45':'1';}
  const prizeCheck=manualPrizeValidation(ev);
  if($('manualPrizeTotalCell')){
@@ -7852,7 +7866,7 @@ async function epcShowRecoveryAudit_(){
 <script src="firebase-events.js?v=20261023-tablet-rgb41"></script>
 <script src="sync-v3.js?v=20261007-0780"></script>
 <script src="app.js?v=20261018-no-diag1"></script><dialog id="ppDialog"><div class="toolbar" style="justify-content:space-between"><h2 id="ppDialogTitle">玩家帳務</h2><button onclick="document.getElementById('ppDialog').close()">關閉</button></div><div id="ppDialogBody"></div></dialog>
-<dialog id="ppRegistrationDialog"><div class="toolbar" style="justify-content:space-between"><h2 id="ppRegistrationTitle">加入本場</h2><button data-pp-action onclick="PP.cancelRegistration()">取消</button></div><div id="ppRegistrationBody"></div></dialog><script src="player-payments-core.js?v=20261017-remove1"></script><script src="player-payments.js?v=20261023-rebuy-no-ladies30"></script><script src="ui-layout.js?v=20261018-layout1"></script><dialog id="epcTimerDialog" style="width:98vw;max-width:none;height:96vh;max-height:none;padding:0;background:#050505;border:1px solid #b7933b;border-radius:12px;color:white"><div style="height:44px;display:flex;justify-content:space-between;align-items:center;padding:4px 16px"><b>賽事計時器</b><button type="button" onclick="document.getElementById('epcTimerDialog').close()">關閉</button></div><iframe id="epcTimerFrame" title="賽事計時器後臺" style="width:100%;height:calc(100% - 48px);border:0"></iframe></dialog><dialog id="newEventDialog" style="width:min(580px,94vw);padding:24px;border:1px solid #b89340;border-radius:12px;background:var(--bg,#111);color:var(--text,#eee)"><h2>建立賽事</h2><label for="newEventName">賽事名稱</label><input id="newEventName"><label for="newEventTimerTemplate">計時器範本</label><select id="newEventTimerTemplate" onchange="epcNewEventTimerHint_()"><option value="">不啟用計時器</option><option value="standard">20 分鐘標準賽（內建）</option></select><p class="small" id="newEventTimerHint"></p><p class="small">範本請在獨立「計時器」管理。按建立後，賽事與該場計時器會一同產生。</p><div class="toolbar"><button id="newEventConfirm" class="primary" onclick="epcConfirmNewEvent_()">建立賽事與計時器</button><button onclick="document.getElementById('newEventDialog').close()">取消</button></div></dialog><dialog id="epcTimerProjectionDialog" style="width:96vw;max-width:1920px;height:94vh;max-height:none;padding:0;background:#000;border:1px solid #b89340;border-radius:12px;color:white"><div style="height:48px;display:flex;justify-content:space-between;align-items:center;gap:12px;padding:6px 16px"><b id="epcTimerProjectionTitle">投影預覽</b><button type="button" onclick="document.getElementById('epcTimerProjectionDialog').close()">關閉</button></div><iframe id="epcTimerProjectionFrame" title="設備計時器投影預覽" style="width:100%;height:calc(100% - 90px);border:0;background:#000"></iframe><div class="small" style="padding:8px 16px">此為設備投影預覽。確認畫面後，回到此設備按「套用到螢幕」。</div></dialog></body></html>
+<dialog id="ppRegistrationDialog"><div class="toolbar" style="justify-content:space-between"><h2 id="ppRegistrationTitle">加入本場</h2><button data-pp-action onclick="PP.cancelRegistration()">取消</button></div><div id="ppRegistrationBody"></div></dialog><script src="player-payments-core.js?v=20261017-remove1"></script><script src="player-payments.js?v=20261024-brand-unpaid46"></script><script src="ui-layout.js?v=20261018-layout1"></script><dialog id="epcTimerDialog" style="width:98vw;max-width:none;height:96vh;max-height:none;padding:0;background:#050505;border:1px solid #b7933b;border-radius:12px;color:white"><div style="height:44px;display:flex;justify-content:space-between;align-items:center;padding:4px 16px"><b>賽事計時器</b><button type="button" onclick="document.getElementById('epcTimerDialog').close()">關閉</button></div><iframe id="epcTimerFrame" title="賽事計時器後臺" style="width:100%;height:calc(100% - 48px);border:0"></iframe></dialog><dialog id="newEventDialog" style="width:min(580px,94vw);padding:24px;border:1px solid #b89340;border-radius:12px;background:var(--bg,#111);color:var(--text,#eee)"><h2>建立賽事</h2><label for="newEventName">賽事名稱</label><input id="newEventName"><label for="newEventTimerTemplate">計時器範本</label><select id="newEventTimerTemplate" onchange="epcNewEventTimerHint_()"><option value="">不啟用計時器</option><option value="standard">20 分鐘標準賽（內建）</option></select><p class="small" id="newEventTimerHint"></p><p class="small">範本請在獨立「計時器」管理。按建立後，賽事與該場計時器會一同產生。</p><div class="toolbar"><button id="newEventConfirm" class="primary" onclick="epcConfirmNewEvent_()">建立賽事與計時器</button><button onclick="document.getElementById('newEventDialog').close()">取消</button></div></dialog><dialog id="epcTimerProjectionDialog" style="width:96vw;max-width:1920px;height:94vh;max-height:none;padding:0;background:#000;border:1px solid #b89340;border-radius:12px;color:white"><div style="height:48px;display:flex;justify-content:space-between;align-items:center;gap:12px;padding:6px 16px"><b id="epcTimerProjectionTitle">投影預覽</b><button type="button" onclick="document.getElementById('epcTimerProjectionDialog').close()">關閉</button></div><iframe id="epcTimerProjectionFrame" title="設備計時器投影預覽" style="width:100%;height:calc(100% - 90px);border:0;background:#000"></iframe><div class="small" style="padding:8px 16px">此為設備投影預覽。確認畫面後，回到此設備按「套用到螢幕」。</div></dialog></body></html>
 
 
 <script type="module" src="display-phone-pair.js?v=20261022-qr27"></script>

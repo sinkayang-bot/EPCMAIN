@@ -1,0 +1,7 @@
+.epc-brand-logo{display:block;object-fit:contain;background:#fff!important;border:1px solid #d4af3766;border-radius:8px;padding:5px;box-sizing:border-box;filter:none!important;mix-blend-mode:normal!important;forced-color-adjust:none;width:128px;height:58px;flex-shrink:0}
+body>header>.brand{width:100%;min-width:0}body>header>.brand .epc-brand-logo{width:100%;max-width:184px;height:58px}body>header:has(>.brand){padding-top:10px;padding-bottom:10px}
+html.epc-tablet body>header>.brand .epc-brand-logo{width:110px;height:46px}html.epc-tablet body>header>.brand{min-width:110px}
+.epc-mobile-brand{display:flex;align-items:center;gap:12px;flex-wrap:wrap}.epc-mobile-brand .epc-brand-logo{width:108px;height:52px}
+.epc-tv-brand{display:flex;align-items:center;gap:24px}.epc-tv-brand .epc-brand-logo{width:clamp(120px,12vw,220px);height:clamp(60px,6vw,110px)}
+.center>.epc-brand-logo{width:220px;height:112px;margin:0 auto 20px}
+@media(max-width:430px){.epc-mobile-brand{font-size:19px;gap:10px}.epc-mobile-brand .epc-brand-logo{width:100px;height:48px}}

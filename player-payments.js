@@ -39,6 +39,7 @@
  }
 
  function refresh(){
+  if(el('settle')?.classList.contains('active')&&typeof window.renderSettlementPaymentSummary_==='function')window.renderSettlementPaymentSummary_(typeof currentEvent==='function'?currentEvent():null);
   if(typeof epcPlayerEditing_==='function'&&!epcPlayerEditing_()&&el('event')?.classList.contains('active'))renderEventFast_();
   renderPending();if(el('playerpayments')?.classList.contains('active'))renderPage();
   if(selection&&el('ppDialog')?.open&&!busy)renderDialog();

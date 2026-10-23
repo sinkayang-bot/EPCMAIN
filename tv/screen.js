@@ -1,5 +1,5 @@
 import {installEventPicker} from './event-picker.js?v=20261023-tablet-rgb41';
-import {pairingMarkup} from '../display-pairing.js?v=20261022-qr27';
+import {pairingMarkup} from '../display-pairing.js?v=20261024-brand46';
 import {effectiveDisplay} from '../display-assignment.js?v=20261022-switch5';
 import {mountTimerFrame} from './timer-frame.js?v=20261023-audio90-43';
 import {displayCloud} from '../display-cloud.js?v=20261023-tablet-rgb41';
@@ -9,7 +9,7 @@ let timer,cloud,lastSignature='',renewing=false;
 function identity(r,ui){return [ui.showName!==false?esc(r.name||r.member||''):null,ui.showMemberId?esc(r.memberId||r.id||''):null].filter(Boolean).join(' · ')}
 function render(p,target=host){
  if(p.type==='timer'){mountTimerFrame(target,p.eventId,p.refreshToken);return}
- const ui=p.ui||{},header=`<header><h1>${esc(p.title||'EPC')}</h1><span>${esc(p.activityFrom||'')} ～ ${esc(p.activityTo||'')}</span></header>`;
+ const ui=p.ui||{},header=`<header><div class="epc-tv-brand"><img class="epc-brand-logo" src="../assets/epc-brand.png?v=20261024-brand46" alt="EPC 原版 LOGO" width="128" height="58"><h1>${esc(p.title||'EPC')}</h1></div><span>${esc(p.activityFrom||'')} ～ ${esc(p.activityTo||'')}</span></header>`;
  if(p.type==='extremeTen'||ui.kind==='extremeTen'||String(p.title||'').replace(/\s/g,'')==='極限10秒'){
   const distance=r=>Number.isFinite(Number(r.seconds))?Math.abs(Math.round(Number(r.seconds)*100)-1000):Number.isFinite(Number(r.difference))?Math.round(Number(r.difference)*100):Infinity;
   const unique=new Map();
