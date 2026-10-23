@@ -16,3 +16,8 @@ match /epc_player_members/{id} { allow read, write: if false; }
 match /epc_player_bindings/{id} { allow read, write: if false; }
 match /epc_player_binding_codes/{id} { allow read, write: if false; }
 match /epc_player_audit/{id} { allow read, write: if false; }
+
+match /epc_player_activity_settings/{id} { allow read, write: if false; }
+match /epc_player_activity_source/{id} { allow read, write: if false; }
+match /epc_player_activity_jobs/{id} { allow read, write: if false; }
+match /epc_player_activity_aliases/{id} { allow read, write: if false; }

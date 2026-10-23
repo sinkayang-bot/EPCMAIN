@@ -3,6 +3,9 @@ import {getFirestore,FieldValue} from 'firebase-admin/firestore';
 import {getAuth} from 'firebase-admin/auth';
 import {onCall,HttpsError} from 'firebase-functions/v2/https';
 import {onDocumentWritten} from 'firebase-functions/v2/firestore';
+import {onSchedule} from 'firebase-functions/v2/scheduler';
+import {activityPublisher} from './activity-publisher.js';
+import {ACTIVITY_KINDS} from './activities.js';
 import {randomInt,randomUUID} from 'node:crypto';
 import {publicProjection,personalProjection} from './model.js';
 initializeApp();const db=getFirestore(),region='asia-east1',options={region,maxInstances:3,timeoutSeconds:300};
@@ -23,7 +26,7 @@ async function publishEvent(id,formerIds=[]){const eref=db.collection('epc_event
 }
 export const epcPlayerEventProjection=onDocumentWritten({...options,document:'epc_events/{eventId}'},async e=>{if(e.params.eventId.startsWith('_'))return;const former=(e.data?.before.data()?.players||[]).map(p=>String(p.memberId));await publishEvent(e.params.eventId,former)});
 export const epcPlayerTimerProjection=onDocumentWritten({...options,document:'epc_events/_epc_timer/timers/{eventId}'},e=>publishEvent(e.params.eventId));
-export const epcPlayerMe=onCall(options,async request=>{const uid=verified(request),p=await profile(uid).get();if(!p.exists||p.data().active!==true)return {profile:null,history:[],coupons:[],points:[]};const [history,coupons,points]=await Promise.all(['history','coupons','points'].map(c=>profile(uid).collection(c).get()));return {profile:{memberId:p.data().memberId,nickname:p.data().nickname,leaderboardKey:p.data().leaderboardKey||'',points:Number(p.data().points)||0},history:history.docs.map(d=>d.data()),coupons:coupons.docs.map(d=>({id:d.id,...d.data()})),points:points.docs.map(d=>({id:d.id,...d.data()}))}});
+export const epcPlayerMe=onCall(options,async request=>{const uid=verified(request),p=await profile(uid).get();if(!p.exists||p.data().active!==true)return {profile:null,history:[],coupons:[],points:[]};const [history,coupons,points]=await Promise.all(['history','coupons','points'].map(c=>profile(uid).collection(c).get()));return {profile:{memberId:p.data().memberId,nickname:p.data().nickname,leaderboardKey:p.data().leaderboardKey||'',publicRanking:p.data().publicRanking===true,publicNickname:p.data().publicNickname||'',points:Number(p.data().points)||0},history:history.docs.map(d=>d.data()),coupons:coupons.docs.map(d=>({id:d.id,...d.data()})),points:points.docs.map(d=>({id:d.id,...d.data()}))}});
 export const epcPlayerBindingCode=onCall(options,async request=>{const uid=verified(request),ref=db.collection('epc_player_bindings').doc(uid),old=await ref.get();if(old.exists&&old.data().expiresAt>Date.now()&&!old.data().consumed)return {code:old.data().code,expiresAt:old.data().expiresAt};for(let i=0;i<5;i++){const code=String(randomInt(100000,1000000)),codeRef=db.collection('epc_player_binding_codes').doc(code),expiresAt=Date.now()+600000;try{await db.runTransaction(async tx=>{const snap=await tx.get(codeRef);if(snap.exists&&snap.data().expiresAt>Date.now())throw Error('collision');tx.set(codeRef,{uid,expiresAt,consumed:false});tx.set(ref,{code,expiresAt,consumed:false})});return {code,expiresAt}}catch(e){if(e.message!=='collision')throw e}}throw new HttpsError('resource-exhausted','請稍後再取得綁定碼。')});
 export const epcPlayerAdmin=onCall(options,async request=>{const actor=await admin(request),d=request.data||{},kind=text(d.kind),memberId=text(d.memberId),op=text(d.operationId,80);if(!/^[a-zA-Z0-9_-]{8,80}$/.test(op))throw new HttpsError('invalid-argument','缺少有效操作識別碼。');
  if(kind==='bind'){
@@ -41,4 +44,24 @@ export const epcPlayerAdmin=onCall(options,async request=>{const actor=await adm
   else if(kind==='redeemCoupon'){const ref=p.collection('coupons').doc(text(d.couponId,80)),s=await tx.get(ref),today=new Intl.DateTimeFormat('sv-SE',{timeZone:'Asia/Taipei'}).format(new Date());if(!s.exists||s.data().status!=='active'||s.data().expiresOn<today)throw new HttpsError('failed-precondition','優惠券已使用、到期或不存在。');tx.update(ref,{status:'used',usedBy:actor,usedAt:FieldValue.serverTimestamp()})}
   else throw new HttpsError('invalid-argument','不支援的操作。');tx.set(audit,{kind,actor,memberId,uid,payload:d,at:FieldValue.serverTimestamp()});return {ok:true};
  });
+});
+
+const activityService=activityPublisher(db,()=>FieldValue.serverTimestamp());
+export const epcPlayerActivitySchedule=onSchedule({...options,schedule:'every 5 minutes',timeZone:'Asia/Taipei'},()=>activityService.refresh({poll:true}));
+export const epcPlayerActivityEvent=onDocumentWritten({...options,document:'epc_events/{eventId}'},e=>e.params.eventId.startsWith('_')?null:activityService.refresh());
+export const epcPlayerActivityProfile=onDocumentWritten({...options,document:'epc_player_profiles/{uid}'},async e=>{const before=e.data?.before.data();await activityService.redact(before?.leaderboardKey);return activityService.refresh()});
+export const epcPlayerPublicProfile=onCall(options,async request=>{
+ const uid=verified(request),d=request.data||{},nickname=text(d.nickname,30),ref=profile(uid);
+ if(typeof d.publicRanking!=='boolean'||(d.publicRanking&&!nickname))throw new HttpsError('invalid-argument','請填寫要公開的暱稱');
+ await db.runTransaction(async tx=>{const s=await tx.get(ref);if(!s.exists||!s.data().active)throw new HttpsError('failed-precondition','請先由櫃台綁定會員');tx.update(ref,{publicRanking:d.publicRanking,publicNickname:nickname,publicRankingUpdatedAt:FieldValue.serverTimestamp()})});
+ const changed=await ref.get();await activityService.redact(changed.data()?.leaderboardKey);await activityService.refresh();return {ok:true};
+});
+export const epcPlayerActivityAdmin=onCall(options,async request=>{
+ const actor=await admin(request),d=request.data||{};
+ if(d.kind==='refresh')return activityService.refresh({poll:true});
+ if(d.kind!=='configure'||!ACTIVITY_KINDS.includes(d.activity)||typeof d.enabled!=='boolean')throw new HttpsError('invalid-argument','活動設定不正確');
+ if(!Array.isArray(d.rules)||d.rules.length>20||d.rules.some(r=>typeof r!=='string'||r.length>500)||d.enabled&&!d.rules.some(r=>r.trim()))throw new HttpsError('invalid-argument','請先填寫正式活動規則');
+ await db.runTransaction(async tx=>{const s=await tx.get(activityService.config),data=s.data()||{};tx.set(activityService.config,{...data,[d.activity]:{enabled:d.enabled,subtitle:text(d.subtitle,120),rules:d.rules.map(r=>r.trim()).filter(Boolean)},updatedBy:actor})});
+ if(!d.enabled)await db.runTransaction(async tx=>{const s=await tx.get(activityService.config);if(s.data()?.[d.activity]?.enabled!==true)tx.delete(db.collection('epc_player_public_activities').doc(d.activity))});
+ return activityService.refresh({poll:true});
 });

@@ -8,7 +8,7 @@ export async function connect(onAuth,onLive,onError,onActivities=()=>{}){
  async function subscribe(user){const current=++generation;privateOff.forEach(off=>off());privateOff=[];let state={user,profile:null,history:[],coupons:[],points:[]};onAuth(state);if(!user)return;
   try{const result=await call('epcPlayerMe');if(current!==generation)return;state={user,...result};onAuth(state);if(!result.profile)return;
    const fail=error=>{if(current!==generation)return;generation++;privateOff.forEach(off=>off());privateOff=[];onAuth({user,profile:null,history:[],coupons:[],points:[]});onError(error)};
-   privateOff.push(fs.onSnapshot(fs.doc(db,'epc_player_profiles',user.uid),s=>{if(current!==generation)return;if(!s.exists()||s.data().active!==true){fail(Error('會員綁定已停用，請洽櫃台。'));return}const p=s.data();state={...state,profile:{memberId:p.memberId,nickname:p.nickname,leaderboardKey:p.leaderboardKey||'',points:Number(p.points)||0}};onAuth(state)},fail));
+   privateOff.push(fs.onSnapshot(fs.doc(db,'epc_player_profiles',user.uid),s=>{if(current!==generation)return;if(!s.exists()||s.data().active!==true){fail(Error('會員綁定已停用，請洽櫃台。'));return}const p=s.data();state={...state,profile:{memberId:p.memberId,nickname:p.nickname,leaderboardKey:p.leaderboardKey||'',publicRanking:p.publicRanking===true,publicNickname:p.publicNickname||'',points:Number(p.points)||0}};onAuth(state)},fail));
    for(const name of ['history','coupons','points'])privateOff.push(fs.onSnapshot(fs.collection(db,'epc_player_profiles',user.uid,name),s=>{if(current!==generation)return;state={...state,[name]:s.docs.map(d=>({id:d.id,...d.data()}))};onAuth(state)},fail));
   }catch(e){if(current===generation)onError(e)}
  }
@@ -16,5 +16,5 @@ export async function connect(onAuth,onLive,onError,onActivities=()=>{}){
  // Only server-produced public projections are read; raw rosters/accounting are never fetched.
  const offLive=fs.onSnapshot(fs.query(fs.collection(db,'epc_player_public_events'),fs.where('active','==',true)),s=>onLive(s.docs.map(d=>({id:d.id,...d.data()}))),onError);
  const offActivities=fs.onSnapshot(fs.query(fs.collection(db,'epc_player_public_activities'),fs.where('active','==',true)),s=>onActivities(s.docs.map(d=>({id:d.id,...d.data()}))),onError);
- return {login:()=>authMod.signInWithPopup(auth,new authMod.GoogleAuthProvider()),logout:()=>authMod.signOut(auth),binding:()=>call('epcPlayerBindingCode'),refresh:()=>subscribe(auth.currentUser),dispose(){generation++;offAuth();offLive();offActivities();privateOff.forEach(off=>off())}};
+ return {login:()=>authMod.signInWithPopup(auth,new authMod.GoogleAuthProvider()),logout:()=>authMod.signOut(auth),binding:()=>call('epcPlayerBindingCode'),publicProfile:data=>call('epcPlayerPublicProfile',data),refresh:()=>subscribe(auth.currentUser),dispose(){generation++;offAuth();offLive();offActivities();privateOff.forEach(off=>off())}};
 }

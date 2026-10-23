@@ -40,6 +40,18 @@ firebase deploy --config firebase.staging.json --project <已確認的測試專�
 尚未做：Firebase 部署、來源資料權限改造、真實會員綁定、正式優惠／點數制度確認、真實 Google 登入與跨會員隔離的端到端驗證、原生 App Store／Google Play 上架。
 
 ### 活動排行榜（第二版，尚未正式接通）
-玩家版新增活動與排行示範。正式讀取 `epc_player_public_activities` 中 `active: true` 的已核定公開投影；目前未建置活動來源的發布器，不會直接讀取後台原始活動、會員或帳務集合。
+玩家版新增活動與排行示範。正式讀取 `epc_player_public_activities` 中 `active: true` 的已核定公開投影；伺服器發布器已實作 Google Apps Script 的 activity.get 唯讀同步與指定日期 Firebase 賽事查詢；玩家瀏覽器不讀原始活動、會員或帳務集合。
 每份投影包含 `name, subtitle, from, to, status, metric, unit, rules: string[], entries: [{key, displayName, rank, value}]`。名次由後台活動規則核定，可包含並列名次；前端不重新推算。`key` 必須使用會員私有 profile 的隨機 `leaderboardKey`，絕不可使用會員編號、電話或登入 UID；displayName 僅放經同意公開的暱稱。綁定時建立隨機 key，舊綁定需先由可信任後端補齊。排行榜不得含個人輸贏或付款資訊。
-正式啟用前仍需實作活動投影發布器、暱稱同意流程、撤回公開資料同步及測試；現有 config.enabled 維持 false，示範不寫入真實活動成績。
+活動投影發布器、玩家公開暱稱選擇與撤回遮蔽已實作並以合成資料測試。現有 config.enabled 維持 false；尚未部署 Functions、合併規則或啟用真實資料。
+
+### 第三版：正式來源串接程式（未部署）
+- `activities.js` 封裝現行後台的計分函式快照：週排行、獵人、保護傘、極限 10 秒。週排行僅計已結算，保留手動加減分、倍率；極限每人取最佳並列名次。不改後台的現行規則或獎勵。
+- `activity-publisher.js` 每 5 分鐘唯讀取得現有 Apps Script `activity.get`，保留 revision；Firebase 查詢限制在已啟用活動的日期範圍，並針對相關登記補讀關聯場次以排除獨立帳。若來源失敗或回傳舊 revision，不清空最後成功的榜單。工作識別碼與交易避免過期工作覆寫新版投影。
+- 僅計算已設定完整起訖日期且經管理員啟用的活動。日期可涵蓋至多一年。名稱排序優先採用賽事內已有的 nickname/name，不讀整份會員名單；同分且自動分相同時，舊後台若只在 Google 會員名單修改了顯示名稱，排序可能不同，需於正式驗收核對。計分函式漂移檢查會在後台公式更新時讓測試失敗。
+- 管理頁增加活動發布設定、正式規則與立即同步按鈕。伺服器管理 callable 僅接受既有管理員；沒有自動發獎或修改活動登記。
+- 公開榜單僅包含隨機識別碼、暱稱、名次與積分／秒數。未綁定或未同意公開暱稱，一律「匿名玩家」。本人可依自己的不透明 leaderboardKey 找到名次。會員編號、姓名、逐人輸贏、付款資料不會出現在投影。
+- 玩家可在「我的帳號 → 排行榜公開設定」選擇公開暱稱或撤回。撤回會先直接遮蔽四份公開榜單，再嘗試重算，活動來源故障也不必等重算才遮蔽。模擬版只改記憶體，重新整理恢復示範資料。
+- 私有 source/settings/jobs/aliases 集合必須合併禁止客戶端存取的規則。公開活動集合不能由瀏覽器寫入。
+- **尚未正式啟用**：須先完成前述現有 EPC 認證與原始資料權限遷移，再由已登入且有部署權限的 Firebase 環境部署 Functions（含 scheduler）。接著在後台設定活動區間、由管理員於 player-admin 配置正式規則並同步；以兩個測試會員驗證隔離、暱稱撤回與名次，確認後才開啟 player/config.js。
+
+驗證：`node tests/player-activities.mjs`、`node tests/player-server-auth.cjs`、`node tests/player-app-model.mjs`、使用 jsdom 執行 `tests/player-app-ui.cjs`。資料均為合成 fixture，尚未執行真實 Google 登入、正式來源讀取或 Firebase Emulator/部署端到端測試。
