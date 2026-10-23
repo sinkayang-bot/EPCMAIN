@@ -2071,7 +2071,8 @@ window.addEventListener('error',function(e){
    <div><h3 style="margin:0">區間參賽統計</h3><div class="small" id="participationRange" aria-live="polite"></div></div>
    <div style="min-width:180px"><label for="participationStatus">統計賽事</label><select id="participationStatus" onchange="renderDashboardSummary()"><option value="all">全部賽事</option><option value="settled">只看已結算</option><option value="open">只看進行中</option></select></div>
   </div>
-  <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr))">
+  <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(200px,1fr))">
+   <div class="card kpi"><div class="l">統計賽事場次</div><div class="v" id="prEvents">0</div></div>
    <div class="card kpi"><div class="l">參賽人次</div><div class="v" id="prEntries">0</div></div>
    <div class="card kpi"><div class="l">不重複會員數</div><div class="v" id="prMembers">0</div><div class="small" id="prUnknownMembers"></div></div>
    <div class="card kpi"><div class="l">重買組數</div><div class="v" id="prRebuys">0</div></div>
@@ -5792,7 +5793,7 @@ function renderParticipationStats_(from,to){
  const put=(id,value)=>{if($(id))$(id).textContent=value};
  const n=value=>Number(value).toLocaleString('zh-TW');
  put('participationRange',report.invalid?'開始營業日不可晚於結束營業日':`${from} ～ ${to}｜共 ${n(t.events)} 場`);
- for(const [id,value] of Object.entries({prEntries:t.entries,prMembers:report.members,prRebuys:t.rebuys,prGroups:t.groups,prEarly:t.early,prLate:t.late,prLadies:t.ladies}))put(id,n(value));
+ for(const [id,value] of Object.entries({prEvents:t.events,prEntries:t.entries,prMembers:report.members,prRebuys:t.rebuys,prGroups:t.groups,prEarly:t.early,prLate:t.late,prLadies:t.ladies}))put(id,n(value));
  put('prUnknownMembers',report.unknownMembers?`另有 ${n(report.unknownMembers)} 人次未填會員編號`:'');
  put('prGroupBreakdown',`首次 ${n(t.buyins)}＋重買 ${n(t.rebuys)}＋加購 ${n(t.addons)}`);
  const cells=x=>['events','entries','buyins','rebuys','addons','groups','early','late','ladies'].map(key=>`<td>${n(x[key])}</td>`).join('');
