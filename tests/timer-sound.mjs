@@ -18,15 +18,16 @@ assert.equal(countdownCue(state(5),state(11)),null);
 const tones=[],elements=[],bufferStarts=[],bufferStops=[];let panel;
 globalThis.document={createElement:tag=>{const el={tag,style:{},children:[],append(...items){this.children.push(...items)},setAttribute(){}};elements.push(el);return el},body:{append(el){panel=el}}};
 globalThis.window={AudioContext:class{state='running';currentTime=0;sampleRate=44100;destination={};createBuffer(channels,length){assert.equal(channels,1);assert.equal(length,44100);return {getChannelData:()=>new Float32Array(length)}}createBufferSource(){return {connect(){},start(t){tones.push(t);bufferStarts.push(t)},stop(t){bufferStops.push(t)}}}async resume(){}createOscillator(){return {frequency:{setValueAtTime(){},linearRampToValueAtTime(){}},connect(){},start(t){tones.push(t)},stop(){}}}createGain(){return {gain:{setValueAtTime(){},linearRampToValueAtTime(){},exponentialRampToValueAtTime(){}},connect(){}}}}};
-const sound=countdownSound(),button=elements.find(el=>el.textContent==='啟用提示音'),slider=elements.find(el=>el.type==='range'),timer={index:0,levels:[{min:1}],running:true,endsAt:100};
-sound.observe(timer,11,'E1');sound.observe(timer,10,'E1');assert.equal(tones.length,0,'Muted until the device user enables audio');
-await button.onclick();assert.equal(tones.length,3,'Enable plays a short confirmation tone');
-sound.observe(timer,11,'E1');sound.observe(timer,10,'E1');sound.observe(timer,10,'E1');assert.equal(tones.length,6,'10-second cue plays once');
-sound.observe(timer,6,'E1');sound.observe(timer,5,'E1');assert.equal(tones.length,9,'5-second cue plays one A1 tone');
-await button.onclick();sound.observe(timer,11,'E1');sound.observe(timer,10,'E1');assert.equal(tones.length,9,'Disable mutes cues');
+const sound=countdownSound(),button=elements.find(el=>el.tag==='button'),slider=elements.find(el=>el.type==='range'),timer={index:0,levels:[{min:1}],running:true,endsAt:100};
+await Promise.resolve();
+assert.equal(tones.length,0,'Default enable does not emit a test tone');
+assert.equal(button.textContent,'提示音：開啟');
+sound.observe(timer,11,'E1');sound.observe(timer,10,'E1');sound.observe(timer,10,'E1');assert.equal(tones.length,3,'Default audio plays 10-second cue once');
+sound.observe(timer,6,'E1');sound.observe(timer,5,'E1');assert.equal(tones.length,6,'5-second cue plays one A1 tone');
+await button.onclick();sound.observe(timer,11,'E1');sound.observe(timer,10,'E1');assert.equal(tones.length,6,'Disable mutes cues');
 console.log('Timer sound: thresholds, no duplicates, pause/seek/level protection, enable, mute and tone scheduling passed.');
 
-assert.equal(slider.value,'100');slider.value='50';slider.oninput();assert.equal(elements.find(el=>el.tag==='output').textContent,'50%');assert(!elements.some(el=>el.textContent==='試聽提示音'));await button.onclick();
+assert.equal(slider.value,'90');slider.value='50';slider.oninput();assert.equal(elements.find(el=>el.tag==='output').textContent,'50%');assert(!elements.some(el=>el.textContent==='試聽提示音'));await button.onclick();
 
 const before={event:'E1',structure:'same',index:0,running:true,at:1000},after={...before,index:1,at:1250};
 assert(levelChangeCue(before,after));assert(!levelChangeCue(null,after));assert(!levelChangeCue(before,{...after,event:'E2'}));assert(!levelChangeCue(before,{...after,structure:'changed'}));assert(!levelChangeCue(before,{...after,at:10000}));assert(!levelChangeCue(before,{...after,running:false}));assert(!levelChangeCue(before,{...after,index:0}));
@@ -61,3 +62,19 @@ assert.equal(tones.length,beforeStart+3,'Start uses the same C3 partials as a le
 sound.observe({...timer,running:true,remaining:60,endsAt:Date.now()+60000},60,'start-test');assert.equal(tones.length,beforeStart+3,'Redraw does not replay start cue');
 sound.observe({...timer,running:false,endsAt:0},40,'start-test');sound.observe({...timer,running:true,endsAt:Date.now()+40000},40,'start-test');assert.equal(tones.length,beforeStart+3,'Mid-level pause/resume does not replay opening cue');
 console.log('Start sound: same C3 bell as level transition; no reload, duplicate or mid-level resume cue.');
+
+// A stored legacy 100% migrates to the new 90% default; new adjustments persist.
+const saved=new Map([['epcTimerSoundVolumeV1','100']]),listeners={};
+window.localStorage={getItem:key=>saved.get(key)??null,setItem:(key,value)=>saved.set(key,value)};
+document.addEventListener=(name,handler)=>listeners[name]=handler;
+const WorkingAudio=window.AudioContext;
+let unlocked=false;
+window.AudioContext=class extends WorkingAudio{state='suspended';async resume(){if(unlocked)this.state='running'}};
+let offset=elements.length;countdownSound();await Promise.resolve();
+let added=elements.slice(offset),blockedButton=added.find(el=>el.tag==='button'),newSlider=added.find(el=>el.type==='range');
+assert.equal(newSlider.value,'90');assert.equal(blockedButton.textContent,'按確認啟用提示音');
+unlocked=true;await blockedButton.onclick();assert.equal(blockedButton.textContent,'提示音：開啟','Confirmation unlocks rather than muting suspended audio');
+await blockedButton.onclick();listeners.keydown({target:{}});await Promise.resolve();assert.equal(blockedButton.textContent,'啟用提示音','Other gestures cannot unmute an explicitly muted device');
+newSlider.value='75';newSlider.oninput();
+offset=elements.length;countdownSound();await Promise.resolve();assert.equal(elements.slice(offset).find(el=>el.type==='range').value,'75','User volume adjustment survives refresh');
+console.log('Audio defaults: enabled at 90%, blocked autoplay unlock, manual mute, legacy migration and persisted volume passed.');

@@ -1,5 +1,5 @@
 // Preview and paired screens share one timer page release.
-export const TIMER_VIEW_VERSION='20261023-tablet-rgb41';
+export const TIMER_VIEW_VERSION='20261023-audio90-43';
 export function timerProjectionUrl(eventId,base='../',revision=''){
  return base+'timer.html?eventId='+encodeURIComponent(String(eventId||''))+'&v='+TIMER_VIEW_VERSION+(revision?'&refresh='+encodeURIComponent(String(revision)):'');
 }
