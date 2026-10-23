@@ -2117,7 +2117,7 @@ window.addEventListener('error',function(e){
    <div class="card kpi"><div class="l">晚鳥人次</div><div class="v" id="prLate">0</div></div>
    <div class="card kpi"><div class="l">女士優惠人次</div><div class="v" id="prLadies">0</div></div>
   </div>
-  <p class="small">依本區獨立設定的開始／結束營業日查詢，包含一般帳與獨立帳賽事。參賽人次＝每位玩家每場計一次；不重複會員數＝區間內同一會員只計一次。總組數＝首次買入＋重買＋加購。優惠依各場登記計一次，不隨重買增加；女士優惠依優惠登記計算。</p>
+  <p class="small">依本區獨立設定的開始／結束營業日查詢，包含一般帳與獨立帳賽事。參賽人次＝每位玩家每場計一次；不重複會員數＝區間內同一會員只計一次。總組數＝首次買入＋重買＋加購。優惠依各場登記計一次，不隨重買增加；女士優惠依優惠登記及已確認的舊紀錄補註計算。</p>
   <div class="tablewrap"><table><thead><tr><th>營業日</th><th>場次</th><th>參賽人次</th><th>首次買入組數</th><th>重買組數</th><th>加購組數</th><th>總組數</th><th>早鳥</th><th>晚鳥</th><th>女士優惠</th></tr></thead><tbody id="participationDailyRows"></tbody><tfoot id="participationTotals"></tfoot></table></div>
  </details>
 </section>
@@ -5782,7 +5782,7 @@ function participationStats_(events,from,to,status='all'){
    if(!p)continue;
    const buyins=count(p.buyin),rebuys=count(p.rebuy),addons=count(p.addon),groups=buyins+rebuys+addons;
    if(!groups)continue;
-   const values={entries:1,buyins,rebuys,addons,groups,early:p.earlyBird?1:0,late:p.lateBird?1:0,ladies:p.ladies?1:0};
+   const values={entries:1,buyins,rebuys,addons,groups,early:p.earlyBird?1:0,late:p.lateBird?1:0,ladies:(p.ladies||p.reportingDiscounts?.ladies===true)?1:0};
    for(const [key,value] of Object.entries(values)){day[key]+=value;total[key]+=value;}
    const id=String(p.memberId??'').trim();if(id)members.add(id);else unknownMembers++;
   }

@@ -32,3 +32,16 @@ node('participationDateFrom').value='2026-10-02';node('participationDateTo').val
 assert.match(html,/dashboardDateFrom[^>]+renderDashboardSummary/);assert.match(html,/renderParticipationStats_\(\);/);
 node('participationDateFrom').value='2026-10-01';node('participationDateTo').value='2026-10-01';node('dashboardDateFrom').value='2027-01-01';node('dashboardDateTo').value='2027-01-31';c.renderParticipationStats_();assert.equal(node('prEntries').textContent,'4','independent report dates ignore dashboard date range');
 console.log('PASS: inclusive business dates, overnight fallback, 4+2=6, additive groups, unique members, per-event discount counts, statuses, independent events, deleted events, empty/invalid data, daily totals, live rerender and no writes.');
+
+// Historical classification is reporting-only: never turn a manual discount into a second price discount.
+const legacyLady={memberId:'558029',buyin:1,rebuy:2,manualDiscount:200};
+const legacyEvent={date:'2026-10-06',players:[legacyLady],admin:400,poolUnit:3000};
+assert.equal(c.participationStats_([legacyEvent],'2026-10-06','2026-10-06').total.ladies,0);
+vm.runInContext(html.slice(html.indexOf('function calcPlayerForEvent(p,e)'),html.indexOf('function memberHistoryInRange(')),c);
+const priced=JSON.stringify(c.calcPlayerForEvent(legacyLady,legacyEvent));
+legacyLady.reportingDiscounts={ladies:true,source:'confirmed-historical-registration'};
+assert.equal(c.participationStats_([legacyEvent],'2026-10-06','2026-10-06').total.ladies,1);
+assert.equal(JSON.stringify(c.calcPlayerForEvent(legacyLady,legacyEvent)),priced,'report annotation leaves every pricing result unchanged');
+legacyLady.ladies=true;assert.equal(c.participationStats_([legacyEvent],'2026-10-06','2026-10-06').total.ladies,1,'live flag plus historical note counts only once');
+assert.equal(c.participationStats_([{...legacyEvent,players:[{...legacyLady,ladies:false,reportingDiscounts:{ladies:'false'}}]}],'2026-10-06','2026-10-06').total.ladies,0);
+console.log('PASS: confirmed historical ladies classification, unchanged payment calculations and no duplicate participation counts.');
