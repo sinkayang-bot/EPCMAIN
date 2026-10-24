@@ -30,3 +30,15 @@
 - 尚未執行：新 Google 專案建立 API 的端到端驗證、真實 Google provider 登入、新專案的公開賽事同步。
 
 Cloud Shell 的 setup-state.local.json 與 firebase-web-config.local.json 只留當地並已列入 gitignore。Google access token 僅在記憶體送往 Google API 的 Authorization header，絕不印出或保存。
+
+## 櫃台快速綁定（v6）
+
+玩家登入後到「我的帳號」產生 QR Code／六位碼（有效十分鐘）。
+管理員在 `player-admin/?trial=1` 掃描 QR Code、選擇 QR 圖片或輸入六位碼，
+再輸入原系統會員編號，會透過既有唯讀 `member.list` 查詢自動帶入綽號。
+會員編號採完整比對；找不到、重複、停用或資料變更會停止，須重新查詢。
+櫃台核對本人後按「確認會員並綁定」，才會寫入試行專案。
+掃碼本身不會自動綁定。相機與圖片只在瀏覽器解碼；無相機可用六位碼。
+QR Code 只含專案 ID 與短效綁定碼，不含會員資料、金鑰或權杖。
+會員來源只於管理員權限確認後查詢，不儲存或發布完整名冊，不修改原會員資料。
+本次不需重新執行 Cloud Shell 或更新 Firebase 規則。

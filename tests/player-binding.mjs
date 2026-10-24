@@ -1,0 +1,13 @@
+import assert from 'node:assert/strict';
+import {createRequire} from 'node:module';
+import {bindingLink,parseBinding,memberFromRows} from '../player-free/binding.js';
+import {lookupSourceMember} from '../player-free/member-source.js';
+const require=createRequire(import.meta.url),qrFactory=require('../vendor/qrcode.js'),decode=require('../vendor/jsqr.js');
+const base='https://sinkayang-bot.github.io/EPCMAIN/player/?trial=1',project='epc-player-261024-abcdef';
+const link=bindingLink('123456',project,base);assert.equal(parseBinding(link,project,base),'123456');assert(!new URL(link).search.includes('123456'));
+for(const bad of [link.replace('sinkayang-bot.github.io','evil.test'),link.replace('/player-admin/','/phone/'),link.replace('abcdef','111111'),link+'&bind=222222'])assert.throws(()=>parseBinding(bad,project,base));
+assert.throws(()=>bindingLink('12345',project,base));
+const qr=qrFactory(0,'M');qr.addData(link);qr.make();const size=qr.getModuleCount(),scale=6,margin=4,width=(size+margin*2)*scale,pixels=new Uint8ClampedArray(width*width*4);pixels.fill(255);for(let y=0;y<size;y++)for(let x=0;x<size;x++)if(qr.isDark(y,x))for(let a=0;a<scale;a++)for(let b=0;b<scale;b++){const i=(((y+margin)*scale+a)*width+(x+margin)*scale+b)*4;pixels[i]=pixels[i+1]=pixels[i+2]=0}assert.equal(decode(pixels,width,width).data,link,'local QR encoder roundtrips through scanner decoder');
+assert.deepEqual(memberFromRows([{memberId:'A006',nickname:'黏黏',phone:'PRIVATE',pnl:999}], ' a006 '),{memberId:'A006',nickname:'黏黏'});assert.throws(()=>memberFromRows([{memberId:'6',name:'A'}],'006'));assert.throws(()=>memberFromRows([{memberId:'6',name:'A'},{memberId:'6',name:'B'}],'6'),/重複/);assert.throws(()=>memberFromRows([{memberId:'6',name:'A',status:'inactive'}],'6'),/停用/);
+let requestCount=0;assert.deepEqual(await lookupSourceMember('6',async(url,options)=>{requestCount++;assert.equal(JSON.parse(options.body).action,'member.list');assert.equal(options.cache,'no-store');return {ok:true,json:async()=>({ok:true,members:[{memberId:'6',name:'姓名',nickname:'綽號',phone:'PRIVATE'}]})}}),{memberId:'6',nickname:'綽號'});assert.equal(requestCount,1);await assert.rejects(()=>lookupSourceMember('6',async()=>({ok:false})),/連線/);
+console.log('PASS: same-project QR validation, actual encoder/decoder roundtrip, exact unique member lookup, private field exclusion, read-only source request and failure handling');
