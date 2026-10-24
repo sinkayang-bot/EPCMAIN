@@ -1,0 +1,6 @@
+import assert from 'node:assert/strict';
+import {publicationSettings,planActivities} from '../player-free/activity-publication.js';
+const ranges=Object.fromEntries(['rank','hunter','umbrella','extremeTen'].map(k=>[k,{from:'2026-10-01',to:'2026-10-31'}])),selected={rank:true,hunter:true,umbrella:true,extremeTen:true},settings=publicationSettings({},ranges,selected),identities={A:{key:'opaque-a',public:false,nickname:'PRIVATE'}};
+const plans=planActivities(settings,ranges,{rank:[{memberId:'A',rank:1,value:'7'}],hunter:[{memberId:'A',rank:1,value:'3'}]},identities,'2026-10-24');assert.equal(plans.filter(p=>p.data).length,4);assert(!JSON.stringify(plans).includes('PRIVATE'));assert(!JSON.stringify(plans).includes('memberId'));assert.equal(plans[1].data.entries[0].value,'3');
+assert.throws(()=>publicationSettings({}, {},selected),/活動區間/);const disabled=publicationSettings({hunter:{enabled:false,rules:['正式規則']}},ranges,{rank:true,hunter:false});assert.equal(disabled.hunter.enabled,false);assert.deepEqual(disabled.hunter.rules,['正式規則']);assert.equal(planActivities(disabled,ranges,{},identities,'2026-10-24').filter(p=>p.data).length,1);
+console.log('PASS: multiple activities publish together, original ranges and custom rules retained, disabled activities excluded, anonymous projection, invalid ranges block publication');

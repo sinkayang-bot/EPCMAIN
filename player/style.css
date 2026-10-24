@@ -5,3 +5,5 @@
 .public-profile{text-align:left;border-top:1px solid var(--line);margin:24px 0;padding-top:16px}.consent{display:flex;align-items:center;gap:10px;margin-top:14px;font-size:13px}.consent input{width:auto;flex-shrink:0}textarea{width:100%;background:#11180f;color:var(--text);border:1px solid var(--line);border-radius:10px;padding:12px;font:inherit;resize:vertical;margin:8px 0}.public-profile h3{margin-bottom:12px}
 
 .setup-link{display:block;text-align:center;text-decoration:none;color:var(--gold);margin-top:12px}a{color:var(--gold)}
+
+.activity-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,240px),1fr));gap:14px;margin:18px 0 26px}.activity-overview{min-width:0;text-align:left;padding:20px;border:1px solid var(--line);border-radius:16px;background:var(--card);color:inherit;cursor:pointer}.activity-overview[aria-pressed=true]{border-color:var(--gold);box-shadow:0 0 0 1px var(--gold)}.activity-overview h3{font-size:21px;margin:14px 0 10px}.activity-overview p{line-height:1.6}.activity-overview>div{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-top:16px;font-size:12px}.activity-overview strong{color:var(--gold)}
