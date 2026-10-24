@@ -1,3 +1,5 @@
+> 2026-10-24 使用者選擇不綁卡的免費試行版。請改依 `../player-free/README.md` 建立獨立 Spark 專案；本資料夾的 Cloud Functions 為先前的待部署方案，本次不部署。
+
 # EPC 玩家版 — 上線準備
 
 目前 GitHub Pages 可使用 `player/?demo=1` 完整操作示範。`player/config.js` 的 `enabled` 保持 false，正式版不讀取舊會員名單、賽事原始 players 陣列、玩家帳務或活動全庫，也不會假裝示範點數和優惠券是真實發放資料。

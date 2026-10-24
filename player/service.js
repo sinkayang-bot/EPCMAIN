@@ -1,5 +1,6 @@
-import {playerConfig} from './config.js';
+import {playerConfig} from './config.js?v=5';
 export async function connect(onAuth,onLive,onError,onActivities=()=>{}){
+ if(playerConfig.enabled&&playerConfig.mode==='spark')return (await import('../player-free/service.js?v=5')).connectSpark(playerConfig.firebase,onAuth,onLive,onError,onActivities);
  if(!playerConfig.enabled)throw Error('玩家資料服務尚未啟用；目前可先查看功能示範。');
  const [am,authMod,fs,fn]=await Promise.all(['firebase-app','firebase-auth','firebase-firestore','firebase-functions'].map(m=>import(`https://www.gstatic.com/firebasejs/12.4.0/${m}.js`)));
  const app=am.getApps().find(a=>a.name==='epc-player')||am.initializeApp(window.EPC_FIREBASE_CONFIG,'epc-player'),auth=authMod.getAuth(app),db=fs.getFirestore(app),functions=fn.getFunctions(app,playerConfig.region);

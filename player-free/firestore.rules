@@ -1,0 +1,48 @@
+rules_version = '2';
+service cloud.firestore {
+ match /databases/{database}/documents {
+  function google() { return request.auth != null && request.auth.token.email_verified == true && request.auth.token.firebase.sign_in_provider == 'google.com'; }
+  function admin() { return google() && (request.auth.token.email == '__OWNER_EMAIL__' || (exists(/databases/$(database)/documents/epc_player_admins/$(request.auth.uid)) && get(/databases/$(database)/documents/epc_player_admins/$(request.auth.uid)).data.active == true)); }
+  function owner(uid) { return google() && request.auth.uid == uid; }
+  function bound(uid) { return exists(/databases/$(database)/documents/epc_player_profiles/$(uid)) && get(/databases/$(database)/documents/epc_player_profiles/$(uid)).data.active == true; }
+  match /epc_player_admins/{uid} { allow get: if owner(uid) || admin(); allow list, write: if admin(); }
+  match /epc_player_meta/{id} { allow read: if true; allow write: if admin(); }
+  match /epc_player_public_events/{id} { allow read: if true; allow write: if admin(); }
+  match /epc_player_public_activities/{id} { allow read: if true; allow write: if admin(); }
+  match /epc_player_public_names/directory {
+   function validEntry() {
+    let key = get(/databases/$(database)/documents/epc_player_profiles/$(request.auth.uid)).data.leaderboardKey;
+    return request.resource.data.keys().hasOnly(['names']) && request.resource.data.names is map
+     && request.resource.data.names.size() <= 2000 && request.resource.data.names[key] is string
+     && request.resource.data.names[key].size() <= 30;
+   }
+   function myKeys() { return [get(/databases/$(database)/documents/epc_player_profiles/$(request.auth.uid)).data.leaderboardKey]; }
+   allow read: if true;
+   allow create: if google() && bound(request.auth.uid) && validEntry() && request.resource.data.names.keys().hasOnly(myKeys());
+   allow update: if google() && bound(request.auth.uid) && validEntry() && request.resource.data.names.diff(resource.data.names).affectedKeys().hasOnly(myKeys());
+   allow delete: if admin();
+  }
+  match /epc_player_profiles/{uid} {
+   allow get: if owner(uid) || admin(); allow list, write: if admin();
+   match /{collection}/{record} {
+    allow read: if admin() || (owner(uid) && bound(uid) && collection in ['history','coupons','points']);
+    allow write: if admin();
+   }
+  }
+  match /epc_player_binding_requests/{uid} {
+   allow read: if owner(uid) || admin();
+   allow create, update: if admin() || (owner(uid)
+    && request.resource.data.keys().hasOnly(['code','expiresAt','createdAt','consumed'])
+    && request.resource.data.code is string && request.resource.data.code.matches('^[0-9]{6}$')
+    && request.resource.data.consumed == false && request.resource.data.createdAt == request.time
+    && request.resource.data.expiresAt > request.time
+    && request.resource.data.expiresAt <= request.time + duration.value(10,'m'));
+   allow delete: if admin();
+  }
+  match /epc_player_members/{id} { allow read, write: if admin(); }
+  match /epc_player_audit/{id} { allow read, write: if admin(); }
+  match /epc_player_activity_settings/{id} { allow read, write: if admin(); }
+  match /epc_player_activity_aliases/{id} { allow read, write: if admin(); }
+  match /{document=**} { allow read, write: if false; }
+ }
+}
