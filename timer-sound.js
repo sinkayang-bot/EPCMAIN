@@ -30,11 +30,14 @@ export function countdownSound(){
  const slider=document.createElement('input');slider.type='range';slider.min='20';slider.max='100';slider.step='5';slider.value=String(volume);slider.setAttribute('aria-label','提示音音量');slider.style.cssText='width:180px;padding:6px 0;accent-color:#e9c568';
  const output=document.createElement('output');output.textContent=volume+'%';output.style.marginLeft='6px';
  slider.oninput=()=>{volume=Number(slider.value);output.textContent=volume+'%';try{window.localStorage.setItem('epcTimerSoundVolumeV2',String(volume))}catch(_){}};
- const options=document.createElement('div');options.style.cssText='position:absolute;right:0;bottom:30px;width:225px;padding:10px;background:#08080899;border:1px solid #66502b88;border-radius:7px';options.append(slider,output);details.append(summary,options);panel.append(button,details);document.body.append(panel);
+ const options=document.createElement('div');options.style.cssText='position:absolute;right:0;bottom:30px;width:225px;padding:10px;background:#08080899;border:1px solid #66502b88;border-radius:7px';options.append(slider,output);details.append(summary,options);
+ const testButton=document.createElement('button');testButton.type='button';testButton.textContent='測試音效';testButton.title='播放 0.8 秒倒數單音，確認這台設備的聲音';testButton.style.cssText=button.style.cssText;
+ panel.append(button,testButton,details);document.body.append(panel);
  panel.onmouseenter=panel.onfocusin=()=>{panel.style.opacity='.95'};
- panel.onmouseleave=()=>{if(!details.open)panel.style.opacity='.22'};
- panel.onfocusout=e=>{if(!details.open&&!panel.contains(e.relatedTarget))panel.style.opacity='.22'};
- details.ontoggle=()=>{panel.style.opacity=details.open?'.95':'.22'};
+ const panelOpacity=()=>enabled&&(!samplesReady||context?.state!=='running')?'.95':'.22';
+ panel.onmouseleave=()=>{if(!details.open)panel.style.opacity=panelOpacity()};
+ panel.onfocusout=e=>{if(!details.open&&!panel.contains(e.relatedTarget))panel.style.opacity=panelOpacity()};
+ details.ontoggle=()=>{panel.style.opacity=details.open?'.95':panelOpacity()};
  function bell(kind='level'){
   if(!enabled||context?.state!=='running')return;
   if(kind==='level')scheduleVoice(context,selectedTimerVoices.level,volume/100);
@@ -43,7 +46,8 @@ export function countdownSound(){
  function updateButton(){
   const ready=enabled&&context?.state==='running'&&samplesReady;
   button.textContent=!enabled?'啟用提示音':loadFailed?'音效載入失敗，點此重試':ready?'提示音：開啟':context?.state==='running'?'提示音載入中…':'按確認啟用提示音';
-  button.setAttribute('aria-pressed',String(enabled));
+  button.setAttribute('aria-pressed',String(ready));
+  if(!details.open)panel.style.opacity=ready||!enabled?'.22':'.95';
  }
  async function activate(){
   try{
@@ -64,6 +68,7 @@ export function countdownSound(){
  const unlock=e=>{if(e.target===button)return;if(enabled&&context?.state!=='running')void activate();};
  document.addEventListener?.('pointerdown',unlock,{capture:true});
  document.addEventListener?.('keydown',unlock,{capture:true});
+ testButton.onclick=async()=>{enabled=true;await activate();if(context?.state==='running'&&samplesReady)bell('ten');};
  updateButton();void activate();
- return {observe(timer,seconds,eventId){const event=String(eventId||''),structure=timer?JSON.stringify(timer.levels):'',current=timer?{key:event+':'+timer.index+':'+structure,event,structure,index:timer.index,last:timer.index===timer.levels.length-1,at:Date.now(),duration:Number(timer.levels[timer.index]?.min||0)*60,seconds,running:!!timer.running,endsAt:timer.endsAt}:null;const cue=current?countdownCue(previous,current):null,changed=levelChangeCue(previous,current),finished=finishedCue(previous,current),started=startedCue(previous,current);previous=current;if(finished)bell('end');else if(started)bell('start');else if(changed)bell();else if(cue)bell(cue===5?'five':'ten');}};
+ return {test:async(kind='ten')=>{enabled=true;await activate();if(context?.state!=='running'||!samplesReady)return false;bell(kind);return true},observe(timer,seconds,eventId){const event=String(eventId||''),structure=timer?JSON.stringify(timer.levels):'',current=timer?{key:event+':'+timer.index+':'+structure,event,structure,index:timer.index,last:timer.index===timer.levels.length-1,at:Date.now(),duration:Number(timer.levels[timer.index]?.min||0)*60,seconds,running:!!timer.running,endsAt:timer.endsAt}:null;const cue=current?countdownCue(previous,current):null,changed=levelChangeCue(previous,current),finished=finishedCue(previous,current),started=startedCue(previous,current);previous=current;if(finished)bell('end');else if(started)bell('start');else if(changed)bell();else if(cue)bell(cue===5?'five':'ten');}};
 }

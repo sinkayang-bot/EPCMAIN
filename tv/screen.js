@@ -1,7 +1,7 @@
 import {installEventPicker} from './event-picker.js?v=20261023-tablet-rgb41';
 import {pairingMarkup} from '../display-pairing.js?v=20261024-brand46';
 import {effectiveDisplay} from '../display-assignment.js?v=20261022-switch5';
-import {mountTimerFrame} from './timer-frame.js?v=20261023-audio90-43';
+import {mountTimerFrame} from './timer-frame.js?v=20261024-audio-unlock2';
 import {displayCloud} from '../display-cloud.js?v=20261023-tablet-rgb41';
 const host=document.getElementById('screen'),esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])),money=n=>'$'+Number(n||0).toLocaleString();
 let id=localStorage.getItem('epcTvDeviceId');if(!id){id=Array.from(crypto.getRandomValues(new Uint8Array(16)),x=>x.toString(16).padStart(2,'0')).join('');localStorage.setItem('epcTvDeviceId',id)}

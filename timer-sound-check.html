@@ -1,0 +1,10 @@
+<!doctype html><html lang="zh-Hant"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>EPC 計時器音效測試</title><style>body{background:#111;color:#eee;font:18px system-ui;line-height:1.7;margin:0}main{max-width:760px;margin:40px auto;padding:20px}h1{color:#e5ca8a}button{padding:14px 18px;margin:6px;border-radius:8px;border:1px solid #a88942;background:#28231a;color:#f5deaa;font-size:17px;cursor:pointer}#status{padding:18px;border:1px solid #665b38;margin-top:24px}#clock{font-size:54px;color:#e5ca8a}p{color:#bbb}</style><main><h1>EPC 計時器音效測試</h1><p>使用正式計時器相同的音檔與播放程式。請在實際出聲的電腦／投影設備上點選測試。</p><div><button data-kind="start">開始｜1.5 秒</button><button data-kind="ten">10 秒｜0.8 秒</button><button data-kind="five">5 秒｜0.8 秒</button><button data-kind="end">結束｜三聲 2 秒</button></div><button id="sequence">測試完整倒數（12 秒）</button><div id="clock">準備測試</div><div id="status" role="status">點任一按鈕啟用並播放音效。</div><p>若顯示「已送出音效」但仍聽不到，請查看這台設備的分頁靜音、音量及 HDMI／喇叭輸出選擇。本頁不會修改賽事資料。</p></main><script type="module">
+import {countdownSound} from './timer-sound.js?v=20261024-audio-unlock2';
+const sound=countdownSound(),status=document.getElementById('status'),clock=document.getElementById('clock');let interval;
+for(const button of document.querySelectorAll('[data-kind]'))button.onclick=async()=>{clearInterval(interval);status.textContent='正在啟用音訊…';const ok=await sound.test(button.dataset.kind);status.textContent=ok?'已送出音效：'+button.textContent:'音訊尚未啟用或載入失敗，請再點一次測試。';clock.textContent=ok?'播放中':'未播放';};
+document.getElementById('sequence').onclick=async()=>{
+ clearInterval(interval);if(!await sound.test('start')){status.textContent='音訊尚未啟用，請再點一次。';return}
+ const endsAt=Date.now()+12000,timer={index:0,levels:[{min:.2}],running:true,endsAt};sound.observe(timer,12,'sound-check');
+ const tick=()=>{const left=Math.max(0,Math.ceil((endsAt-Date.now())/1000));sound.observe({...timer,running:left>0},left,'sound-check');clock.textContent=left?String(left):'結束';status.textContent=left?'倒數測試：剩 10 秒及 5 秒時各播放一次。':'完整倒數測試完成。';if(!left)clearInterval(interval)};tick();interval=setInterval(tick,100);
+};
+</script></html>

@@ -19,3 +19,4 @@ assert.equal(mountTimerFrame(host,'E2','apply-1'),refreshed,'Heartbeat never rel
 assert.match(refreshed.src,/refresh=apply-1/);
 assert.notEqual(mountTimerFrame(host,'E2','apply-2'),refreshed,'Next explicit apply loads latest presentation');
 console.log('Projection consistency: shared preview URL, explicit refresh and stable heartbeats passed.');
+assert.equal(frame.allow,'autoplay','Projector iframe explicitly permits audio playback');

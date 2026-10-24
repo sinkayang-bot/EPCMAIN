@@ -52,3 +52,12 @@ sound.observe({...timer,index:1,endsAt:5000},1,'E1');sound.observe({...timer,ind
 assert.equal(active.plays.at(-1).buffer.duration,2);assert.equal(active.plays.filter(p=>p.type==='sample').length,4,'No duplicate finish cue');
 slider.value='75';slider.oninput();assert.equal(saved.get('epcTimerSoundVolumeV2'),'75');
 console.log('Passed: exact WAV durations; shared warning buffer; preload/retry; start/10s/5s/finish dispatch; unchanged level cue; mute/volume; no duplicate or stale cues.');
+// Fresh browser contexts often block autoplay. The status must remain visible,
+// and the explicit test button must both unlock and emit the approved cue.
+const WorkingAudio=window.AudioContext;let unlocked=false;
+window.AudioContext=class extends WorkingAudio{state='suspended';async resume(){if(unlocked)this.state='running'}};
+const begin=elements.length;countdownSound();await settle();
+const blocked=elements.slice(begin),enable=blocked.find(e=>e.tag==='button'),test=blocked.find(e=>e.textContent==='測試音效'),panel=blocked.find(e=>e.tag==='aside');
+assert.equal(enable.textContent,'按確認啟用提示音');assert.equal(panel.style.opacity,'.95');
+unlocked=true;await test.onclick();assert.equal(enable.textContent,'提示音：開啟');assert.equal(contexts.at(-1).plays.at(-1).buffer.duration,.8);
+console.log('Passed: blocked autoplay is visible; explicit test unlocks audio and plays the real 0.8s cue.');
