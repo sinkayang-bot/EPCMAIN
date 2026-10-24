@@ -23,5 +23,6 @@ export async function sparkAdmin(config,connectSdk=sdk,lookupMemberSource=lookup
    else throw Error('不支援的操作');tx.set(audit,{kind,actor,uid,memberId,at:fs.serverTimestamp()});
   });return {ok:true};
  }
- return {auth,au,fs,db,allowed,call,lookupMember};
+ async function syncHistory(memberId,readEvents){const {syncMemberHistory}=await import('./history-sync.js?v=7');return syncMemberHistory({fs,db,allowed},memberId,readEvents)}
+ return {auth,au,fs,db,allowed,call,lookupMember,syncHistory};
 }
