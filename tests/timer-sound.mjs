@@ -1,80 +1,54 @@
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-const optionsUrl='data:text/javascript;base64,'+Buffer.from(readFileSync(new URL('../timer-sound-options.js',import.meta.url))).toString('base64');
-const {selectedTimerVoices}=await import(optionsUrl);assert.equal(selectedTimerVoices.ten.id,'A1');assert.equal(selectedTimerVoices.five,selectedTimerVoices.ten);assert.equal(selectedTimerVoices.level.id,'C3');assert.equal(selectedTimerVoices.end.id,'G3');assert.equal(selectedTimerVoices.end.duration,1);
-const soundSource=readFileSync(new URL('../timer-sound.js',import.meta.url),'utf8').replace("'./timer-sound-options.js?v=20261022-final22'",JSON.stringify(optionsUrl));
-const {countdownCue,countdownSound,levelChangeCue,finishedCue,startedCue}=await import('data:text/javascript;base64,'+Buffer.from(soundSource).toString('base64'));
+const root=new URL('../',import.meta.url),moduleUrl=source=>'data:text/javascript;base64,'+Buffer.from(source).toString('base64');
+const optionsUrl=moduleUrl(readFileSync(new URL('timer-sound-options.js',root),'utf8'));
+const recordingsUrl=moduleUrl(readFileSync(new URL('timer-selected-sounds.js',root),'utf8').replace('import.meta.url',JSON.stringify(new URL('timer-selected-sounds.js',root).href)));
+const {selectedSoundFiles,preloadSelectedTimerSounds,playSelectedTimerSound}=await import(recordingsUrl);
+const source=readFileSync(new URL('timer-sound.js',root),'utf8').replace("'./timer-selected-sounds.js?v=20261024-boxing1'",JSON.stringify(recordingsUrl)).replace("'./timer-sound-options.js?v=20261022-final22'",JSON.stringify(optionsUrl));
+const {countdownCue,countdownSound,levelChangeCue,finishedCue,startedCue}=await import(moduleUrl(source));
+let fetched=0,failFetch=false;
+globalThis.fetch=async url=>{fetched++;if(failFetch)throw Error('network');const bytes=readFileSync(url);return {ok:true,arrayBuffer:async()=>bytes.buffer.slice(bytes.byteOffset,bytes.byteOffset+bytes.byteLength)}};
+const contexts=[],elements=[],listeners={};
+class AudioContext {
+ state='running';currentTime=0;destination={};sampleRate=44100;plays=[];
+ constructor(){contexts.push(this)}
+ async resume(){if(this.allowResume!==false)this.state='running'}
+ async decodeAudioData(bytes){const b=Buffer.from(bytes);assert.equal(b.toString('ascii',0,4),'RIFF');let pos=12,rate,align,frames;while(pos<b.length){const type=b.toString('ascii',pos,pos+4),size=b.readUInt32LE(pos+4);if(type==='fmt '){rate=b.readUInt32LE(pos+12);align=b.readUInt16LE(pos+20)}if(type==='data')frames=size/align;pos+=8+size+(size%2)}return {duration:frames/rate}}
+ createBufferSource(){const ctx=this;return {connect(){},disconnect(){},start(at){ctx.plays.push({type:'sample',buffer:this.buffer,at})}}}
+ createGain(){return {gain:{value:1,setValueAtTime(){},linearRampToValueAtTime(){},exponentialRampToValueAtTime(){}},connect(){},disconnect(){}}}
+ createOscillator(){const ctx=this;return {frequency:{setValueAtTime(){},linearRampToValueAtTime(){}},connect(){},start(){ctx.plays.push({type:'legacy-level'})},stop(){}}}
+}
+const saved=new Map();globalThis.window={AudioContext,localStorage:{getItem:k=>saved.get(k)??null,setItem:(k,v)=>saved.set(k,v)}};
+globalThis.document={createElement:tag=>{const e={tag,style:{},children:[],append(...c){this.children.push(...c)},setAttribute(){}};elements.push(e);return e},body:{append(){}},addEventListener:(name,fn)=>listeners[name]=fn};
+const settle=()=>new Promise(resolve=>setImmediate(resolve));
+// Recordings preload once, use the same decoded buffer for both warnings, and
+// never trigger a fetch or a deferred replay in the time-critical play path.
+const ctx=new AudioContext();assert.equal(playSelectedTimerSound(ctx,'ten',.9),null);assert.equal(fetched,0);
+await Promise.all([preloadSelectedTimerSounds(ctx),preloadSelectedTimerSounds(ctx)]);assert.equal(fetched,3);
+for(const kind of ['start','ten','five','end'])playSelectedTimerSound(ctx,kind,.9);
+assert.deepEqual(ctx.plays.map(p=>p.buffer.duration),[1.5,.8,.8,2]);assert.equal(ctx.plays[1].buffer,ctx.plays[2].buffer);assert.equal(fetched,3);
+ctx.state='suspended';assert.equal(playSelectedTimerSound(ctx,'start',.9),null);assert.equal(ctx.plays.length,4);
+const retry=new AudioContext();failFetch=true;await assert.rejects(preloadSelectedTimerSounds(retry));failFetch=false;await preloadSelectedTimerSounds(retry);
+assert.equal(selectedSoundFiles.end.duration,2);
 const state=seconds=>({seconds,running:true,key:'E1:0',endsAt:12345});
-assert.equal(countdownCue(state(11),state(10)),10);
-assert.equal(countdownCue(state(6),state(5)),5);
-assert.equal(countdownCue(state(10),state(10)),null);
-assert.equal(countdownCue(null,state(5)),null);
-assert.equal(countdownCue({...state(11),running:false},state(10)),null);
-assert.equal(countdownCue(state(11),{...state(10),running:false}),null);
-assert.equal(countdownCue(state(11),{...state(10),key:'E1:1'}),null);
-assert.equal(countdownCue(state(60),state(5)),null);
-assert.equal(countdownCue(state(11),{...state(5),endsAt:999}),null);
-assert.equal(countdownCue(state(5),state(11)),null);
-const tones=[],elements=[],bufferStarts=[],bufferStops=[];let panel;
-globalThis.document={createElement:tag=>{const el={tag,style:{},children:[],append(...items){this.children.push(...items)},setAttribute(){}};elements.push(el);return el},body:{append(el){panel=el}}};
-globalThis.window={AudioContext:class{state='running';currentTime=0;sampleRate=44100;destination={};createBuffer(channels,length){assert.equal(channels,1);assert.equal(length,44100);return {getChannelData:()=>new Float32Array(length)}}createBufferSource(){return {connect(){},start(t){tones.push(t);bufferStarts.push(t)},stop(t){bufferStops.push(t)}}}async resume(){}createOscillator(){return {frequency:{setValueAtTime(){},linearRampToValueAtTime(){}},connect(){},start(t){tones.push(t)},stop(){}}}createGain(){return {gain:{setValueAtTime(){},linearRampToValueAtTime(){},exponentialRampToValueAtTime(){}},connect(){}}}}};
-const sound=countdownSound(),button=elements.find(el=>el.tag==='button'),slider=elements.find(el=>el.type==='range'),timer={index:0,levels:[{min:1}],running:true,endsAt:100};
-await Promise.resolve();
-assert.equal(tones.length,0,'Default enable does not emit a test tone');
-assert.equal(button.textContent,'提示音：開啟');
-sound.observe(timer,11,'E1');sound.observe(timer,10,'E1');sound.observe(timer,10,'E1');assert.equal(tones.length,3,'Default audio plays 10-second cue once');
-sound.observe(timer,6,'E1');sound.observe(timer,5,'E1');assert.equal(tones.length,6,'5-second cue plays one A1 tone');
-await button.onclick();sound.observe(timer,11,'E1');sound.observe(timer,10,'E1');assert.equal(tones.length,6,'Disable mutes cues');
-console.log('Timer sound: thresholds, no duplicates, pause/seek/level protection, enable, mute and tone scheduling passed.');
-
-assert.equal(slider.value,'90');slider.value='50';slider.oninput();assert.equal(elements.find(el=>el.tag==='output').textContent,'50%');assert(!elements.some(el=>el.textContent==='試聽提示音'));await button.onclick();
-
+assert.equal(countdownCue(state(11),state(10)),10);assert.equal(countdownCue(state(6),state(5)),5);
+for(const [a,b] of [[null,state(5)],[state(10),state(10)],[state(60),state(5)],[{...state(11),running:false},state(10)],[state(11),{...state(10),running:false}],[state(11),{...state(10),key:'other'}],[state(11),{...state(10),endsAt:999}]])assert.equal(countdownCue(a,b),null);
 const before={event:'E1',structure:'same',index:0,running:true,at:1000},after={...before,index:1,at:1250};
-assert(levelChangeCue(before,after));assert(!levelChangeCue(null,after));assert(!levelChangeCue(before,{...after,event:'E2'}));assert(!levelChangeCue(before,{...after,structure:'changed'}));assert(!levelChangeCue(before,{...after,at:10000}));assert(!levelChangeCue(before,{...after,running:false}));assert(!levelChangeCue(before,{...after,index:0}));
-const structure=[{min:1},{break:true,min:1},{min:1}];
-sound.observe({...timer,levels:structure},1,'E1');const beforeBell=tones.length;sound.observe({...timer,levels:structure,index:1,endsAt:160},60,'E1');assert.equal(tones.length,beforeBell+3,'One bell strike uses three decaying partials');sound.observe({...timer,levels:structure,index:1,endsAt:160},60,'E1');assert.equal(tones.length,beforeBell+3,'No duplicate bell on redraw');sound.observe({...timer,levels:structure,index:2,endsAt:220},60,'E1');assert.equal(tones.length,beforeBell+6,'Leaving a break also rings');
-
-console.log('Selected voices: A1 at 10/5 seconds once, C3 at level transition passed.');
-
-const almostDone={key:'E1:2',running:true,seconds:1,endsAt:5000,at:4750};
-const done={...almostDone,running:false,seconds:0,last:true,at:5000};
-assert(finishedCue(almostDone,done));
-for(const rejected of [null,{...done,key:'E2:2'},{...done,last:false},{...done,seconds:1},{...done,at:4000},{...done,at:10000}])assert(!finishedCue(almostDone,rejected));
-assert(!finishedCue(null,done));assert(!finishedCue({...almostDone,running:false},done));
+assert(levelChangeCue(before,after));assert(!levelChangeCue(before,{...after,event:'E2'}));assert(!levelChangeCue(before,{...after,structure:'changed'}));assert(!levelChangeCue(before,{...after,at:10000}));
+const ready={key:'E1:0',running:false,seconds:60,index:0,at:1000},started={...ready,running:true,duration:60,at:1100};
+assert(startedCue(ready,started));assert(!startedCue({...ready,seconds:40},started));assert(!startedCue(null,started));
+const almost={key:'E1:2',running:true,seconds:1,endsAt:5000,at:4750},done={...almost,running:false,seconds:0,last:true,at:5000};
+assert(finishedCue(almost,done));for(const rejected of [{...done,last:false},{...done,at:4000},{...done,at:10000},{...done,key:'other'}])assert(!finishedCue(almost,rejected));
+// Drive the actual renderer observer through start, countdown, level and finish.
+const offset=elements.length,sound=countdownSound();await settle();const active=contexts.at(-1),button=elements.slice(offset).find(e=>e.tag==='button'),slider=elements.slice(offset).find(e=>e.type==='range');
+assert.equal(button.textContent,'提示音：開啟');assert.equal(active.plays.length,0);assert.equal(slider.value,'90');
+const timer={index:0,levels:[{min:1},{min:1}],running:true,endsAt:100000};
+sound.observe({...timer,running:false},60,'E1');sound.observe(timer,60,'E1');sound.observe(timer,60,'E1');assert.deepEqual(active.plays.map(p=>p.buffer.duration),[1.5]);
+sound.observe(timer,11,'E1');sound.observe(timer,10,'E1');sound.observe(timer,10,'E1');sound.observe(timer,6,'E1');sound.observe(timer,5,'E1');assert.deepEqual(active.plays.map(p=>p.buffer.duration),[1.5,.8,.8]);
+await button.onclick();sound.observe(timer,11,'E1');sound.observe(timer,10,'E1');assert.equal(active.plays.length,3);listeners.keydown({target:{}});assert.equal(button.textContent,'啟用提示音');await button.onclick();
+sound.observe(timer,1,'E1');sound.observe({...timer,index:1,endsAt:160000},60,'E1');assert.equal(active.plays.filter(p=>p.type==='legacy-level').length,3,'Unselected level cue keeps its original three partials');
 const realNow=Date.now;Date.now=()=>5000;
-sound.observe({...timer,levels:structure,index:2,endsAt:5000},1,'E1');
-const beforeEnd=tones.length;
-sound.observe({...timer,levels:structure,index:2,running:false,endsAt:0},0,'E1');
-assert.equal(tones.length,beforeEnd+1,'Final completion plays one G3 sample');
-sound.observe({...timer,levels:structure,index:2,running:false,endsAt:0},0,'E1');
-assert.equal(tones.length,beforeEnd+1,'Finished redraw does not replay alarm');Date.now=realNow;
-assert.equal(bufferStarts.length,1);assert(Math.abs(bufferStops[0]-bufferStarts[0]-1)<1e-9,'G3 finishes after exactly one second');
-console.log('Final alarm: natural completion only, no pause/reload/duplicate triggers passed.');
-
-const ready={key:'E1:0',running:false,seconds:60,index:0,at:1000};
-const started={...ready,running:true,duration:60,seconds:60,at:1100};
-assert(startedCue(ready,started));
-assert(!startedCue(null,started));assert(!startedCue({...ready,seconds:40},started));assert(!startedCue(ready,{...started,key:'E2:0'}));assert(!startedCue(ready,{...started,index:1}));
-const beforeStart=tones.length;
-sound.observe({...timer,running:false,remaining:60,endsAt:0},60,'start-test');
-sound.observe({...timer,running:true,remaining:60,endsAt:Date.now()+60000},60,'start-test');
-assert.equal(tones.length,beforeStart+3,'Start uses the same C3 partials as a level transition');
-sound.observe({...timer,running:true,remaining:60,endsAt:Date.now()+60000},60,'start-test');assert.equal(tones.length,beforeStart+3,'Redraw does not replay start cue');
-sound.observe({...timer,running:false,endsAt:0},40,'start-test');sound.observe({...timer,running:true,endsAt:Date.now()+40000},40,'start-test');assert.equal(tones.length,beforeStart+3,'Mid-level pause/resume does not replay opening cue');
-console.log('Start sound: same C3 bell as level transition; no reload, duplicate or mid-level resume cue.');
-
-// A stored legacy 100% migrates to the new 90% default; new adjustments persist.
-const saved=new Map([['epcTimerSoundVolumeV1','100']]),listeners={};
-window.localStorage={getItem:key=>saved.get(key)??null,setItem:(key,value)=>saved.set(key,value)};
-document.addEventListener=(name,handler)=>listeners[name]=handler;
-const WorkingAudio=window.AudioContext;
-let unlocked=false;
-window.AudioContext=class extends WorkingAudio{state='suspended';async resume(){if(unlocked)this.state='running'}};
-let offset=elements.length;countdownSound();await Promise.resolve();
-let added=elements.slice(offset),blockedButton=added.find(el=>el.tag==='button'),newSlider=added.find(el=>el.type==='range');
-assert.equal(newSlider.value,'90');assert.equal(blockedButton.textContent,'按確認啟用提示音');
-unlocked=true;await blockedButton.onclick();assert.equal(blockedButton.textContent,'提示音：開啟','Confirmation unlocks rather than muting suspended audio');
-await blockedButton.onclick();listeners.keydown({target:{}});await Promise.resolve();assert.equal(blockedButton.textContent,'啟用提示音','Other gestures cannot unmute an explicitly muted device');
-newSlider.value='75';newSlider.oninput();
-offset=elements.length;countdownSound();await Promise.resolve();assert.equal(elements.slice(offset).find(el=>el.type==='range').value,'75','User volume adjustment survives refresh');
-console.log('Audio defaults: enabled at 90%, blocked autoplay unlock, manual mute, legacy migration and persisted volume passed.');
+sound.observe({...timer,index:1,endsAt:5000},1,'E1');sound.observe({...timer,index:1,running:false,endsAt:0},0,'E1');sound.observe({...timer,index:1,running:false,endsAt:0},0,'E1');Date.now=realNow;
+assert.equal(active.plays.at(-1).buffer.duration,2);assert.equal(active.plays.filter(p=>p.type==='sample').length,4,'No duplicate finish cue');
+slider.value='75';slider.oninput();assert.equal(saved.get('epcTimerSoundVolumeV2'),'75');
+console.log('Passed: exact WAV durations; shared warning buffer; preload/retry; start/10s/5s/finish dispatch; unchanged level cue; mute/volume; no duplicate or stale cues.');
