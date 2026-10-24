@@ -6,4 +6,4 @@ Approved 2026-10-24. These files match the selected audition samples byte for by
 - `countdown-v1.wav`: 0.8 seconds. Boxing Bell Signals by Mateusz_Chenc, https://freesound.org/people/Mateusz_Chenc/sounds/520998/ , CC0. Single strike, time adjusted without changing pitch, with short fades. Shared by the 10-second and 5-second reminders.
 - `finish-v1.wav`: 2 seconds. Same CC0 Freesound recording, final three-strike passage, time adjusted without changing pitch, with short fades.
 
-Level-change audio remains the existing C3 preset.
+Level-change audio shares the exact approved 1.5-second start recording.

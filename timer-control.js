@@ -34,7 +34,7 @@ function setTime(){try{parseTime($('remainingTime').value);send('set',$('remaini
  $('saveText').onclick=()=>send('settings',{background:$('background').value,appearance:appearanceEditor.read(),announcement:$('announcement').value,payoutInput:$('payoutInput').value},textRevision);
  for(const field of ['announcement','payoutInput','background'])$(field).oninput=()=>{if(!textDirty)textRevision=timer?.revision||0;textDirty=true};
  $('reloadSettings').onclick=()=>location.reload();
- $('previewTimer').onclick=()=>{if(!timer)return message('本場尚未產生計時器');$('timerPreviewFrame').src='timer.html?'+(demo?'demo=1':'eventId='+encodeURIComponent(id))+'&v=20261024-audio-unlock2';$('timerPreviewDialog').showModal()};$('closePreview').onclick=()=>$('timerPreviewDialog').close();
+ $('previewTimer').onclick=()=>{if(!timer)return message('本場尚未產生計時器');$('timerPreviewFrame').src='timer.html?'+(demo?'demo=1':'eventId='+encodeURIComponent(id))+'&v=20261024-start-level3';$('timerPreviewDialog').showModal()};$('closePreview').onclick=()=>$('timerPreviewDialog').close();
  function dirtyStructure(){if(!structureDirty)structureRevision=timer?.revision||0;structureDirty=true}
  $('addLevel').onclick=()=>{dirtyStructure();draft.push({sb:1000,bb:2000,ante:2000,min:20});levels()};$('addBreak').onclick=()=>{dirtyStructure();draft.push({break:true,min:5});levels()};
  $('levels').oninput=e=>{const el=e.target;if(el.dataset.field){dirtyStructure();draft[el.dataset.index][el.dataset.field]=Number(el.value)}};

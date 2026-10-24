@@ -18,7 +18,7 @@ export function preloadSelectedTimerSounds(context){
  return state.ready;
 }
 export function playSelectedTimerSound(context,kind,volume){
- const name=kind==='ten'||kind==='five'?'countdown':kind;
+ const name=kind==='ten'||kind==='five'?'countdown':kind==='level'?'start':kind;
  const buffer=prepared.get(context)?.buffers[name];
  // Never download or replay a late cue during the countdown itself.
  if(!buffer||context.state!=='running')return null;

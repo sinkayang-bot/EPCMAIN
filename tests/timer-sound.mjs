@@ -4,7 +4,7 @@ const root=new URL('../',import.meta.url),moduleUrl=source=>'data:text/javascrip
 const optionsUrl=moduleUrl(readFileSync(new URL('timer-sound-options.js',root),'utf8'));
 const recordingsUrl=moduleUrl(readFileSync(new URL('timer-selected-sounds.js',root),'utf8').replace('import.meta.url',JSON.stringify(new URL('timer-selected-sounds.js',root).href)));
 const {selectedSoundFiles,preloadSelectedTimerSounds,playSelectedTimerSound}=await import(recordingsUrl);
-const source=readFileSync(new URL('timer-sound.js',root),'utf8').replace("'./timer-selected-sounds.js?v=20261024-boxing1'",JSON.stringify(recordingsUrl)).replace("'./timer-sound-options.js?v=20261022-final22'",JSON.stringify(optionsUrl));
+const source=readFileSync(new URL('timer-sound.js',root),'utf8').replace("'./timer-selected-sounds.js?v=20261024-start-level3'",JSON.stringify(recordingsUrl)).replace("'./timer-sound-options.js?v=20261022-final22'",JSON.stringify(optionsUrl));
 const {countdownCue,countdownSound,levelChangeCue,finishedCue,startedCue}=await import(moduleUrl(source));
 let fetched=0,failFetch=false;
 globalThis.fetch=async url=>{fetched++;if(failFetch)throw Error('network');const bytes=readFileSync(url);return {ok:true,arrayBuffer:async()=>bytes.buffer.slice(bytes.byteOffset,bytes.byteOffset+bytes.byteLength)}};
@@ -46,10 +46,11 @@ const timer={index:0,levels:[{min:1},{min:1}],running:true,endsAt:100000};
 sound.observe({...timer,running:false},60,'E1');sound.observe(timer,60,'E1');sound.observe(timer,60,'E1');assert.deepEqual(active.plays.map(p=>p.buffer.duration),[1.5]);
 sound.observe(timer,11,'E1');sound.observe(timer,10,'E1');sound.observe(timer,10,'E1');sound.observe(timer,6,'E1');sound.observe(timer,5,'E1');assert.deepEqual(active.plays.map(p=>p.buffer.duration),[1.5,.8,.8]);
 await button.onclick();sound.observe(timer,11,'E1');sound.observe(timer,10,'E1');assert.equal(active.plays.length,3);listeners.keydown({target:{}});assert.equal(button.textContent,'啟用提示音');await button.onclick();
-sound.observe(timer,1,'E1');sound.observe({...timer,index:1,endsAt:160000},60,'E1');assert.equal(active.plays.filter(p=>p.type==='legacy-level').length,3,'Unselected level cue keeps its original three partials');
+sound.observe(timer,1,'E1');sound.observe({...timer,index:1,endsAt:160000},60,'E1');assert.equal(active.plays.at(-1).buffer.duration,1.5,'Level transition uses the approved start recording');
+assert.equal(active.plays.at(-1).buffer,active.plays[0].buffer,'Start and level share the exact same decoded audio');
 const realNow=Date.now;Date.now=()=>5000;
 sound.observe({...timer,index:1,endsAt:5000},1,'E1');sound.observe({...timer,index:1,running:false,endsAt:0},0,'E1');sound.observe({...timer,index:1,running:false,endsAt:0},0,'E1');Date.now=realNow;
-assert.equal(active.plays.at(-1).buffer.duration,2);assert.equal(active.plays.filter(p=>p.type==='sample').length,4,'No duplicate finish cue');
+assert.equal(active.plays.at(-1).buffer.duration,2);assert.equal(active.plays.filter(p=>p.type==='sample').length,5,'No duplicate finish cue');
 slider.value='75';slider.oninput();assert.equal(saved.get('epcTimerSoundVolumeV2'),'75');
 console.log('Passed: exact WAV durations; shared warning buffer; preload/retry; start/10s/5s/finish dispatch; unchanged level cue; mute/volume; no duplicate or stale cues.');
 // Fresh browser contexts often block autoplay. The status must remain visible,
@@ -61,3 +62,13 @@ const blocked=elements.slice(begin),enable=blocked.find(e=>e.tag==='button'),tes
 assert.equal(enable.textContent,'按確認啟用提示音');assert.equal(panel.style.opacity,'.95');
 unlocked=true;await test.onclick();assert.equal(enable.textContent,'提示音：開啟');assert.equal(contexts.at(-1).plays.at(-1).buffer.duration,.8);
 console.log('Passed: blocked autoplay is visible; explicit test unlocks audio and plays the real 0.8s cue.');
+
+assert(startedCue({...ready,key:'E1:1',index:1,seconds:40},{...started,key:'E1:1',index:1,seconds:40}),'Pressing Start after a pause or at a later level rings');
+assert(startedCue({...ready,seconds:12},{...started,seconds:12}),'Starting a timer with edited remaining time rings');
+const beforeResume=active.plays.length;
+sound.observe({...timer,index:1,running:false,remaining:40,endsAt:0},40,'resume-test');
+sound.observe({...timer,index:1,running:true,endsAt:Date.now()+40000},40,'resume-test');
+sound.observe({...timer,index:1,running:true,endsAt:Date.now()+40000},40,'resume-test');
+assert.equal(active.plays.length,beforeResume+1,'Resume rings once, never again on redraw');
+assert.equal(active.plays.at(-1).buffer.duration,1.5);
+console.log('Passed: start at any level, edited time and resume; start/level use identical recording.');

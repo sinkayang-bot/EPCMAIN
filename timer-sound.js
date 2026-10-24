@@ -1,5 +1,4 @@
-import {preloadSelectedTimerSounds,playSelectedTimerSound} from './timer-selected-sounds.js?v=20261024-boxing1';
-import {scheduleVoice,selectedTimerVoices} from './timer-sound-options.js?v=20261022-final22';
+import {preloadSelectedTimerSounds,playSelectedTimerSound} from './timer-selected-sounds.js?v=20261024-start-level3';
 // Only a naturally advancing countdown may trigger a cue; opening, seeking,
 // pausing or switching levels must not replay an old warning.
 export function countdownCue(previous,current){
@@ -11,9 +10,9 @@ export function levelChangeCue(previous,current){
  return !!(previous?.running&&current?.running&&previous.event===current.event&&previous.structure===current.structure&&current.index===previous.index+1&&current.at-previous.at<=2000);
 }
 export function startedCue(previous,current){
- return !!(previous&&!previous.running&&current?.running&&previous.key===current.key&&current.index===0
-  &&previous.seconds===current.duration&&current.seconds>0&&current.seconds>=current.duration-2
-  &&current.at-previous.at<=2000);
+ return !!(previous&&!previous.running&&current?.running&&previous.key===current.key
+  &&previous.seconds>0&&current.seconds>0&&current.seconds<=previous.seconds
+  &&previous.seconds-current.seconds<=3&&current.at-previous.at<=2000);
 }
 export function finishedCue(previous,current){
  return !!(previous?.running&&current&&!current.running&&previous.key===current.key&&current.last
@@ -23,7 +22,7 @@ export function finishedCue(previous,current){
 export function countdownSound(){
  let context,enabled=true,previous,volume=90,samplesReady=false,loadFailed=false;
  try{volume=Math.max(20,Math.min(100,Number(window.localStorage.getItem('epcTimerSoundVolumeV2'))||90))}catch(_){}
- const button=document.createElement('button');button.type='button';button.textContent='啟用提示音';button.setAttribute('aria-pressed','false');button.title='開始 1.5 秒；10 秒及 5 秒相同單音各 0.8 秒；結束三連鈴 2 秒；換級別維持原音';
+ const button=document.createElement('button');button.type='button';button.textContent='啟用提示音';button.setAttribute('aria-pressed','false');button.title='開始 1.5 秒；10 秒及 5 秒相同單音各 0.8 秒；結束三連鈴 2 秒；換級別同開始音 1.5 秒';
  const panel=document.createElement('aside');panel.setAttribute('aria-label','提示音設定');panel.style.cssText='position:fixed;right:8px;bottom:3px;z-index:50;max-width:240px;padding:0;display:flex;gap:8px;align-items:center;color:#e9c568;background:transparent;border:0;font:12px system-ui;opacity:.22;transition:opacity .15s';
  button.style.cssText='width:auto;margin:0;padding:3px 5px;font:12px system-ui;line-height:18px;color:#e9c568;background:transparent;border:0;cursor:pointer';
  const details=document.createElement('details'),summary=document.createElement('summary');summary.textContent='音量';summary.style.cssText='cursor:pointer;margin:0;font:12px/24px system-ui';details.style.position='relative';
@@ -40,8 +39,7 @@ export function countdownSound(){
  details.ontoggle=()=>{panel.style.opacity=details.open?'.95':panelOpacity()};
  function bell(kind='level'){
   if(!enabled||context?.state!=='running')return;
-  if(kind==='level')scheduleVoice(context,selectedTimerVoices.level,volume/100);
-  else if(samplesReady)playSelectedTimerSound(context,kind,volume/100);
+  if(samplesReady)playSelectedTimerSound(context,kind,volume/100);
  }
  function updateButton(){
   const ready=enabled&&context?.state==='running'&&samplesReady;
