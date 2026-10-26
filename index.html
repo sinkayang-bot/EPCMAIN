@@ -8003,6 +8003,32 @@ compactArrival();
 })();
 
 </script>
+<script id="epcDailyOperations20261026">
+/* One daily report; cumulative reporting stays in existing interval reports. */
+(()=>{
+'use strict';
+const byId=id=>document.getElementById(id),esc=x=>epcDisplayEscape_(String(x??'')),num=x=>Number(x)||0;
+const input=byId('dashboardDailyDate'),card=input?.closest('.card');if(!card)return;
+card.id='epcDailyOperations';card.querySelector('h3').textContent='日營運報表';
+const grid=card.querySelector(':scope>.grid'),ledger=card.querySelector(':scope>.tablewrap');
+const top=document.createElement('div');top.id='dailyOperationsHeadline';grid.before(top);
+const dayDetails=document.createElement('details');dayDetails.open=true;dayDetails.innerHTML='<summary>日報表明細｜行政費、入會費、其他收入、優惠與 JP</summary>';grid.before(dayDetails);dayDetails.append(grid);
+const ledgerTitle=document.createElement('h3');ledgerTitle.textContent='本日收支項目';ledger.before(ledgerTitle);
+const events=document.createElement('div');events.id='dailyOperationsEvents';ledgerTitle.before(events);
+const style=document.createElement('style');style.textContent='#epcDailyOperations .daily-headline{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:12px 0}#epcDailyOperations .daily-headline>div{padding:12px;border:1px solid var(--line);border-radius:9px;background:var(--card2)}#epcDailyOperations .daily-headline strong{display:block;font-size:28px;margin-top:4px}#epcDailyOperations .daily-headline>div:last-child{border-color:var(--accent)}#epcDailyOperations .daily-headline>div:last-child strong{color:var(--accent)}#epcDailyOperations details>summary{cursor:pointer;font-weight:700;margin:10px 0}#epcDailyOperations .grid{gap:8px}#epcDailyOperations .grid>.card{padding:10px;margin-bottom:0}#epcDailyOperations .grid .v{font-size:22px}#dailyOperationsEvents{margin:18px 0}#dailyOperationsEvents table{min-width:950px}#dailyOperationsEvents .daily-open{color:#efc66b}#dailyOperationsEvents tfoot{font-weight:800}#epcDailyOperations .daily-hint{font-size:12px;line-height:1.6;color:var(--muted);margin:7px 0}@media(max-width:650px){#epcDailyOperations .daily-headline strong{font-size:22px}}';document.head.append(style);
+function eventLine(e){const a=eventAccountingInfo(e),income=num(a.gross)-num(a.discountExpense)+num(a.membershipIncome)+num(a.otherIncome),cost=num(a.otherExpense);return {e,settled:isSettledAccountingEvent_(e),groups:num(a.groups),admin:num(a.gross)-num(a.discountExpense),discount:num(a.discountExpense),membership:num(a.membershipIncome),other:num(a.otherIncome),cost,income,net:income-cost}}
+function render(){const date=input.value;if(!date)return;const d=reportingDayInfo(date),income=num(d.revenue)-num(d.discountExpense),cost=num(d.otherExpense),rows=(db.events||[]).filter(e=>businessDateForEvent(e)===date&&!isIndependentAccountingEvent(e)&&!['deleted','cancelled','canceled','已刪除','已取消'].includes(e.status)).map(eventLine).sort((a,b)=>num(a.e.seq)-num(b.e.seq)),settled=rows.filter(r=>r.settled),open=rows.filter(r=>!r.settled),sum=(arr,key)=>arr.reduce((s,r)=>s+r[key],0);
+const tile=(label,value)=>'<div><span class="small">'+label+'</span><strong>'+money(value)+'</strong></div>';
+top.innerHTML='<div class="daily-headline">'+tile('本日營收',income)+tile('本日支出',cost)+tile('本日淨結餘',d.net)+'</div><div class="daily-hint">營收＝折扣後行政費＋入會費＋其他收入；支出為已登記的額外支出，優惠已反映在行政費。一般帳已結算 '+settled.length+' 場'+(open.length?'；進行中 '+open.length+' 場，預估結餘 '+money(sum(open,'net'))+'（未納入正式合計）':'')+'。</div>';
+const body=rows.map(r=>'<tr class="'+(r.settled?'':'daily-open')+'"><td>'+esc(eventDisplayName_(r.e))+'<div class="small">'+esc(r.e.startTime||'')+'｜'+(r.settled?'已結算':'進行中・預估')+'</div></td><td>'+r.groups+'</td><td>'+money(r.discount)+'</td><td>'+money(r.admin)+'</td><td>'+money(r.membership)+'</td><td>'+money(r.other)+'</td><td>'+money(r.cost)+'</td><td class="'+epcPnlClass_(r.net)+'">'+money(r.net)+'</td></tr>').join('');
+const shared={membership:num(d.membership)-sum(settled,'membership'),other:num(d.otherIncome)-sum(settled,'other'),cost:cost-sum(settled,'cost')};shared.net=shared.membership+shared.other-shared.cost;
+events.innerHTML='<h3>本日逐場收支</h3><div class="tablewrap"><table><thead><tr><th>場次／狀態</th><th>總組數</th><th>優惠</th><th>折扣後行政費</th><th>入會費</th><th>其他收入</th><th>支出</th><th>本場淨結餘</th></tr></thead><tbody>'+body+'<tr><td>當日共用收支<div class="small">未分攤到個別場次，只計一次</div></td><td>—</td><td>—</td><td>—</td><td>'+money(shared.membership)+'</td><td>'+money(shared.other)+'</td><td>'+money(shared.cost)+'</td><td>'+money(shared.net)+'</td></tr></tbody><tfoot><tr><td>本日正式合計</td><td>'+num(d.groups)+'</td><td>'+money(d.discountExpense)+'</td><td>'+money(num(d.gross)-num(d.discountExpense))+'</td><td>'+money(d.membership)+'</td><td>'+money(d.otherIncome)+'</td><td>'+money(cost)+'</td><td>'+money(d.net)+'</td></tr></tfoot></table></div><div class="daily-hint">正式合計不含未結算預估；當日共用支出不重複扣到每場。獎池、JP、寄存金不列營收；獨立帳維持另計。</div>';
+}
+const original=window.renderDashboardDailyReport;window.renderDashboardDailyReport=function(){const r=original.apply(this,arguments);render();return r};
+let timer;const schedule=()=>{clearTimeout(timer);timer=setTimeout(render,120)};window.addEventListener('epcFirestoreEvents',schedule);window.addEventListener('epcFirestoreAccounting',schedule);render();
+})();
+
+</script>
 </body></html>
 
 
