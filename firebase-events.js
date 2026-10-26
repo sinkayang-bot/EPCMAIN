@@ -76,7 +76,7 @@
    async deleteDailyAccounting(date){window.EPCMode?.assertWrite();this.requireAccountingAccess();date=String(date||'').trim();if(date)await fs.deleteDoc(fs.doc(accountingCol,date))}
   };
   for(const name of ['upsertEvent','createEvent','deleteEvent','upsertDailyAccounting','deleteDailyAccounting']){const original=window.EPCFirestore[name];window.EPCFirestore[name]=async function(...args){return window.EPCMode?EPCMode.runWrite(()=>original.apply(this,args)):original.apply(this,args);};}
-  const paymentModule=await import('./player-payments-cloud.js?v=20261023-rebuy-no-ladies30');
+  const paymentModule=await import('./player-payments-cloud.js?v=20261026-arrival3');
   paymentModule.setupPlayerPayments({fs,db,col,accountingCol,bridge:window.EPCFirestore});
   const eventIndex=new Map();
 
@@ -101,4 +101,5 @@
   }
  }catch(e){window.EPC_FIRESTORE_DIAG={state:'error',projectId:cfg?.projectId||'?',count:0,error:String(e?.message||e)};window.dispatchEvent(new CustomEvent('epcFirestoreError',{detail:{message:String(e?.message||e)}}))}
 })();
+
 

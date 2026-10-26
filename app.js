@@ -584,8 +584,10 @@ window.addMember=async function(){
  const btn=document.querySelector('#memberSaveBtn');
  if(btn){btn.disabled=true;btn.textContent='新增中…'}
  try{
+  const referrerId=window.epcReadSignupReferrer_?.()||'';
   const r=await api('member.create',{member:{memberId:id,name,nickname,group}});
   syncLegacyMemberFromV3_(r.member,note);
+  if(referrerId)await window.epcSaveSignupReferrer_(String(r.member.memberId),referrerId);
   ['mName','mNickname','mId','mGroup','mNote'].forEach(x=>{const el=document.querySelector('#'+x);if(el)el.value=''});
   const s=document.querySelector('#memberSearch');if(s)s.value='';
   if(typeof window.actionMsg==='function')window.actionMsg('會員「'+name+'」已寫入 V3 與 Google Sheet');
@@ -643,4 +645,5 @@ window.performDelMember=async function(id){
 };
 
 })();
+
 

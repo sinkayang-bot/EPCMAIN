@@ -4153,7 +4153,7 @@ function addPlayer(){
  let id=$('addPlayerMember').value;if(!id)return alert('請先建立會員');
  if(currentEvent().players.some(p=>p.memberId===id))return alert('此會員已加入本場');
  let m=db.members.find(x=>x.id===id);
- currentEvent().players.push({memberId:id,buyin:1,rebuy:0,addon:0,manualDiscount:0,stack:0,nickname:m.nickname||'',group:$('addPlayerGroup').value.trim()||m.group||'',prize:0});
+ currentEvent().players.push({registeredAt:Date.now(),memberId:id,buyin:1,rebuy:0,addon:0,manualDiscount:0,stack:0,nickname:m.nickname||'',group:$('addPlayerGroup').value.trim()||m.group||'',prize:0});
  $('addPlayerGroup').value='';
  if($('addPlayerSearch'))$('addPlayerSearch').value='';
  persist();renderEventFast_();actionMsg('已加入本場');
@@ -7863,9 +7863,9 @@ async function epcShowRecoveryAudit_(){
 </script>
 <script src="firebase-config.js?v=20261007-0780"></script>
 <script src="phone/stack-core.js?v=20261009-settlement-confirmed"></script>
-<script src="firebase-events.js?v=20261023-tablet-rgb41"></script>
+<script src="firebase-events.js?v=20261026-arrival3"></script>
 <script src="sync-v3.js?v=20261007-0780"></script>
-<script src="app.js?v=20261018-no-diag1"></script><script type="module" src="player-free/backoffice-relay.js?v=9"></script><dialog id="ppDialog"><div class="toolbar" style="justify-content:space-between"><h2 id="ppDialogTitle">玩家帳務</h2><button onclick="document.getElementById('ppDialog').close()">關閉</button></div><div id="ppDialogBody"></div></dialog>
+<script src="app.js?v=20261026-manager3"></script><script type="module" src="player-free/backoffice-relay.js?v=9"></script><dialog id="ppDialog"><div class="toolbar" style="justify-content:space-between"><h2 id="ppDialogTitle">玩家帳務</h2><button onclick="document.getElementById('ppDialog').close()">關閉</button></div><div id="ppDialogBody"></div></dialog>
 <dialog id="ppRegistrationDialog"><div class="toolbar" style="justify-content:space-between"><h2 id="ppRegistrationTitle">加入本場</h2><button data-pp-action onclick="PP.cancelRegistration()">取消</button></div><div id="ppRegistrationBody"></div></dialog><script src="player-payments-core.js?v=20261017-remove1"></script><script src="player-payments.js?v=20261024-brand-unpaid46"></script><script src="ui-layout.js?v=20261018-layout1"></script><dialog id="epcTimerDialog" style="width:98vw;max-width:none;height:96vh;max-height:none;padding:0;background:#050505;border:1px solid #b7933b;border-radius:12px;color:white"><div style="height:44px;display:flex;justify-content:space-between;align-items:center;padding:4px 16px"><b>賽事計時器</b><button type="button" onclick="document.getElementById('epcTimerDialog').close()">關閉</button></div><iframe id="epcTimerFrame" title="賽事計時器後臺" style="width:100%;height:calc(100% - 48px);border:0"></iframe></dialog><dialog id="newEventDialog" style="width:min(580px,94vw);padding:24px;border:1px solid #b89340;border-radius:12px;background:var(--bg,#111);color:var(--text,#eee)"><h2>建立賽事</h2><label for="newEventName">賽事名稱</label><input id="newEventName"><label for="newEventTimerTemplate">計時器範本</label><select id="newEventTimerTemplate" onchange="epcNewEventTimerHint_()"><option value="">不啟用計時器</option><option value="standard">20 分鐘標準賽（內建）</option></select><p class="small" id="newEventTimerHint"></p><p class="small">範本請在獨立「計時器」管理。按建立後，賽事與該場計時器會一同產生。</p><div class="toolbar"><button id="newEventConfirm" class="primary" onclick="epcConfirmNewEvent_()">建立賽事與計時器</button><button onclick="document.getElementById('newEventDialog').close()">取消</button></div></dialog><dialog id="epcTimerProjectionDialog" style="width:96vw;max-width:1920px;height:94vh;max-height:none;padding:0;background:#000;border:1px solid #b89340;border-radius:12px;color:white"><div style="height:48px;display:flex;justify-content:space-between;align-items:center;gap:12px;padding:6px 16px"><b id="epcTimerProjectionTitle">投影預覽</b><button type="button" onclick="document.getElementById('epcTimerProjectionDialog').close()">關閉</button></div><iframe id="epcTimerProjectionFrame" title="設備計時器投影預覽" style="width:100%;height:calc(100% - 90px);border:0;background:#000"></iframe><div class="small" style="padding:8px 16px">此為設備投影預覽。確認畫面後，回到此設備按「套用到螢幕」。</div></dialog><script id="epcManagementView20261026">
 /* EPC management view: derived, read-only; no database writes. */
 (()=>{
@@ -7933,20 +7933,21 @@ function linkReferral(data,child,parent){
 function options(exclude=''){return '<option value="">未設定推薦人</option>'+(db.members||[]).filter(m=>String(m.id)!==String(exclude)).map(m=>'<option value="'+esc(m.id)+'">'+esc(memberLabel(String(m.id)))+'</option>').join('');}
 // Earliest participation per member per business day; not each tournament entry.
 function visitRows(from,to,onlyId=''){
- const found=new Map(),actual=crm().visits||{};
+ const found=new Map();
  for(const e of db.events||[]){if(!valid(e))continue;const date=businessDateForEvent(e);if(!date||date<from||date>to)continue;
- const hit=String(e.startTime||'').match(/(?:T|^|\s)(\d{1,2}):(\d{2})/),h=hit?+hit[1]:null,min=hit?+hit[2]:0;
- const hour=h!==null&&h>=0&&h<24&&min<60?h:null,order=hour===null?Infinity:((hour+17)%24)*60+min;
- for(const p of e.players||[]){const id=String(p.memberId||'');if(!id||onlyId&&id!==onlyId)continue;const key=date+'|'+id,prior=found.get(key);if(!prior||order<prior.order)found.set(key,{date,id,hour,order,actual:false});}
- }
- for(const v of Object.values(actual)){if(!v||v.date<from||v.date>to||onlyId&&v.memberId!==onlyId)continue;const hit=String(v.time||'').match(/^(\d{2}):(\d{2})$/);if(!hit||+hit[1]>23||+hit[2]>59)continue;const hour=+hit[1];found.set(v.date+'|'+v.memberId,{date:v.date,id:v.memberId,hour,order:((hour+17)%24)*60+(+hit[2]),actual:true});}
- return [...found.values()];
+ for(const p of e.players||[]){const id=String(p.memberId||'');if(!id||onlyId&&id!==onlyId)continue;
+ const stamp=Number(p.registeredAt)||0;let hour=null,minute=0,actual=false;
+ if(stamp>0){const parts=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Taipei',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).formatToParts(new Date(stamp));const get=k=>parts.find(x=>x.type===k).value;const civil=get('year')+'-'+get('month')+'-'+get('day');hour=+get('hour');minute=+get('minute');const business=hour<7?shift(civil,-1):civil;if(business===date)actual=true;else hour=null;}
+ if(!actual){const hit=String(e.startTime||'').match(/(?:T|^|\s)(\d{1,2}):(\d{2})/);hour=hit&&+hit[1]<24&&+hit[2]<60?+hit[1]:null;minute=hit?+hit[2]:0;}
+ const order=hour===null?Infinity:((hour+17)%24)*60+minute,key=date+'|'+id,prior=found.get(key);
+ if(!prior||order<prior.order||order===prior.order&&actual&&!prior.actual)found.set(key,{date,id,hour,order,actual,time:hour===null?'':String(hour).padStart(2,'0')+':'+String(minute).padStart(2,'0')});
+ }}return [...found.values()];
 }
 function hourlyHTML(rows){
  const buckets=Array.from({length:24},(_,i)=>({hour:(i+7)%24,actual:0,estimated:0}));const unknown=rows.filter(r=>r.hour===null).length;
  rows.forEach(r=>{if(r.hour!==null)buckets[(r.hour+17)%24][r.actual?'actual':'estimated']++});
  const max=Math.max(1,...buckets.map(x=>x.actual+x.estimated)),recorded=rows.filter(r=>r.actual).length;
- return '<p class="mg-note">'+rows.length+' 個來店人日｜已登記實際到店 '+recorded+'｜首次參賽時段參考 '+(rows.length-recorded-unknown)+'｜時間不足 '+unknown+'。每位會員每天計一次；有實際到店紀錄時優先使用。同日多場不重複計人。</p><div class="tablewrap"><table style="min-width:560px"><thead><tr><th>時段（每小時）</th><th>實際到店</th><th>首次參賽參考</th><th>分布</th></tr></thead><tbody>'+buckets.map(x=>'<tr><td>'+String(x.hour).padStart(2,'0')+':00–'+String((x.hour+1)%24).padStart(2,'0')+':00</td><td>'+x.actual+'</td><td>'+x.estimated+'</td><td style="width:40%"><div style="display:flex;width:'+((x.actual+x.estimated)/max*100)+'%;height:12px"><span style="width:'+(x.actual/Math.max(1,x.actual+x.estimated)*100)+'%;background:var(--accent)"></span><span style="flex:1;background:#71859a"></span></div></td></tr>').join('')+'</tbody></table></div><p class="small">金色＝實際到店；灰色＝首次參賽參考。未登記的進門時間無法由開賽時間還原。</p>';
+ return '<p class="mg-note">'+rows.length+' 個來店人日｜首次報名到店 '+recorded+'｜首次參賽時段參考 '+(rows.length-recorded-unknown)+'｜時間不足 '+unknown+'。每位會員每天計一次；以每日最早報名時間計算。同日多場不重複計人。</p><div class="tablewrap"><table style="min-width:560px"><thead><tr><th>時段（每小時）</th><th>實際到店</th><th>首次參賽參考</th><th>分布</th></tr></thead><tbody>'+buckets.map(x=>'<tr><td>'+String(x.hour).padStart(2,'0')+':00–'+String((x.hour+1)%24).padStart(2,'0')+':00</td><td>'+x.actual+'</td><td>'+x.estimated+'</td><td style="width:40%"><div style="display:flex;width:'+((x.actual+x.estimated)/max*100)+'%;height:12px"><span style="width:'+(x.actual/Math.max(1,x.actual+x.estimated)*100)+'%;background:var(--accent)"></span><span style="flex:1;background:#71859a"></span></div></td></tr>').join('')+'</tbody></table></div><p class="small">金色＝首次報名時間；灰色＝舊場次開賽時段參考。後續續打與重買不重複計次。</p>';
 }
 const distribution=document.createElement('div');distribution.id='mgDistribution';distribution.className='card';distribution.innerHTML='<div class="mg-sub">EPC · 到店時段分布</div><div class="mg-head"><h3>全店客戶來店分布</h3><div class="toolbar"><input type="date" id="mgVisitFrom" aria-label="分布開始營業日" style="width:auto"><input type="date" id="mgVisitTo" aria-label="分布結束營業日" style="width:auto"><button id="mgVisit30">近30天</button><button id="mgVisitRefresh">更新</button></div></div><p class="small">全店含一般帳與獨立帳，可調整日期；非在場人數統計。</p><div id="mgVisitBody"></div>';
 root.closest('.card').after(distribution);
@@ -7958,7 +7959,7 @@ const memberBase=window.openMemberProfile_;
 window.openMemberProfile_=function(id){
  memberBase.apply(this,arguments);id=String(id);const panel=document.getElementById('mgMemberCard');if(!panel)return;
  const lastSplit=panel.querySelector('.mg-split');if(lastSplit)lastSplit.remove();
- const extra=document.createElement('div');extra.innerHTML='<div class="mg-split"><div class="mg-metric"><h3>推薦關係</h3><label>推薦人（誰介紹這位會員）</label><input id="mgParentSearch" placeholder="搜尋姓名、綽號、會員編號"><select id="mgReferrer" aria-label="推薦人">'+options(id)+'</select><div class="toolbar"><button id="mgSaveReferral">儲存推薦人</button></div><label>新增被推薦人（由這位會員介紹）</label><input id="mgChildSearch" placeholder="搜尋姓名、綽號、會員編號"><select id="mgChild" aria-label="被推薦人">'+options(id).replace('未設定推薦人','請選擇會員')+'</select><div class="toolbar"><button id="mgSaveChild">加入被推薦人</button></div><div id="mgRelations"></div><p id="mgCRMStatus" role="status" class="small"></p></div><div class="mg-metric"><h3>登記實際到店</h3><p class="small">可補登／修正。每位會員每營業日保留一筆到店時間；07:00 前請選前一營業日。</p><label>營業日</label><input type="date" id="mgArrivalDate"><label>實際到店時間（台灣時間）</label><input type="time" id="mgArrivalTime"><div class="toolbar"><button id="mgArrivalNow">現在到店</button><button id="mgSaveArrival">儲存到店時間</button></div><p id="mgArrivalStatus" role="status" class="small"></p></div></div><details style="margin-top:16px"><summary style="cursor:pointer;font-weight:bold">個人每小時來店分布 · 近30天</summary><div id="mgPersonalHours"></div></details>';
+ const extra=document.createElement('div');extra.innerHTML='<div class="mg-split"><div class="mg-metric"><h3>推薦關係</h3><label>推薦人（誰介紹這位會員）</label><input id="mgParentSearch" placeholder="搜尋姓名、綽號、會員編號"><select id="mgReferrer" aria-label="推薦人">'+options(id)+'</select><div class="toolbar"><button id="mgSaveReferral">儲存推薦人</button></div><label>新增被推薦人（由這位會員介紹）</label><input id="mgChildSearch" placeholder="搜尋姓名、綽號、會員編號"><select id="mgChild" aria-label="被推薦人">'+options(id).replace('未設定推薦人','請選擇會員')+'</select><div class="toolbar"><button id="mgSaveChild">加入被推薦人</button></div><div id="mgRelations"></div><p id="mgCRMStatus" role="status" class="small"></p></div><div class="mg-metric"><h3>到店時間 · 自動記錄</h3><p>每天第一次報名賽事的時間＝到店時間。</p><p class="small">電腦與手機報名都會記錄，不需額外登記。續打、重買不重複計算；舊場次缺少報名時間時，以開賽時段供參考。</p></div></div><details style="margin-top:16px"><summary style="cursor:pointer;font-weight:bold">個人每小時來店分布 · 近30天</summary><div id="mgPersonalHours"></div></details>';
  panel.append(extra);
  const put=(key,text)=>{document.getElementById(key).textContent=text};
  function refreshRelations(){const links=crm().referrals||{},parent=links[id]?.referrerId||'';document.getElementById('mgReferrer').value=parent;const children=Object.entries(links).filter(([key,r])=>r.referrerId===id&&member(key));const target=document.getElementById('mgRelations');target.replaceChildren();const p=document.createElement('p');p.textContent='推薦人：'+(parent?memberLabel(parent):'未設定');target.append(p);const h=document.createElement('p');h.textContent='被推薦人：'+children.length+' 人';target.append(h);for(const [child] of children){const b=document.createElement('button');b.type='button';b.textContent=memberLabel(child);b.onclick=()=>window.openMemberProfile_(child);target.append(b);}}
@@ -7966,12 +7967,72 @@ window.openMemberProfile_=function(id){
  async function saveRelation(child,parent){try{const old=crm().referrals?.[child]?.referrerId;if(old&&old!==parent&&!confirm('此會員已有推薦人「'+memberLabel(old)+'」，確定變更嗎？'))return;put('mgCRMStatus','儲存中…');await changeCRM(c=>linkReferral(c,child,parent));refreshRelations();put('mgCRMStatus','推薦關係已同步儲存。');}catch(e){put('mgCRMStatus',e.message)}}
  document.getElementById('mgSaveReferral').onclick=()=>saveRelation(id,document.getElementById('mgReferrer').value);
  document.getElementById('mgSaveChild').onclick=()=>{const child=document.getElementById('mgChild').value;if(!child)return put('mgCRMStatus','請選擇被推薦人');saveRelation(child,id)};
- const dateEl=document.getElementById('mgArrivalDate'),timeEl=document.getElementById('mgArrivalTime');dateEl.value=day();
- function loadArrival(){const v=crm().visits?.[dateEl.value+'|'+id];timeEl.value=v?.time||'';put('mgArrivalStatus',v?'已登記：'+v.date+' '+v.time:'本營業日尚未登記到店時間');}dateEl.onchange=loadArrival;
- async function saveArrival(){try{const d=dateEl.value,t=timeEl.value;if(!/^\d{4}-\d{2}-\d{2}$/.test(d)||!/^\d{2}:\d{2}$/.test(t)||d>day())throw Error('請填寫有效營業日與到店時間，不可登記未來營業日');put('mgArrivalStatus','儲存中…');await changeCRM(c=>{c.visits=c.visits||{};c.visits[d+'|'+id]={memberId:id,date:d,time:t,updatedAt:Date.now()}});put('mgArrivalStatus','到店紀錄已同步儲存。');document.getElementById('mgPersonalHours').innerHTML=hourlyHTML(visitRows(shift(day(),-29),day(),id));renderDistribution();}catch(e){put('mgArrivalStatus',e.message)}}
- document.getElementById('mgSaveArrival').onclick=saveArrival;document.getElementById('mgArrivalNow').onclick=()=>{dateEl.value=day();timeEl.value=new Intl.DateTimeFormat('en-GB',{timeZone:'Asia/Taipei',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).format(new Date());saveArrival()};
- refreshRelations();loadArrival();document.getElementById('mgPersonalHours').innerHTML=hourlyHTML(visitRows(shift(day(),-29),day(),id));
+ refreshRelations();document.getElementById('mgPersonalHours').innerHTML=hourlyHTML(visitRows(shift(day(),-29),day(),id));
 };
+/* Compact, movable dashboard panels. Layout state is browser-local only. */
+const dash=document.getElementById('dashboard'),overview=document.createElement('div');overview.id='mgOverviewGrid';
+let layoutPrefs={order:[],closed:[],expanded:[]};try{layoutPrefs=Object.assign(layoutPrefs,JSON.parse(localStorage.getItem('epcManagerLayoutV3')||'{}'))}catch(_){}
+function saveLayout(){try{localStorage.setItem('epcManagerLayoutV3',JSON.stringify(layoutPrefs))}catch(_){}}
+const monthHeader=dash.querySelector(':scope > div'),monthGrid=monthHeader.nextElementSibling;
+const compactStyle=document.createElement('style');compactStyle.textContent=`
+#mgOverviewGrid{display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:start}
+.mg-panel{border:1px solid var(--line);background:var(--card);border-radius:12px;margin:0 0 10px;min-width:0}
+.mg-panel>summary{padding:10px 12px;cursor:pointer;font-size:17px;font-weight:800;display:flex;align-items:center;gap:8px;list-style:none}
+.mg-panel>summary:before{content:'▸';color:var(--accent)}.mg-panel[open]>summary:before{content:'▾'}
+.mg-panel .mg-move{margin-left:auto;display:flex;gap:4px}.mg-move button{font-size:11px;padding:3px 7px}
+.mg-panel-body{padding:0 12px 12px}.mg-panel-body>.card{border:0;padding:0;margin:0}
+#mgOverviewGrid h2,#mgOverviewGrid h3{font-size:17px!important}#mgOverviewGrid .mg-note{font-size:11px;line-height:1.5;margin:8px 0}
+#mgOverviewGrid .grid,#mgOverviewGrid .mg-grid{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:7px!important}
+#mgOverviewGrid .grid>.card,#mgOverviewGrid .mg-metric{padding:9px!important;margin:0!important;border-radius:8px}
+#mgOverviewGrid .kpi .v,#mgOverviewGrid .mg-metric strong{font-size:23px!important;line-height:1.15;margin:5px 0!important}
+#mgOverviewGrid .mg-metric>.small:last-child{font-size:10px;line-height:1.35}
+#mgOverviewGrid .small,#mgOverviewGrid label{font-size:11px}#mgOverviewGrid input{padding:5px;font-size:12px}
+#mgOverviewGrid .formgrid{min-width:0!important;width:100%;gap:8px!important}
+#mgOverviewGrid .report-topbar{display:flex;align-items:center;justify-content:space-between;margin:0!important}
+#mgOverviewGrid .report-topbar h3,#mgOverviewGrid .report-topbar .small{display:none}
+#mgOverviewGrid .report-topbar>div:last-child{min-width:0!important;width:100%}
+#mgOverviewGrid .toolbar{margin:5px 0;gap:5px}#mgOverviewGrid button{padding:5px 9px}
+#mgOverviewGrid #mgDailyBody>p:first-child{display:none}
+#mgOverviewGrid #mgDailyBody>.mg-split,#mgOverviewGrid #mgDailyBody>p:last-child{display:none}
+#mgOverviewGrid #drNet{display:none}#mgOverviewGrid .mg-extra-summary{font-size:11px;margin-top:8px;line-height:1.5;color:var(--muted)}
+#mgOverviewGrid #mgMonthBody>div:first-child{margin-bottom:8px!important}
+#mgOverviewGrid #mgMonthBody>div:first-child>h2{display:none}
+#mgOverviewGrid .mg-panel-body>.card>div[hidden]{display:none!important}
+#mgOverviewGrid details.mg-day-details{margin-top:8px;font-size:12px}#mgOverviewGrid .tablewrap table{min-width:480px}
+@media(max-width:760px){#mgOverviewGrid{grid-template-columns:1fr}#mgOverviewGrid .mg-metric strong{font-size:21px!important}}
+`;document.head.append(compactStyle);
+function makePanel(key,title,nodes,open=true){const d=document.createElement('details');d.className='mg-panel';d.dataset.mgPanel=key;d.open=(layoutPrefs.expanded||[]).includes(key)||(!layoutPrefs.closed.includes(key)&&open);const summary=document.createElement('summary'),label=document.createElement('span');label.textContent=title;summary.append(label);const moves=document.createElement('span');moves.className='mg-move';for(const [delta,text] of [[-1,'←／↑'],[1,'→／↓']]){const b=document.createElement('button');b.type='button';b.textContent=text;b.setAttribute('data-mode-control','');b.setAttribute('aria-label',title+(delta<0?'往前移':'往後移'));b.onclick=e=>{e.preventDefault();e.stopPropagation();const siblings=[...d.parentElement.children].filter(x=>x.dataset.mgPanel),i=siblings.indexOf(d),target=siblings[i+delta];if(!target)return;if(delta<0)d.parentElement.insertBefore(d,target);else target.after(d);layoutPrefs.order=[...document.querySelectorAll('#dashboard [data-mg-panel]')].map(x=>x.dataset.mgPanel);saveLayout()};moves.append(b)}summary.append(moves);const body=document.createElement('div');body.className='mg-panel-body';body.id=key==='month'?'mgMonthBody':'';nodes.forEach(n=>body.append(n));d.append(summary,body);d.addEventListener('toggle',()=>{layoutPrefs.closed=layoutPrefs.closed.filter(x=>x!==key);layoutPrefs.expanded=(layoutPrefs.expanded||[]).filter(x=>x!==key);if(!d.open)layoutPrefs.closed.push(key);else layoutPrefs.expanded.push(key);saveLayout()});return d;}
+dash.prepend(overview);overview.append(makePanel('month','當月營運總覽',[monthHeader,monthGrid]),makePanel('daily','每日營運／日報表',[reportCard]));
+// Keep revenue/expense item rows available without expanding the default viewport.
+const dayTable=reportCard.querySelector(':scope > .tablewrap');if(dayTable){const det=document.createElement('details');det.className='mg-day-details';det.innerHTML='<summary>查看當日收支明細</summary>';dayTable.before(det);det.append(dayTable)}
+const dailyExtra=document.createElement('div');dailyExtra.className='mg-extra-summary';root.append(dailyExtra);
+function compactDay(){const a=dailyAccountingInfo(dateInput.value);dailyExtra.textContent='一般帳已結算 '+a.events.length+' 場｜JP 提撥 '+money(a.jp)+'｜未登記成本不含在結餘';}
+const previousDaily=window.renderDashboardDailyReport;window.renderDashboardDailyReport=function(){const r=previousDaily.apply(this,arguments);compactDay();return r};compactDay();
+const distPanel=makePanel('distribution','全店來店分布｜點開看統計',[distribution],false);overview.after(distPanel);
+for(const [i,node] of [...dash.children].filter(n=>n.classList.contains('card')).entries()){if(node===reportCard)continue;const title=node.querySelector('h2,h3')?.textContent||'詳細統計';node.replaceWith(makePanel('report'+i,title,[node],false));}
+function restoreOrder(){for(const parent of [overview,dash]){const panels=[...parent.children].filter(x=>x.dataset.mgPanel);panels.sort((a,b)=>{const ix=k=>layoutPrefs.order.indexOf(k)<0?999:layoutPrefs.order.indexOf(k);return ix(a.dataset.mgPanel)-ix(b.dataset.mgPanel)});for(const p of panels)parent.append(p)}}restoreOrder();
+const tools=document.createElement('div');tools.className='toolbar';tools.innerHTML='<span class="small">點標題收合；箭頭調整位置（記住本機版面）。</span><button data-mode-control type="button">恢復版面</button>';dash.prepend(tools);tools.querySelector('button').onclick=()=>{layoutPrefs={order:[],closed:[],expanded:[]};saveLayout();overview.append(...['month','daily'].map(k=>overview.querySelector('[data-mg-panel="'+k+'"]')));overview.querySelectorAll('details.mg-panel').forEach(d=>d.open=true);distPanel.open=false;overview.after(distPanel);};
+// Add the referrer to the existing membership application/create form.
+const formGrid=document.getElementById('mName').closest('.formgrid'),refField=document.createElement('div');refField.innerHTML='<label for="mSignupReferrer">推薦人（申請時填寫）</label><input id="mSignupReferrer" list="mSignupReferrerList" autocomplete="off" placeholder="搜尋姓名、綽號或會員編號，可留白"><datalist id="mSignupReferrerList"></datalist><p id="mSignupReferralStatus" class="small" role="status"></p><button type="button" id="mRetryReferral" hidden>重試儲存推薦關係</button>';formGrid.append(refField);formGrid.style.gridTemplateColumns='repeat(3,minmax(0,1fr))';
+function refreshSignup(){const dl=document.getElementById('mSignupReferrerList');dl.innerHTML=(db.members||[]).map(m=>'<option value="'+esc(String(m.id))+'">'+esc(memberLabel(String(m.id)))+'</option>').join('');}
+window.epcReadSignupReferrer_=function(){const raw=document.getElementById('mSignupReferrer').value.trim();if(!raw)return '';const q=raw.toLowerCase(),candidates=(db.members||[]).filter(m=>String(m.id).toLowerCase()===q||String(m.name||'').toLowerCase()===q||String(m.nickname||'').toLowerCase()===q);if(candidates.length!==1)throw Error('推薦人請從清單選擇唯一會員編號');writable();return String(candidates[0].id)};
+let pendingReferral=null;
+window.epcSaveSignupReferrer_=async function(id,parent){const status=document.getElementById('mSignupReferralStatus'),retry=document.getElementById('mRetryReferral');if(!parent){status.textContent='';return}pendingReferral={id:String(id),parent};status.textContent='會員已建立，正在儲存推薦關係…';try{await changeCRM(c=>linkReferral(c,String(id),parent));pendingReferral=null;status.textContent='會員與推薦關係已儲存。';retry.hidden=true;document.getElementById('mSignupReferrer').value=''}catch(e){status.textContent='會員已建立，請勿重複新增。推薦關係待重試：'+e.message;retry.hidden=false}};
+document.getElementById('mRetryReferral').onclick=()=>{if(pendingReferral)window.epcSaveSignupReferrer_(pendingReferral.id,pendingReferral.parent)};
+const editMemberBase=window.editMember;window.editMember=function(id){const r=editMemberBase.apply(this,arguments);document.getElementById('mSignupReferrer').value=crm().referrals?.[String(id)]?.referrerId||'';refField.hidden=true;return r};
+const cancelBase=window.cancelMemberEdit;window.cancelMemberEdit=function(){const r=cancelBase.apply(this,arguments);document.getElementById('mSignupReferrer').value='';refField.hidden=false;return r};
+refreshSignup();const rowsObserver=new MutationObserver(()=>{clearTimeout(rowsObserver.timer);rowsObserver.timer=setTimeout(refreshSignup,150)});rowsObserver.observe(document.getElementById('memberRows'),{childList:true});
+
+// Custom reusable income/expense items. Selecting a preset never posts money.
+const presetBox=document.createElement('details');presetBox.className='card';presetBox.id='mgCustomPresets';presetBox.innerHTML='<summary style="cursor:pointer;font-weight:bold">自訂常用收支項目</summary><p class="small">保存名稱、收入／支出與預設金額。選取後帶入表單，按「新增」才會入帳。</p><div class="formgrid"><div><label for="mgPresetName">項目名稱</label><input id="mgPresetName" placeholder="例如：晚班兼職薪資"></div><div><label for="mgPresetType">類型</label><select id="mgPresetType"><option value="expense">支出</option><option value="income">收入</option><option value="membership">入會費收入</option></select></div><div><label for="mgPresetAmount">預設金額（可留白）</label><input id="mgPresetAmount" type="number" min="0" step="1"></div><div><label>　</label><button id="mgPresetSave" type="button">儲存常用項目</button></div></div><p id="mgPresetStatus" role="status" class="small"></p><div id="mgPresetList"></div>';
+const presetSelect=document.getElementById('accountingItemPreset');presetSelect.closest('.card')?.append(presetBox);
+const presets=()=>db.activityManagement?.managementPresets||{};
+function refreshPresets(){for(const selectId of ['accountingItemPreset','eaItemPreset']){const sel=document.getElementById(selectId);if(!sel)continue;const selected=sel.value;sel.querySelector('optgroup[data-custom-presets]')?.remove();const group=document.createElement('optgroup');group.label='我的常用項目';group.dataset.customPresets='';for(const [id,p] of Object.entries(presets())){if(!p||p.deleted)continue;const o=document.createElement('option');o.value=p.type+'|'+p.name;o.dataset.presetId=id;o.textContent=(p.type==='expense'?'支出｜':'收入｜')+p.name+(p.amount===null?'':' · '+money(p.amount));group.append(o)}sel.append(group);sel.value=selected;}
+ const list=document.getElementById('mgPresetList');list.replaceChildren();for(const [id,p] of Object.entries(presets())){if(!p||p.deleted)continue;const row=document.createElement('div');row.className='toolbar';const label=document.createElement('span');label.textContent=(p.type==='expense'?'支出':'收入')+'｜'+p.name+'｜'+(p.amount===null?'金額每次填寫':money(p.amount));const edit=document.createElement('button');edit.type='button';edit.textContent='編輯';edit.onclick=()=>{presetBox.dataset.editing=id;document.getElementById('mgPresetName').value=p.name;document.getElementById('mgPresetType').value=p.type;document.getElementById('mgPresetAmount').value=p.amount??''};const del=document.createElement('button');del.type='button';del.textContent='停用';del.onclick=async()=>{try{writable();db.activityManagement.managementPresets[id]={...p,deleted:true,updatedAt:Date.now()};window.saveActivityCloudV3();await window.retryActivityCloudV3();refreshPresets();document.getElementById('mgPresetStatus').textContent=localStorage.getItem('epcActivityPendingV1')?'停用已保留，待雲端同步':'已停用常用項目；歷史帳目保留。'}catch(e){document.getElementById('mgPresetStatus').textContent=e.message}};row.append(label,edit,del);list.append(row)}}
+document.getElementById('mgPresetSave').onclick=async()=>{const status=document.getElementById('mgPresetStatus'),button=document.getElementById('mgPresetSave');try{writable();const name=document.getElementById('mgPresetName').value.trim(),type=document.getElementById('mgPresetType').value,raw=document.getElementById('mgPresetAmount').value,amount=raw===''?null:Number(raw);if(!name)throw Error('請填寫項目名稱');if(amount!==null&&(!Number.isSafeInteger(amount)||amount<0))throw Error('金額須為非負整數，或留白');const id=presetBox.dataset.editing||Object.keys(presets()).find(k=>!presets()[k].deleted&&presets()[k].type===type&&presets()[k].name===name)||crypto.randomUUID();button.disabled=true;status.textContent='儲存中…';db.activityManagement.managementPresets={...presets(),[id]:{name,type,amount,deleted:false,updatedAt:Date.now()}};window.saveActivityCloudV3();await window.retryActivityCloudV3();refreshPresets();if(localStorage.getItem('epcActivityPendingV1'))throw Error('本機已保留，雲端尚未確認；請稍後重試');status.textContent='常用項目已同步儲存，之後直接從預設項目選取。';delete presetBox.dataset.editing;}catch(e){status.textContent=e.message}finally{button.disabled=false}};
+for(const [fn,selectId,amountId] of [['useAccountingPreset','accountingItemPreset','accountingItemAmount'],['useEventAccountingPreset','eaItemPreset','eaItemAmount']]){const base=window[fn];window[fn]=function(){const r=base.apply(this,arguments),sel=document.getElementById(selectId),p=presets()[sel.selectedOptions[0]?.dataset.presetId];if(p)document.getElementById(amountId).value=p.amount??'';return r}}
+refreshPresets();const activitiesBase=window.renderActivities;window.renderActivities=function(){const r=activitiesBase.apply(this,arguments);refreshPresets();return r};
+
 renderDistribution();window.addEventListener('epcFirestoreEvents',()=>{render();renderDistribution()});
 
 render();
@@ -7979,8 +8040,10 @@ let timer;new MutationObserver(()=>{clearTimeout(timer);timer=setTimeout(()=>{re
 })();
 
 
+
 </script>
 </body></html>
 
 
 <script type="module" src="display-phone-pair.js?v=20261022-qr27"></script>
+

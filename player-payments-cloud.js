@@ -5,6 +5,7 @@ export function setupPlayerPayments({fs,db,col,accountingCol,bridge}){
  bridge.playerPayment=async function(command){
   window.EPCMode?.assertWrite();bridge.requireAccountingAccess();
   const cmd=JSON.parse(JSON.stringify(command));
+  if(cmd.kind==='add')cmd.registeredAt=Date.now();
   if(!cmd.memberId||!cmd.id)throw Error('帳務指令不完整');
   const ledgerRef=fs.doc(accountingCol,bridge.playerPaymentDocId(cmd.memberId));
   const execute=()=>fs.runTransaction(db,async tx=>{
@@ -30,7 +31,7 @@ export function setupPlayerPayments({fs,db,col,accountingCol,bridge}){
      if(!Number.isSafeInteger(Number(details.manualDiscount||0))||Number(details.manualDiscount||0)<0)throw Error('手動優惠須為非負整數');
      if(details.earlyBird&&details.lateBird)throw Error('早鳥與晚鳥只能擇一');
      const groups=Number(details.buyin??1);if(!Number.isSafeInteger(groups)||groups<1||groups>100)throw Error('首次買入須為 1～100 組');
-     p={memberKey:String(details.memberKey||''),name:String(details.name||''),nickname:String(details.nickname||''),group:String(details.group||''),earlyBird:!!details.earlyBird,lateBird:!!details.lateBird,ladies:!!details.ladies,manualDiscount:Number(details.manualDiscount||0),memberId:String(cmd.memberId),buyin:groups,rebuy:0,addon:0,prize:0,stack:details.stack===null?null:0,registrationUnpaid:!cmd.paidNow};players.push(p);
+     p={registeredAt:cmd.registeredAt,memberKey:String(details.memberKey||''),name:String(details.name||''),nickname:String(details.nickname||''),group:String(details.group||''),earlyBird:!!details.earlyBird,lateBird:!!details.lateBird,ladies:!!details.ladies,manualDiscount:Number(details.manualDiscount||0),memberId:String(cmd.memberId),buyin:groups,rebuy:0,addon:0,prize:0,stack:details.stack===null?null:0,registrationUnpaid:!cmd.paidNow};players.push(p);
     }else if(cmd.kind==='rebuy'){
      if(!p)throw Error('這位玩家已不在本場');
      const groups=Number(cmd.groups),discount=Number(cmd.manualDiscount||0);
@@ -115,3 +116,4 @@ export function setupPlayerPayments({fs,db,col,accountingCol,bridge}){
   return window.EPCMode?window.EPCMode.runWrite(execute):execute();
  };
 }
+
