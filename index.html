@@ -2068,10 +2068,10 @@ window.addEventListener('error',function(e){
 
  <div class="card" style="margin-top:14px">
   <div class="report-topbar" style="margin-bottom:10px">
-   <div><h3 style="margin:0">每日營運總覽／日報表</h3><div class="small">查看指定營業日的 EPC 總帳收支；獨立帳務不納入。</div></div>
+   <div><h3 style="margin:0">日報表</h3><div class="small">查看指定營業日的 EPC 總帳收支；獨立帳務不納入。</div></div>
    <div style="min-width:220px"><label>營業日</label><input type="date" id="dashboardDailyDate" onchange="renderDashboardDailyReport()"></div>
   </div>
-  <div class="grid" hidden style="display:none" aria-hidden="true">
+  <div class="grid">
    <div class="card kpi"><div class="l">賽事數</div><div class="v" id="drEvents">0 場</div></div>
    <div class="card kpi"><div class="l">行政費收入</div><div class="v" id="drAdmin">$0</div></div>
    <div class="card kpi"><div class="l">入會費收入</div><div class="v" id="drMembership">$0</div></div>
@@ -7877,30 +7877,6 @@ const shift=(date,n)=>{const d=new Date(date+'T00:00:00Z');d.setUTCDate(d.getUTC
 const valid=e=>e&&!['deleted','cancelled','canceled','已刪除','已取消'].includes(e.status);
 const metric=(label,value,hint='',accent=false)=>`<div class="mg-metric ${accent?'mg-accent':''}"><div class="small">${esc(label)}</div><strong>${esc(value)}</strong><div class="small">${esc(hint)}</div></div>`;
 const style=document.createElement('style');style.textContent='.mg-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}.mg-metric{padding:16px;border:1px solid var(--line);border-radius:12px;background:var(--card2)}.mg-metric strong{display:block;font-size:26px;margin:8px 0;overflow-wrap:anywhere}.mg-accent{border-color:var(--accent)}.mg-accent strong{color:var(--accent)}.mg-head{display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap}.mg-note{line-height:1.7;margin:12px 0;color:var(--muted)}.mg-split{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px}.mg-list{line-height:1.9}.mg-tag{display:inline-block;padding:5px 10px;border-radius:20px;background:var(--card2);border:1px solid var(--accent);margin:4px}.mg-sub{font-size:12px;letter-spacing:2px;color:var(--accent);margin-bottom:8px}@media(max-width:850px){.mg-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:520px){.mg-split{grid-template-columns:1fr}.mg-metric strong{font-size:22px}}';document.head.append(style);
-const root=document.createElement('div');root.className='card';root.id='epcManagementDaily';
-root.innerHTML='<div class="toolbar"><button id="mgToday">今天</button><button id="mgRefresh">更新數據</button></div><div id="mgDailyBody"></div>';
-const dateInput=document.getElementById('dashboardDailyDate');
-const reportCard=dateInput.closest('.card');reportCard.insertBefore(root,reportCard.querySelector('.tablewrap'));
-root.className='';
-if(!dateInput.value)dateInput.value=day();
-document.getElementById('mgToday').onclick=()=>{dateInput.value=day();window.renderDashboardDailyReport()};document.getElementById('mgRefresh').onclick=()=>{window.renderDashboardDailyReport();renderDistribution()};
-function render(){
- const date=dateInput.value;if(!date)return;
- const body=document.getElementById('mgDailyBody');
- try{
- const a=dailyAccountingInfo(date),events=(db.events||[]).filter(e=>valid(e)&&businessDateForEvent(e)===date),main=events.filter(e=>!isIndependentAccountingEvent(e)),settled=main.filter(isSettledAccountingEvent_),pending=main.filter(e=>!isSettledAccountingEvent_(e));
- const ps=main.flatMap(e=>e.players||[]),ids=new Set(ps.map(p=>String(p.memberId||'')).filter(Boolean));
- const entries=reportingLedgerEntries().filter(x=>x.date===date&&x.direction==='expense');
- // A single classified subset of itemExpense, never subtracted twice.
- const subsidy=entries.filter(x=>/保底|補貼|補池/.test(x.category+' '+x.name)).reduce((s,x)=>s+num(x.amount),0);
- const newIds=[...ids].filter(id=>!(db.events||[]).some(e=>valid(e)&&businessDateForEvent(e)<date&&(e.players||[]).some(p=>String(p.memberId)===id)));
- const unpaid=ps.reduce((s,p)=>s+num(p.registrationUnpaidAmount)+num(p.rebuyUnpaidAmount),0);
- body.innerHTML='<p class="mg-note">財務採一般帳已結算賽事及已登記收支，與 EPC 帳務一致。獨立帳不納入。尚未登錄的人事、租金及活動支出不會自動估列。</p><div class="mg-grid">'+
- metric('營運結餘',money(a.net),'依已登記帳務計算，非盤點現金',true)+metric('折扣後行政費',money(a.gross-a.discountExpense),'原行政費 '+money(a.gross)+' − 優惠 '+money(a.discountExpense))+metric('優惠成本',money(a.discountExpense),'與帳務折扣支出相同')+metric('已登記其他支出',money(a.itemExpense),'含已登記的活動與店家補貼')+
- metric('入會費收入',money(a.membershipIncome),'入會費獨立統計')+metric('其他收入',money(a.itemIncome),'不含入會費與玩家買入獎池')+metric('已標示店家補貼',money(subsidy),'已含於其他支出；依「保底／補貼／補池」名稱辨識')+metric('到店會員／參賽人次',ids.size+' 人 / '+ps.length+' 人次','一般帳，含進行中賽事')+metric('首次參賽／回訪會員',newIds.length+' / '+(ids.size-newIds.length)+' 人','首次以目前已載入歷史判定')+'</div>'+
- '<div class="mg-split"><div class="mg-metric"><h3>今日場況</h3><div class="mg-list">一般帳 '+main.length+' 場 · 已結算 '+settled.length+' 場 · 未結算 '+pending.length+' 場<br>獨立帳 '+(events.length-main.length)+' 場（另計）<br>已標記待收款 '+money(unpaid)+'（不額外從結餘扣除）</div></div><div class="mg-metric"><h3>代管款項 · 不列營運收入</h3><div class="mg-list">已結算 JP 提撥 '+money(a.jp)+'<br>已結算可發獎池 '+money(settled.reduce((s,e)=>s+poolInfoForEvent(e).avail,0))+'<br>玩家寄存金：請至「玩家帳務」查看目前餘額</div></div></div><p class="mg-note">結餘＝原行政費＋入會費＋其他收入−優惠−其他支出。折扣後行政費為計算收入，是否已收款仍需核對；JP 為當日提撥，非目前可用餘額。</p>';
- }catch(e){body.textContent='資料尚未載入完成，請稍後按「更新數據」。';console.warn('EPC management view',e)}
-}
 const original=openMemberProfile_;
 window.openMemberProfile_=function(id){
  original.apply(this,arguments);
@@ -7916,7 +7892,6 @@ window.openMemberProfile_=function(id){
  const box=document.createElement('div');box.id='mgMemberCard';box.className='card';box.innerHTML='<div class="mg-sub">MEMBER · 經營資料卡</div><div class="mg-head"><h3>'+esc(epcPlayerDisplayName_(m))+'</h3><span class="mg-tag">'+esc(status)+'</span></div><p class="small">以下以全部已載入歷史及近 30 個營業日計算，不受下方參賽紀錄查詢期間影響。</p><div class="mg-grid">'+metric('首次參賽',first||'尚無紀錄','目前可見最早參賽日期')+metric('最後來店',last||'尚無紀錄',gap===null?'':gap+' 天前')+metric('近 30 天參賽',recent.length+' 場',dates.length+' 個到店日')+metric('近 30 天優惠',money(discounts),discountGames+' 場使用優惠')+'</div><div class="mg-split"><div class="mg-metric"><h3>到店習慣與下一步</h3><p>常來時段：'+esc(favorite?favorite[0]+'（'+favorite[1]+' 場）':'開賽時間紀錄不足')+'</p><p>建議：'+esc(action)+'</p></div><div class="mg-metric"><h3>待建立的經營紀錄</h3><p>新客來源：尚未建立紀錄</p><p>最近邀約／邀約結果：尚未建立紀錄</p><p class="small">此版先呈現現有資料；來源與邀約的輸入、共用儲存待下一步建立。</p></div></div>';
  panel.insertBefore(box,panel.children[2]||null);
 };
-const baseDaily=renderDashboardDailyReport;window.renderDashboardDailyReport=function(){const r=baseDaily.apply(this,arguments);render();return r};
 // Shared CRM records live in the existing revisioned activity store.
 const crm=()=>db.activityManagement?.memberCRM||{};
 function writable(){window.EPCMode?.assertWrite();if(!window.EPC_ACTIVITY_LOADED)throw Error('會員經營資料尚未完成雲端載入，請稍後再儲存');if(typeof window.saveActivityCloudV3!=='function')throw Error('雲端儲存尚未就緒');}
@@ -7949,12 +7924,6 @@ function hourlyHTML(rows){
  const max=Math.max(1,...buckets.map(x=>x.actual+x.estimated)),recorded=rows.filter(r=>r.actual).length;
  return '<p class="mg-note">'+rows.length+' 個來店人日｜首次報名到店 '+recorded+'｜首次參賽時段參考 '+(rows.length-recorded-unknown)+'｜時間不足 '+unknown+'。每位會員每天計一次；以每日最早報名時間計算。同日多場不重複計人。</p><div class="tablewrap"><table style="min-width:560px"><thead><tr><th>時段（每小時）</th><th>實際到店</th><th>首次參賽參考</th><th>分布</th></tr></thead><tbody>'+buckets.map(x=>'<tr><td>'+String(x.hour).padStart(2,'0')+':00–'+String((x.hour+1)%24).padStart(2,'0')+':00</td><td>'+x.actual+'</td><td>'+x.estimated+'</td><td style="width:40%"><div style="display:flex;width:'+((x.actual+x.estimated)/max*100)+'%;height:12px"><span style="width:'+(x.actual/Math.max(1,x.actual+x.estimated)*100)+'%;background:var(--accent)"></span><span style="flex:1;background:#71859a"></span></div></td></tr>').join('')+'</tbody></table></div><p class="small">金色＝首次報名時間；灰色＝舊場次開賽時段參考。後續續打與重買不重複計次。</p>';
 }
-const distribution=document.createElement('div');distribution.id='mgDistribution';distribution.className='card';distribution.innerHTML='<div class="mg-sub">EPC · 到店時段分布</div><div class="mg-head"><h3>全店客戶來店分布</h3><div class="toolbar"><input type="date" id="mgVisitFrom" aria-label="分布開始營業日" style="width:auto"><input type="date" id="mgVisitTo" aria-label="分布結束營業日" style="width:auto"><button id="mgVisit30">近30天</button><button id="mgVisitRefresh">更新</button></div></div><p class="small">全店含一般帳與獨立帳，可調整日期；非在場人數統計。</p><div id="mgVisitBody"></div>';
-root.closest('.card').after(distribution);
-document.getElementById('mgVisitFrom').value=shift(day(),-29);document.getElementById('mgVisitTo').value=day();
-function renderDistribution(){const f=document.getElementById('mgVisitFrom').value,t=document.getElementById('mgVisitTo').value;document.getElementById('mgVisitBody').innerHTML=!f||!t||f>t?'<p>請設定有效的起訖日期</p>':hourlyHTML(visitRows(f,t));}
-for(const id of ['mgVisitFrom','mgVisitTo'])document.getElementById(id).onchange=renderDistribution;
-document.getElementById('mgVisitRefresh').onclick=renderDistribution;document.getElementById('mgVisit30').onclick=()=>{document.getElementById('mgVisitFrom').value=shift(day(),-29);document.getElementById('mgVisitTo').value=day();renderDistribution()};
 const memberBase=window.openMemberProfile_;
 window.openMemberProfile_=function(id){
  memberBase.apply(this,arguments);id=String(id);const panel=document.getElementById('mgMemberCard');if(!panel)return;
@@ -7969,54 +7938,6 @@ window.openMemberProfile_=function(id){
  document.getElementById('mgSaveChild').onclick=()=>{const child=document.getElementById('mgChild').value;if(!child)return put('mgCRMStatus','請選擇被推薦人');saveRelation(child,id)};
  refreshRelations();document.getElementById('mgPersonalHours').innerHTML=hourlyHTML(visitRows(shift(day(),-29),day(),id));
 };
-/* Compact, movable dashboard panels. Layout state is browser-local only. */
-const dash=document.getElementById('dashboard'),overview=document.createElement('div');overview.id='mgOverviewGrid';
-let layoutPrefs={order:[],closed:[],expanded:[]};try{layoutPrefs=Object.assign(layoutPrefs,JSON.parse(localStorage.getItem('epcManagerLayoutV3')||'{}'))}catch(_){}
-function saveLayout(){try{localStorage.setItem('epcManagerLayoutV3',JSON.stringify(layoutPrefs))}catch(_){}}
-const monthHeader=dash.querySelector(':scope > div'),monthGrid=monthHeader.nextElementSibling;
-const compactStyle=document.createElement('style');compactStyle.textContent=`
-main:has(>#dashboard.active)>.card{padding:8px 12px!important;margin-bottom:6px!important}
-main:has(>#dashboard.active)>.card button{padding:5px 9px!important;font-size:12px}
-main:has(>#dashboard.active)>.card strong,main:has(>#dashboard.active)>.card span,main:has(>#dashboard.active)>.card label{font-size:12px!important}
-main:has(>#dashboard.active)>.card #saveState{font-size:10px;margin-top:2px!important}
-#mgOverviewGrid .mg-metric>.small:last-child{display:none}
-#mgOverviewGrid{display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:start}
-.mg-panel{border:1px solid var(--line);background:var(--card);border-radius:12px;margin:0 0 10px;min-width:0}
-.mg-panel>summary{padding:10px 12px;cursor:pointer;font-size:17px;font-weight:800;display:flex;align-items:center;gap:8px;list-style:none}
-.mg-panel>summary:before{content:'▸';color:var(--accent)}.mg-panel[open]>summary:before{content:'▾'}
-.mg-panel .mg-move{margin-left:auto;display:flex;gap:4px}.mg-move button{font-size:11px;padding:3px 7px}
-.mg-panel-body{padding:0 12px 12px}.mg-panel-body>.card{border:0;padding:0;margin:0}
-#mgOverviewGrid h2,#mgOverviewGrid h3{font-size:17px!important}#mgOverviewGrid .mg-note{font-size:11px;line-height:1.5;margin:8px 0}
-#mgOverviewGrid .grid,#mgOverviewGrid .mg-grid{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:7px!important}
-#mgOverviewGrid .grid>.card,#mgOverviewGrid .mg-metric{padding:9px!important;margin:0!important;border-radius:8px}
-#mgOverviewGrid .kpi .v,#mgOverviewGrid .mg-metric strong{font-size:23px!important;line-height:1.15;margin:5px 0!important}
-#mgOverviewGrid .mg-metric>.small:last-child{font-size:10px;line-height:1.35}
-#mgOverviewGrid .small,#mgOverviewGrid label{font-size:11px}#mgOverviewGrid input{padding:5px;font-size:12px}
-#mgOverviewGrid .formgrid{min-width:0!important;width:100%;gap:8px!important}
-#mgOverviewGrid .report-topbar{display:flex;align-items:center;justify-content:space-between;margin:0!important}
-#mgOverviewGrid .report-topbar h3,#mgOverviewGrid .report-topbar .small{display:none}
-#mgOverviewGrid .report-topbar>div:last-child{min-width:0!important;width:100%}
-#mgOverviewGrid .toolbar{margin:5px 0;gap:5px}#mgOverviewGrid button{padding:5px 9px}
-#mgOverviewGrid #mgDailyBody>p:first-child{display:none}
-#mgOverviewGrid #mgDailyBody>.mg-split,#mgOverviewGrid #mgDailyBody>p:last-child{display:none}
-#mgOverviewGrid #drNet{display:none}#mgOverviewGrid .mg-extra-summary{font-size:11px;margin-top:8px;line-height:1.5;color:var(--muted)}
-#mgOverviewGrid #mgMonthBody>div:first-child{margin-bottom:8px!important}
-#mgOverviewGrid #mgMonthBody>div:first-child>h2{display:none}
-#mgOverviewGrid .mg-panel-body>.card>div[hidden]{display:none!important}
-#mgOverviewGrid details.mg-day-details{margin-top:8px;font-size:12px}#mgOverviewGrid .tablewrap table{min-width:480px}
-@media(max-width:760px){#mgOverviewGrid{grid-template-columns:1fr}#mgOverviewGrid .mg-metric strong{font-size:21px!important}}
-`;document.head.append(compactStyle);
-function makePanel(key,title,nodes,open=true){const d=document.createElement('details');d.className='mg-panel';d.dataset.mgPanel=key;d.open=(layoutPrefs.expanded||[]).includes(key)||(!layoutPrefs.closed.includes(key)&&open);const summary=document.createElement('summary'),label=document.createElement('span');label.textContent=title;summary.append(label);const moves=document.createElement('span');moves.className='mg-move';for(const [delta,text] of [[-1,'←／↑'],[1,'→／↓']]){const b=document.createElement('button');b.type='button';b.textContent=text;b.setAttribute('data-mode-control','');b.setAttribute('aria-label',title+(delta<0?'往前移':'往後移'));b.onclick=e=>{e.preventDefault();e.stopPropagation();const siblings=[...d.parentElement.children].filter(x=>x.dataset.mgPanel),i=siblings.indexOf(d),target=siblings[i+delta];if(!target)return;if(delta<0)d.parentElement.insertBefore(d,target);else target.after(d);layoutPrefs.order=[...document.querySelectorAll('#dashboard [data-mg-panel]')].map(x=>x.dataset.mgPanel);saveLayout()};moves.append(b)}summary.append(moves);const body=document.createElement('div');body.className='mg-panel-body';body.id=key==='month'?'mgMonthBody':'';nodes.forEach(n=>body.append(n));d.append(summary,body);d.addEventListener('toggle',()=>{layoutPrefs.closed=layoutPrefs.closed.filter(x=>x!==key);layoutPrefs.expanded=(layoutPrefs.expanded||[]).filter(x=>x!==key);if(!d.open)layoutPrefs.closed.push(key);else layoutPrefs.expanded.push(key);saveLayout()});return d;}
-dash.prepend(overview);overview.append(makePanel('month','當月營運總覽',[monthHeader,monthGrid]),makePanel('daily','每日營運／日報表',[reportCard]));
-// Keep revenue/expense item rows available without expanding the default viewport.
-const dayTable=reportCard.querySelector(':scope > .tablewrap');if(dayTable){const det=document.createElement('details');det.className='mg-day-details';det.innerHTML='<summary>查看當日收支明細</summary>';dayTable.before(det);det.append(dayTable)}
-const dailyExtra=document.createElement('div');dailyExtra.className='mg-extra-summary';root.append(dailyExtra);
-function compactDay(){const a=dailyAccountingInfo(dateInput.value);dailyExtra.textContent='一般帳已結算 '+a.events.length+' 場｜JP 提撥 '+money(a.jp)+'｜未登記成本不含在結餘';}
-const previousDaily=window.renderDashboardDailyReport;window.renderDashboardDailyReport=function(){const r=previousDaily.apply(this,arguments);compactDay();return r};compactDay();
-const distPanel=makePanel('distribution','全店來店分布｜點開看統計',[distribution],false);overview.after(distPanel);
-for(const [i,node] of [...dash.children].filter(n=>n.classList.contains('card')).entries()){if(node===reportCard)continue;const title=node.querySelector('h2,h3')?.textContent||'詳細統計';const wrapper=makePanel('report'+i,title,[],false);node.before(wrapper);wrapper.querySelector('.mg-panel-body').append(node);}
-function restoreOrder(){for(const parent of [overview,dash]){const panels=[...parent.children].filter(x=>x.dataset.mgPanel);panels.sort((a,b)=>{const ix=k=>layoutPrefs.order.indexOf(k)<0?999:layoutPrefs.order.indexOf(k);return ix(a.dataset.mgPanel)-ix(b.dataset.mgPanel)});for(const p of panels)parent.append(p)}}restoreOrder();
-const tools=document.createElement('div');tools.className='toolbar';tools.innerHTML='<span class="small">點標題收合；箭頭調整位置（記住本機版面）。</span><button data-mode-control type="button">恢復版面</button>';dash.prepend(tools);tools.querySelector('button').onclick=()=>{layoutPrefs={order:[],closed:[],expanded:[]};saveLayout();overview.append(...['month','daily'].map(k=>overview.querySelector('[data-mg-panel="'+k+'"]')));overview.querySelectorAll('details.mg-panel').forEach(d=>d.open=true);distPanel.open=false;overview.after(distPanel);};
 // Add the referrer to the existing membership application/create form.
 const formGrid=document.getElementById('mName').closest('.formgrid'),refField=document.createElement('div');refField.innerHTML='<label for="mSignupReferrer">推薦人（申請時填寫）</label><input id="mSignupReferrer" list="mSignupReferrerList" autocomplete="off" placeholder="搜尋姓名、綽號或會員編號，可留白"><datalist id="mSignupReferrerList"></datalist><p id="mSignupReferralStatus" class="small" role="status"></p><button type="button" id="mRetryReferral" hidden>重試儲存推薦關係</button>';formGrid.append(refField);formGrid.style.gridTemplateColumns='repeat(3,minmax(0,1fr))';
 function refreshSignup(){const dl=document.getElementById('mSignupReferrerList');dl.innerHTML=(db.members||[]).map(m=>'<option value="'+esc(String(m.id))+'">'+esc(memberLabel(String(m.id)))+'</option>').join('');}
@@ -8038,14 +7959,7 @@ document.getElementById('mgPresetSave').onclick=async()=>{const status=document.
 for(const [fn,selectId,amountId] of [['useAccountingPreset','accountingItemPreset','accountingItemAmount'],['useEventAccountingPreset','eaItemPreset','eaItemAmount']]){const base=window[fn];window[fn]=function(){const r=base.apply(this,arguments),sel=document.getElementById(selectId),p=presets()[sel.selectedOptions[0]?.dataset.presetId];if(p)document.getElementById(amountId).value=p.amount??'';return r}}
 refreshPresets();const activitiesBase=window.renderActivities;window.renderActivities=function(){const r=activitiesBase.apply(this,arguments);refreshPresets();return r};
 
-renderDistribution();window.addEventListener('epcFirestoreEvents',()=>{render();renderDistribution()});
-
-render();
-let timer;new MutationObserver(()=>{clearTimeout(timer);timer=setTimeout(()=>{render();renderDistribution()},200)}).observe(document.getElementById('drNet'),{childList:true,characterData:true,subtree:true});
 })();
-
-
-
 </script>
 <script id="epcWideSummary20261026">
 /* EPC wide summary rows and compact system status. Presentation only. */
@@ -8089,71 +8003,9 @@ compactArrival();
 })();
 
 </script>
-<script id="epcOwnerReport20261026">
-/* Read-only owner report: event totals + shared daily ledger, no data writes. */
-(()=>{
-'use strict';
-const $=id=>document.getElementById(id),n=x=>Number(x)||0,esc=x=>epcDisplayEscape_(String(x??'')),fmt=x=>money(n(x));
-function today(){const parts=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Taipei',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',hourCycle:'h23'}).formatToParts(new Date()),v=k=>parts.find(p=>p.type===k).value,d=new Date(v('year')+'-'+v('month')+'-'+v('day')+'T00:00:00Z');if(+v('hour')<7)d.setUTCDate(d.getUTCDate()-1);return d.toISOString().slice(0,10)}
-const valid=e=>e&&!['deleted','cancelled','canceled','已刪除','已取消'].includes(e.status)&&!isIndependentAccountingEvent(e);
-function itemsTotals(items){return (items||[]).reduce((a,x)=>{if(x.type==='membership')a.membership+=n(x.amount);else if(x.type==='expense')a.cost+=n(x.amount);else if(x.type==='income')a.other+=n(x.amount);return a},{membership:0,other:0,cost:0})}
-function eventTotals(e){const a=accountingTotalsForEvents([e]),items=itemsTotals(e.accountingItems),admin=n(a.gross)-n(a.discountExpense),income=admin+items.membership+items.other;return {event:e,groups:n(a.groups),gross:n(a.gross),discount:n(a.discountExpense),admin,...items,income,net:income-items.cost,settled:isSettledAccountingEvent_(e)}}
-function report(date){const events=(db.events||[]).filter(e=>valid(e)&&businessDateForEvent(e)===date).map(eventTotals).sort((a,b)=>n(a.event.seq)-n(b.event.seq)||String(a.event.startTime||'').localeCompare(String(b.event.startTime||''))),shared=itemsTotals((db.dailyAccounting||[]).find(r=>r.date===date)?.items),confirmed=events.filter(r=>r.settled),open=events.filter(r=>!r.settled);const sum=rows=>rows.reduce((a,r)=>{for(const k of ['income','cost','net','admin','membership','other','discount','groups'])a[k]+=r[k];return a},{income:0,cost:0,net:0,admin:0,membership:0,other:0,discount:0,groups:0});const base=sum(confirmed),preview=sum(open);base.income+=shared.membership+shared.other;base.cost+=shared.cost;base.net=base.income-base.cost;base.membership+=shared.membership;base.other+=shared.other;return {date,events,confirmed,open,shared,base,preview}}
-function aggregate(from,to){const dates=[...new Set([...(db.events||[]).filter(valid).map(businessDateForEvent),...(db.dailyAccounting||[]).map(r=>r.date)].filter(d=>d&&d>=from&&d<=to))];return dates.reduce((a,d)=>{const r=report(d);for(const k of ['income','cost','net','admin','membership','other','discount','groups'])a[k]+=r.base[k];a.events+=r.confirmed.length;return a},{income:0,cost:0,net:0,admin:0,membership:0,other:0,discount:0,groups:0,events:0})}
-const style=document.createElement('style');style.textContent=`
-#mgOverviewGrid{display:none!important}#dashboard>.toolbar{display:none!important}
-#ownerReport{margin:0 0 14px}#ownerReport .owner-head{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;margin-bottom:12px}
-#ownerReport h2{margin:0;font-size:25px}#ownerReport h3{margin:0 0 10px;font-size:16px}#ownerReport .owner-controls{display:flex;align-items:end;gap:8px;flex-wrap:wrap}#ownerReport .owner-controls input{width:165px}#ownerReport .owner-controls label{margin:0 0 4px}
-#ownerReport .owner-strip{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:10px}
-#ownerReport .owner-kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
-#ownerReport .owner-kpi{border:1px solid var(--line);background:var(--card2);border-radius:9px;padding:12px 15px;min-width:0}
-#ownerReport .owner-kpi span{display:block;font-size:12px;color:var(--muted)}#ownerReport .owner-kpi strong{display:block;font-size:29px;line-height:1.2;margin:5px 0;font-weight:900}#ownerReport .owner-kpi small{font-size:11px;color:var(--muted)}
-#ownerReport .owner-kpi.highlight{border-color:var(--accent)}#ownerReport .owner-kpi.highlight strong{color:var(--accent)}#ownerReport .owner-sub{font-size:12px;color:var(--muted);line-height:1.6;margin-top:8px}
-#ownerReport table{min-width:950px;font-size:13px}#ownerReport th{font-size:11px;white-space:nowrap}#ownerReport td{padding:9px 6px}#ownerReport tr.owner-shared td{background:var(--card2)}#ownerReport tfoot td{border-top:2px solid var(--accent);font-weight:800}#ownerReport .owner-open{color:#efc66b}
-@media(max-width:650px){#ownerReport .owner-kpi{padding:9px}#ownerReport .owner-kpi strong{font-size:21px}#ownerReport .owner-kpis{gap:6px}#ownerReport .owner-controls input{width:145px}}
-`;document.head.append(style);
-const root=document.createElement('section');root.id='ownerReport';root.innerHTML='<div class="owner-head"><div><h2>老闆營運報表</h2><div class="small">一般帳｜入會費、其他收入分開｜獎池、JP、寄存金不列營收</div></div><div class="owner-controls"><div><label for="ownerDay">本日報表／營業日</label><input type="date" id="ownerDay"></div><button id="ownerToday" data-mode-control>今天</button><div><label for="ownerFrom">累積開始營業日</label><input type="date" id="ownerFrom"></div><button id="ownerMonth" data-mode-control>本月</button><button id="ownerAll" data-mode-control>全部紀錄</button><button id="ownerRefresh" data-mode-control>更新報表</button></div></div><div id="ownerBody"></div>';
-$('dashboard').prepend(root);$('ownerDay').value=today();$('ownerFrom').value=today().slice(0,7)+'-01';
-const kpi=(label,value,hint,highlight=false)=>'<div class="owner-kpi '+(highlight?'highlight':'')+'"><span>'+esc(label)+'</span><strong>'+(value===null?'—':fmt(value))+'</strong><small>'+esc(hint)+'</small></div>';
-function render(){try{const date=$('ownerDay').value,from=$('ownerFrom').value,end=today();if(!date||!from||from>end){$('ownerBody').textContent='請選擇有效日期；累積開始日期不可晚於今天。';return}const d=report(date),a=d.base,c=aggregate(from,end),ready=window.EPCFirestore?.accountingReady===true,known=value=>ready?value:null,label=date===end?'今日':date+' 本日';
-const row=r=>'<tr class="'+(r.settled?'':'owner-open')+'"><td>'+esc(eventDisplayName_(r.event))+'<div class="small">'+esc(r.event.startTime||'時間未設定')+' · '+(r.settled?'已結算':'進行中・預估')+'</div></td><td>'+r.groups+'</td><td>'+fmt(r.gross)+'</td><td>'+fmt(r.discount)+'</td><td>'+fmt(r.admin)+'</td><td>'+fmt(r.membership)+'</td><td>'+fmt(r.other)+'</td><td>'+fmt(r.cost)+'</td><td class="'+epcPnlClass_(r.net)+'">'+fmt(r.net)+'</td></tr>';
-const sharedIncome=d.shared.membership+d.shared.other,sharedNet=sharedIncome-d.shared.cost;
-$('ownerBody').innerHTML=(ready?'':'<div class="notice">帳務明細尚未完成載入／登入，總營收、支出與結餘先顯示 —；請確認上方帳務連線。場次資料仍可查看。</div>')+'<div class="owner-strip"><h3>'+esc(label)+'｜'+d.confirmed.length+' 場已結算'+(d.open.length?'・'+d.open.length+' 場進行中':'')+'</h3><div class="owner-kpis">'+kpi('本日營收',known(a.income),'行政費已扣優惠＋入會費＋其他收入')+kpi('本日支出',known(a.cost),'已登記場次支出＋當日共用支出')+kpi('本日淨結餘',known(a.net),'本日營收 − 本日支出',true)+'</div><div class="owner-sub">折扣後行政費 '+fmt(a.admin)+'　｜　入會費 '+fmt(a.membership)+'　｜　其他收入 '+fmt(a.other)+'　｜　優惠 '+fmt(a.discount)+'（已反映在行政費，不重複扣除）'+(d.open.length?'<br><span class="owner-open">進行中預估：營收 '+fmt(d.preview.income)+'、支出 '+fmt(d.preview.cost)+'、結餘 '+fmt(d.preview.net)+'；含進行中之本日預估結餘 '+fmt(a.net+d.preview.net)+'。尚未計入上方正式數字。</span>':'')+'</div></div>'+
-'<div class="owner-strip"><h3>截至目前累積收支 <span class="small">'+esc(from)+' ～ '+esc(end)+'｜已結算 '+c.events+' 場</span></h3><div class="owner-kpis">'+kpi('累積營收',known(c.income),'折扣後行政費 '+fmt(c.admin))+kpi('累積支出',known(c.cost),'已登記的場次與共用支出')+kpi('累積淨結餘',known(c.net),'累積營收 − 累積支出',true)+'</div><div class="owner-sub">累積入會費 '+fmt(c.membership)+'　｜　累積其他收入 '+fmt(c.other)+'　｜　累積優惠 '+fmt(c.discount)+'（已扣）</div></div>'+
-'<div class="owner-strip"><h3>本日逐場收支</h3><div class="tablewrap"><table><thead><tr><th>場次／狀態</th><th>總組數</th><th>原行政費</th><th>優惠</th><th>折扣後行政費</th><th>入會費</th><th>其他收入</th><th>支出</th><th>本場淨結餘</th></tr></thead><tbody>'+d.events.map(row).join('')+'<tr class="owner-shared"><td>當日共用收支<div class="small">未分攤至個別場次，只計一次</div></td><td>—</td><td>—</td><td>—</td><td>—</td><td>'+fmt(d.shared.membership)+'</td><td>'+fmt(d.shared.other)+'</td><td>'+fmt(d.shared.cost)+'</td><td class="'+epcPnlClass_(sharedNet)+'">'+fmt(sharedNet)+'</td></tr></tbody><tfoot><tr><td>本日正式合計（含共用收支）</td><td>'+a.groups+'</td><td>'+fmt(a.admin+a.discount)+'</td><td>'+fmt(a.discount)+'</td><td>'+fmt(a.admin)+'</td><td>'+fmt(a.membership)+'</td><td>'+fmt(a.other)+'</td><td>'+fmt(a.cost)+'</td><td class="'+epcPnlClass_(a.net)+'">'+(ready?fmt(a.net):'—')+'</td></tr></tfoot></table></div><div class="owner-sub">正式合計只納入已結算場次；黃色列為未結算預估。共用支出不硬分攤到每場。未登記的人事、租金等成本尚未反映，營收也不等於已收現金。獨立帳維持另外統計。</div></div>';
-}catch(e){$('ownerBody').textContent='報表資料載入中，請稍後更新。';console.warn('owner report',e)}}
-$('ownerDay').onchange=render;$('ownerFrom').onchange=render;$('ownerToday').onclick=()=>{$('ownerDay').value=today();render()};$('ownerMonth').onclick=()=>{$('ownerFrom').value=today().slice(0,7)+'-01';render()};$('ownerAll').onclick=()=>{const dates=[...(db.events||[]).filter(valid).map(businessDateForEvent),...(db.dailyAccounting||[]).map(r=>r.date)].filter(d=>d&&d<=today()).sort();$('ownerFrom').value=dates[0]||today();render()};$('ownerRefresh').onclick=render;
-let timer;function schedule(){clearTimeout(timer);timer=setTimeout(render,100)}
-for(const fn of ['renderDashboardSummary','renderDashboardDailyReport']){const base=window[fn];window[fn]=function(){const r=base.apply(this,arguments);schedule();return r}}
-window.addEventListener('epcFirestoreEvents',schedule);window.addEventListener('epcFirestoreAccounting',schedule);new MutationObserver(schedule).observe($('drNet'),{childList:true,subtree:true,characterData:true});render();
-})();
-
-</script>
-<script id="restoreOriginalOverview20261026">
-/* Restore existing member and operating overview beside the new owner report. */
-(()=>{
-const dashboard=document.getElementById('dashboard'),owner=document.getElementById('ownerReport'),month=document.querySelector('#mgOverviewGrid>[data-mg-panel="month"]');
-if(!dashboard||!owner||!month)return;
-const holder=document.createElement('div');holder.id='ownerOriginalOverview';owner.before(holder);holder.append(month);
-month.open=true;
-const heading=month.querySelector(':scope>summary>span');if(heading)heading.textContent='會員與原有營運總覽';
-const css=document.createElement('style');css.textContent=`
-#ownerOriginalOverview{margin-bottom:12px}
-#ownerOriginalOverview .mg-panel-body>div:first-child{display:flex!important;align-items:end;justify-content:space-between;gap:12px;margin-bottom:9px!important}
-#ownerOriginalOverview h2{display:none}
-#ownerOriginalOverview .formgrid{min-width:0!important;max-width:480px;gap:9px}
-#ownerOriginalOverview label{font-size:11px}#ownerOriginalOverview input{padding:5px}
-#ownerOriginalOverview .grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr))!important;gap:7px!important}
-#ownerOriginalOverview .grid>.card{padding:9px 12px;margin:0;border-radius:8px}
-#ownerOriginalOverview .kpi .v{font-size:23px;line-height:1.2;margin-top:4px}
-#ownerOriginalOverview .small{font-size:10px;line-height:1.4}
-@media(max-width:650px){#ownerOriginalOverview .grid{grid-template-columns:repeat(2,minmax(0,1fr))!important}}
-`;document.head.append(css);
-})();
-
-</script>
 </body></html>
 
 
 <script type="module" src="display-phone-pair.js?v=20261022-qr27"></script>
+
 
