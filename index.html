@@ -2068,10 +2068,10 @@ window.addEventListener('error',function(e){
 
  <div class="card" style="margin-top:14px">
   <div class="report-topbar" style="margin-bottom:10px">
-   <div><h3 style="margin:0">日報表</h3><div class="small">查看指定營業日的 EPC 總帳收支；獨立帳務不納入。</div></div>
+   <div><h3 style="margin:0">每日營運總覽／日報表</h3><div class="small">查看指定營業日的 EPC 總帳收支；獨立帳務不納入。</div></div>
    <div style="min-width:220px"><label>營業日</label><input type="date" id="dashboardDailyDate" onchange="renderDashboardDailyReport()"></div>
   </div>
-  <div class="grid">
+  <div class="grid" hidden style="display:none" aria-hidden="true">
    <div class="card kpi"><div class="l">賽事數</div><div class="v" id="drEvents">0 場</div></div>
    <div class="card kpi"><div class="l">行政費收入</div><div class="v" id="drAdmin">$0</div></div>
    <div class="card kpi"><div class="l">入會費收入</div><div class="v" id="drMembership">$0</div></div>
@@ -7878,10 +7878,12 @@ const valid=e=>e&&!['deleted','cancelled','canceled','已刪除','已取消'].in
 const metric=(label,value,hint='',accent=false)=>`<div class="mg-metric ${accent?'mg-accent':''}"><div class="small">${esc(label)}</div><strong>${esc(value)}</strong><div class="small">${esc(hint)}</div></div>`;
 const style=document.createElement('style');style.textContent='.mg-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}.mg-metric{padding:16px;border:1px solid var(--line);border-radius:12px;background:var(--card2)}.mg-metric strong{display:block;font-size:26px;margin:8px 0;overflow-wrap:anywhere}.mg-accent{border-color:var(--accent)}.mg-accent strong{color:var(--accent)}.mg-head{display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap}.mg-note{line-height:1.7;margin:12px 0;color:var(--muted)}.mg-split{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px}.mg-list{line-height:1.9}.mg-tag{display:inline-block;padding:5px 10px;border-radius:20px;background:var(--card2);border:1px solid var(--accent);margin:4px}.mg-sub{font-size:12px;letter-spacing:2px;color:var(--accent);margin-bottom:8px}@media(max-width:850px){.mg-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:520px){.mg-split{grid-template-columns:1fr}.mg-metric strong{font-size:22px}}';document.head.append(style);
 const root=document.createElement('div');root.className='card';root.id='epcManagementDaily';
-root.innerHTML='<div class="mg-sub">EPC · MANAGER VIEW</div><div class="mg-head"><div><h2>每日營運總覽</h2><span class="small">營業日依台灣時間，07:00 換日</span></div><div class="toolbar"><input aria-label="營運查詢營業日" type="date" id="mgDate" style="width:auto"><button id="mgToday">今天</button><button id="mgRefresh">更新數據</button></div></div><div id="mgDailyBody"></div>';
-document.getElementById('dashboard')?.prepend(root);
-const dateInput=document.getElementById('mgDate');dateInput.value=day();dateInput.onchange=render;
-document.getElementById('mgToday').onclick=()=>{dateInput.value=day();render()};document.getElementById('mgRefresh').onclick=render;
+root.innerHTML='<div class="toolbar"><button id="mgToday">今天</button><button id="mgRefresh">更新數據</button></div><div id="mgDailyBody"></div>';
+const dateInput=document.getElementById('dashboardDailyDate');
+const reportCard=dateInput.closest('.card');reportCard.insertBefore(root,reportCard.querySelector('.tablewrap'));
+root.className='';
+if(!dateInput.value)dateInput.value=day();
+document.getElementById('mgToday').onclick=()=>{dateInput.value=day();window.renderDashboardDailyReport()};document.getElementById('mgRefresh').onclick=()=>{window.renderDashboardDailyReport();renderDistribution()};
 function render(){
  const date=dateInput.value;if(!date)return;
  const body=document.getElementById('mgDailyBody');
@@ -7906,18 +7908,76 @@ window.openMemberProfile_=function(id){
  panel.querySelector('#mgMemberCard')?.remove();
  const today=day(),from=shift(today,-29),all=(db.events||[]).filter(e=>valid(e)&&businessDateForEvent(e)<=today&&(e.players||[]).some(p=>String(p.memberId)===String(id))).sort((a,b)=>businessDateForEvent(a).localeCompare(businessDateForEvent(b)));
  const recent=all.filter(e=>businessDateForEvent(e)>=from),dates=[...new Set(recent.map(businessDateForEvent))],first=all.length?businessDateForEvent(all[0]):'',last=all.length?businessDateForEvent(all.at(-1)):'',gap=last?Math.round((new Date(today+'T00:00:00Z')-new Date(last+'T00:00:00Z'))/86400000):null;
- const counts={};let discounts=0,discountGames=0;
- recent.forEach(e=>{const time=String(e.startTime||'').match(/(?:T|^|\s)(\d{1,2}):(\d{2})/);if(time){const hour=+time[1],label=hour<7?'凌晨 00–07':hour<18?'白天 07–18':hour<22?'晚間 18–22':'深夜 22–24';counts[label]=(counts[label]||0)+1;}const p=(e.players||[]).find(p=>String(p.memberId)===String(id));if(p){const amount=num(calcPlayerForEvent(p,e).totalDiscount);discounts+=amount;if(amount>0)discountGames++;}});
- const favorite=Object.entries(counts).sort((a,b)=>b[1]-a[1])[0];
+ let discounts=0,discountGames=0;
+ recent.forEach(e=>{const p=(e.players||[]).find(p=>String(p.memberId)===String(id));if(p){const amount=num(calcPlayerForEvent(p,e).totalDiscount);discounts+=amount;if(amount>0)discountGames++;}});
+ const favorite=null;
  const status=gap===null?'尚無參賽紀錄':all.length===1?'首訪會員':gap>=30?'30 天未回訪':gap>=14?'14 天未回訪':gap>=7?'7 天未回訪':'近期有到店';
  const action=gap===null?'確認是否完成首次參賽':all.length===1?'關心首次體驗，邀請第二次到店':gap>=14?'安排一次回訪關心，記錄未到店原因':gap>=7?'依常來時段邀約近期場次':'維持互動，告知適合的場次';
  const box=document.createElement('div');box.id='mgMemberCard';box.className='card';box.innerHTML='<div class="mg-sub">MEMBER · 經營資料卡</div><div class="mg-head"><h3>'+esc(epcPlayerDisplayName_(m))+'</h3><span class="mg-tag">'+esc(status)+'</span></div><p class="small">以下以全部已載入歷史及近 30 個營業日計算，不受下方參賽紀錄查詢期間影響。</p><div class="mg-grid">'+metric('首次參賽',first||'尚無紀錄','目前可見最早參賽日期')+metric('最後來店',last||'尚無紀錄',gap===null?'':gap+' 天前')+metric('近 30 天參賽',recent.length+' 場',dates.length+' 個到店日')+metric('近 30 天優惠',money(discounts),discountGames+' 場使用優惠')+'</div><div class="mg-split"><div class="mg-metric"><h3>到店習慣與下一步</h3><p>常來時段：'+esc(favorite?favorite[0]+'（'+favorite[1]+' 場）':'開賽時間紀錄不足')+'</p><p>建議：'+esc(action)+'</p></div><div class="mg-metric"><h3>待建立的經營紀錄</h3><p>新客來源：尚未建立紀錄</p><p>最近邀約／邀約結果：尚未建立紀錄</p><p class="small">此版先呈現現有資料；來源與邀約的輸入、共用儲存待下一步建立。</p></div></div>';
  panel.insertBefore(box,panel.children[2]||null);
 };
 const baseDaily=renderDashboardDailyReport;window.renderDashboardDailyReport=function(){const r=baseDaily.apply(this,arguments);render();return r};
+// Shared CRM records live in the existing revisioned activity store.
+const crm=()=>db.activityManagement?.memberCRM||{};
+function writable(){window.EPCMode?.assertWrite();if(!window.EPC_ACTIVITY_LOADED)throw Error('會員經營資料尚未完成雲端載入，請稍後再儲存');if(typeof window.saveActivityCloudV3!=='function')throw Error('雲端儲存尚未就緒');}
+async function changeCRM(mutator){writable();const copy=JSON.parse(JSON.stringify(crm()));mutator(copy);db.activityManagement.memberCRM=copy;window.saveActivityCloudV3();if(typeof window.retryActivityCloudV3!=='function')throw Error('本機已保留，雲端同步尚未確認');await window.retryActivityCloudV3();if(localStorage.getItem('epcActivityPendingV1'))throw Error('本機已保留但雲端尚未確認，請至活動管理重試同步');}
+const member=id=>(db.members||[]).find(m=>String(m.id)===String(id));
+const memberLabel=id=>{const m=member(id);return m?epcPlayerDisplayName_(m)+' · '+id:id};
+function linkReferral(data,child,parent){
+ if(!member(child)||parent&&!member(parent))throw Error('請從會員清單選擇推薦人與被推薦人');
+ if(child===parent)throw Error('不能推薦自己');
+ const links=data.referrals||(data.referrals={});let cursor=parent;const seen=new Set([child]);
+ while(cursor){if(seen.has(cursor))throw Error('推薦關係形成循環，請確認後再設定');seen.add(cursor);cursor=links[cursor]?.referrerId||'';}
+ links[child]={referrerId:parent,updatedAt:Date.now()};
+}
+function options(exclude=''){return '<option value="">未設定推薦人</option>'+(db.members||[]).filter(m=>String(m.id)!==String(exclude)).map(m=>'<option value="'+esc(m.id)+'">'+esc(memberLabel(String(m.id)))+'</option>').join('');}
+// Earliest participation per member per business day; not each tournament entry.
+function visitRows(from,to,onlyId=''){
+ const found=new Map(),actual=crm().visits||{};
+ for(const e of db.events||[]){if(!valid(e))continue;const date=businessDateForEvent(e);if(!date||date<from||date>to)continue;
+ const hit=String(e.startTime||'').match(/(?:T|^|\s)(\d{1,2}):(\d{2})/),h=hit?+hit[1]:null,min=hit?+hit[2]:0;
+ const hour=h!==null&&h>=0&&h<24&&min<60?h:null,order=hour===null?Infinity:((hour+17)%24)*60+min;
+ for(const p of e.players||[]){const id=String(p.memberId||'');if(!id||onlyId&&id!==onlyId)continue;const key=date+'|'+id,prior=found.get(key);if(!prior||order<prior.order)found.set(key,{date,id,hour,order,actual:false});}
+ }
+ for(const v of Object.values(actual)){if(!v||v.date<from||v.date>to||onlyId&&v.memberId!==onlyId)continue;const hit=String(v.time||'').match(/^(\d{2}):(\d{2})$/);if(!hit||+hit[1]>23||+hit[2]>59)continue;const hour=+hit[1];found.set(v.date+'|'+v.memberId,{date:v.date,id:v.memberId,hour,order:((hour+17)%24)*60+(+hit[2]),actual:true});}
+ return [...found.values()];
+}
+function hourlyHTML(rows){
+ const buckets=Array.from({length:24},(_,i)=>({hour:(i+7)%24,actual:0,estimated:0}));const unknown=rows.filter(r=>r.hour===null).length;
+ rows.forEach(r=>{if(r.hour!==null)buckets[(r.hour+17)%24][r.actual?'actual':'estimated']++});
+ const max=Math.max(1,...buckets.map(x=>x.actual+x.estimated)),recorded=rows.filter(r=>r.actual).length;
+ return '<p class="mg-note">'+rows.length+' 個來店人日｜已登記實際到店 '+recorded+'｜首次參賽時段參考 '+(rows.length-recorded-unknown)+'｜時間不足 '+unknown+'。每位會員每天計一次；有實際到店紀錄時優先使用。同日多場不重複計人。</p><div class="tablewrap"><table style="min-width:560px"><thead><tr><th>時段（每小時）</th><th>實際到店</th><th>首次參賽參考</th><th>分布</th></tr></thead><tbody>'+buckets.map(x=>'<tr><td>'+String(x.hour).padStart(2,'0')+':00–'+String((x.hour+1)%24).padStart(2,'0')+':00</td><td>'+x.actual+'</td><td>'+x.estimated+'</td><td style="width:40%"><div style="display:flex;width:'+((x.actual+x.estimated)/max*100)+'%;height:12px"><span style="width:'+(x.actual/Math.max(1,x.actual+x.estimated)*100)+'%;background:var(--accent)"></span><span style="flex:1;background:#71859a"></span></div></td></tr>').join('')+'</tbody></table></div><p class="small">金色＝實際到店；灰色＝首次參賽參考。未登記的進門時間無法由開賽時間還原。</p>';
+}
+const distribution=document.createElement('div');distribution.id='mgDistribution';distribution.className='card';distribution.innerHTML='<div class="mg-sub">EPC · 到店時段分布</div><div class="mg-head"><h3>全店客戶來店分布</h3><div class="toolbar"><input type="date" id="mgVisitFrom" aria-label="分布開始營業日" style="width:auto"><input type="date" id="mgVisitTo" aria-label="分布結束營業日" style="width:auto"><button id="mgVisit30">近30天</button><button id="mgVisitRefresh">更新</button></div></div><p class="small">全店含一般帳與獨立帳，可調整日期；非在場人數統計。</p><div id="mgVisitBody"></div>';
+root.closest('.card').after(distribution);
+document.getElementById('mgVisitFrom').value=shift(day(),-29);document.getElementById('mgVisitTo').value=day();
+function renderDistribution(){const f=document.getElementById('mgVisitFrom').value,t=document.getElementById('mgVisitTo').value;document.getElementById('mgVisitBody').innerHTML=!f||!t||f>t?'<p>請設定有效的起訖日期</p>':hourlyHTML(visitRows(f,t));}
+for(const id of ['mgVisitFrom','mgVisitTo'])document.getElementById(id).onchange=renderDistribution;
+document.getElementById('mgVisitRefresh').onclick=renderDistribution;document.getElementById('mgVisit30').onclick=()=>{document.getElementById('mgVisitFrom').value=shift(day(),-29);document.getElementById('mgVisitTo').value=day();renderDistribution()};
+const memberBase=window.openMemberProfile_;
+window.openMemberProfile_=function(id){
+ memberBase.apply(this,arguments);id=String(id);const panel=document.getElementById('mgMemberCard');if(!panel)return;
+ const lastSplit=panel.querySelector('.mg-split');if(lastSplit)lastSplit.remove();
+ const extra=document.createElement('div');extra.innerHTML='<div class="mg-split"><div class="mg-metric"><h3>推薦關係</h3><label>推薦人（誰介紹這位會員）</label><input id="mgParentSearch" placeholder="搜尋姓名、綽號、會員編號"><select id="mgReferrer" aria-label="推薦人">'+options(id)+'</select><div class="toolbar"><button id="mgSaveReferral">儲存推薦人</button></div><label>新增被推薦人（由這位會員介紹）</label><input id="mgChildSearch" placeholder="搜尋姓名、綽號、會員編號"><select id="mgChild" aria-label="被推薦人">'+options(id).replace('未設定推薦人','請選擇會員')+'</select><div class="toolbar"><button id="mgSaveChild">加入被推薦人</button></div><div id="mgRelations"></div><p id="mgCRMStatus" role="status" class="small"></p></div><div class="mg-metric"><h3>登記實際到店</h3><p class="small">可補登／修正。每位會員每營業日保留一筆到店時間；07:00 前請選前一營業日。</p><label>營業日</label><input type="date" id="mgArrivalDate"><label>實際到店時間（台灣時間）</label><input type="time" id="mgArrivalTime"><div class="toolbar"><button id="mgArrivalNow">現在到店</button><button id="mgSaveArrival">儲存到店時間</button></div><p id="mgArrivalStatus" role="status" class="small"></p></div></div><details style="margin-top:16px"><summary style="cursor:pointer;font-weight:bold">個人每小時來店分布 · 近30天</summary><div id="mgPersonalHours"></div></details>';
+ panel.append(extra);
+ const put=(key,text)=>{document.getElementById(key).textContent=text};
+ function refreshRelations(){const links=crm().referrals||{},parent=links[id]?.referrerId||'';document.getElementById('mgReferrer').value=parent;const children=Object.entries(links).filter(([key,r])=>r.referrerId===id&&member(key));const target=document.getElementById('mgRelations');target.replaceChildren();const p=document.createElement('p');p.textContent='推薦人：'+(parent?memberLabel(parent):'未設定');target.append(p);const h=document.createElement('p');h.textContent='被推薦人：'+children.length+' 人';target.append(h);for(const [child] of children){const b=document.createElement('button');b.type='button';b.textContent=memberLabel(child);b.onclick=()=>window.openMemberProfile_(child);target.append(b);}}
+ function search(inputId,selectId){document.getElementById(inputId).oninput=e=>{const q=e.target.value.trim().toLowerCase(),sel=document.getElementById(selectId);Array.from(sel.options).forEach(o=>{o.hidden=!!o.value&&!o.textContent.toLowerCase().includes(q)});const found=Array.from(sel.options).find(o=>o.value&&!o.hidden);if(found)sel.value=found.value;};}search('mgParentSearch','mgReferrer');search('mgChildSearch','mgChild');
+ async function saveRelation(child,parent){try{const old=crm().referrals?.[child]?.referrerId;if(old&&old!==parent&&!confirm('此會員已有推薦人「'+memberLabel(old)+'」，確定變更嗎？'))return;put('mgCRMStatus','儲存中…');await changeCRM(c=>linkReferral(c,child,parent));refreshRelations();put('mgCRMStatus','推薦關係已同步儲存。');}catch(e){put('mgCRMStatus',e.message)}}
+ document.getElementById('mgSaveReferral').onclick=()=>saveRelation(id,document.getElementById('mgReferrer').value);
+ document.getElementById('mgSaveChild').onclick=()=>{const child=document.getElementById('mgChild').value;if(!child)return put('mgCRMStatus','請選擇被推薦人');saveRelation(child,id)};
+ const dateEl=document.getElementById('mgArrivalDate'),timeEl=document.getElementById('mgArrivalTime');dateEl.value=day();
+ function loadArrival(){const v=crm().visits?.[dateEl.value+'|'+id];timeEl.value=v?.time||'';put('mgArrivalStatus',v?'已登記：'+v.date+' '+v.time:'本營業日尚未登記到店時間');}dateEl.onchange=loadArrival;
+ async function saveArrival(){try{const d=dateEl.value,t=timeEl.value;if(!/^\d{4}-\d{2}-\d{2}$/.test(d)||!/^\d{2}:\d{2}$/.test(t)||d>day())throw Error('請填寫有效營業日與到店時間，不可登記未來營業日');put('mgArrivalStatus','儲存中…');await changeCRM(c=>{c.visits=c.visits||{};c.visits[d+'|'+id]={memberId:id,date:d,time:t,updatedAt:Date.now()}});put('mgArrivalStatus','到店紀錄已同步儲存。');document.getElementById('mgPersonalHours').innerHTML=hourlyHTML(visitRows(shift(day(),-29),day(),id));renderDistribution();}catch(e){put('mgArrivalStatus',e.message)}}
+ document.getElementById('mgSaveArrival').onclick=saveArrival;document.getElementById('mgArrivalNow').onclick=()=>{dateEl.value=day();timeEl.value=new Intl.DateTimeFormat('en-GB',{timeZone:'Asia/Taipei',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).format(new Date());saveArrival()};
+ refreshRelations();loadArrival();document.getElementById('mgPersonalHours').innerHTML=hourlyHTML(visitRows(shift(day(),-29),day(),id));
+};
+renderDistribution();window.addEventListener('epcFirestoreEvents',()=>{render();renderDistribution()});
+
 render();
-let timer;new MutationObserver(()=>{clearTimeout(timer);timer=setTimeout(render,200)}).observe(document.getElementById('drNet'),{childList:true,characterData:true,subtree:true});
+let timer;new MutationObserver(()=>{clearTimeout(timer);timer=setTimeout(()=>{render();renderDistribution()},200)}).observe(document.getElementById('drNet'),{childList:true,characterData:true,subtree:true});
 })();
+
 
 </script>
 </body></html>
