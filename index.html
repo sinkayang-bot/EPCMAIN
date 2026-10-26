@@ -7975,6 +7975,11 @@ let layoutPrefs={order:[],closed:[],expanded:[]};try{layoutPrefs=Object.assign(l
 function saveLayout(){try{localStorage.setItem('epcManagerLayoutV3',JSON.stringify(layoutPrefs))}catch(_){}}
 const monthHeader=dash.querySelector(':scope > div'),monthGrid=monthHeader.nextElementSibling;
 const compactStyle=document.createElement('style');compactStyle.textContent=`
+main:has(>#dashboard.active)>.card{padding:8px 12px!important;margin-bottom:6px!important}
+main:has(>#dashboard.active)>.card button{padding:5px 9px!important;font-size:12px}
+main:has(>#dashboard.active)>.card strong,main:has(>#dashboard.active)>.card span,main:has(>#dashboard.active)>.card label{font-size:12px!important}
+main:has(>#dashboard.active)>.card #saveState{font-size:10px;margin-top:2px!important}
+#mgOverviewGrid .mg-metric>.small:last-child{display:none}
 #mgOverviewGrid{display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:start}
 .mg-panel{border:1px solid var(--line);background:var(--card);border-radius:12px;margin:0 0 10px;min-width:0}
 .mg-panel>summary{padding:10px 12px;cursor:pointer;font-size:17px;font-weight:800;display:flex;align-items:center;gap:8px;list-style:none}
