@@ -2010,16 +2010,17 @@ html[data-epc-theme="light"]{--bg:#f4fafb;--card:#fff;--card2:#f4f9fa;--text:#17
 html[data-epc-theme="light"] #dailyOperationsSplit>div{background:#f7fbfc!important;border-color:#cde2e6!important;color:#17343c!important}
 html[data-epc-theme="light"] #dailyOperationsSplit h3{color:#17343c!important}
 html[data-epc-theme="light"] #dailyOperationsSplit .daily-hint{color:#537078!important}
-body .page{font-size:15px}
-body .page .small,body .page .kpi .l{font-size:14px}
-body .page label,body .page .formgrid label{font-size:14px!important}
-body .page input:not([type=checkbox]):not([type=radio]):not([type=range]),body .page select,body .page textarea,body .page button,body .page .btn{font-size:15px!important}
-body .page table td{font-size:15px}
-body .page table th{font-size:14px!important}
-body .page .kpi .v{font-size:28px}
-body #epcDailyOperations .grid .v{font-size:24px}
-body #dailyOperationsSplit h3{font-size:18px}
-body #dailyOperationsSplit .daily-hint{font-size:13px}
+body .page{font-size:17px}
+body .page .small,body .page .kpi .l{font-size:16px}
+body .page label,body .page .formgrid label{font-size:16px!important}
+body .page input:not([type=checkbox]):not([type=radio]):not([type=range]),body .page select,body .page textarea,body .page button,body .page .btn{font-size:17px!important}
+body .page table td{font-size:17px}
+body .page table th{font-size:16px!important}
+body .page .kpi .v{font-size:32px}
+body #dashboard .kpi .v{font-size:32px}
+body #epcDailyOperations .grid .v{font-size:28px}
+body #dailyOperationsSplit h3{font-size:20px}
+body #dailyOperationsSplit .daily-hint{font-size:15px}
 }
 </style>
 </head>
@@ -2082,7 +2083,9 @@ window.addEventListener('error',function(e){
   <div class="card kpi"><div class="l">區間總營利</div><div class="v" id="kMonthProfit">$0</div></div>
   <div class="card kpi"><div class="l">總 JP 累計</div><div class="v" id="kJP">$0</div></div>
   <div class="card kpi"><div class="l">區間 JP</div><div class="v" id="kRangeJP">$0</div></div>
-  <div class="card kpi"><div class="l">區間總支出</div><div class="v" id="kMonthExpense">$0</div></div>
+  <div class="card kpi"><div class="l">區間總收入</div><div class="v" id="kRangeRevenue">$0</div><div class="small">折扣前行政費＋入會費＋其他收入</div></div>
+  <div class="card kpi"><div class="l">區間優惠支出</div><div class="v" id="kRangeDiscount">$0</div><div class="small">重買、超買與其他折扣優惠</div></div>
+  <div class="card kpi"><div class="l">區間一般支出</div><div class="v" id="kMonthExpense">$0</div></div>
   <div class="card kpi"><div class="l">區間賽事場次</div><div class="v" id="kMonthEvents">0 場</div><div class="small" id="kLevelBreakdown">尚無賽事</div></div>
  </div>
 
@@ -5862,11 +5865,13 @@ function renderDashboardSummary(){
  const ledgerTotals=dates=>dates.reduce((a,date)=>{
    const ai=dailyAccountingInfo(date);
    a.net+=+ai.net||0;
-   a.expense+=+ai.expense||0;
+   a.expense+=+ai.itemExpense||0;
+   a.revenue+=+ai.revenue||0;
+   a.discount+=+ai.discountExpense||0;
    a.jp+=+ai.jp||0;
    a.events+=Array.isArray(ai.events)?ai.events.length:0;
    return a;
- },{net:0,expense:0,jp:0,events:0});
+ },{net:0,expense:0,revenue:0,discount:0,jp:0,events:0});
 
  const allLedger=ledgerTotals(allLedgerDates);
  const rangeLedger=ledgerTotals(rangeLedgerDates);
@@ -5896,6 +5901,8 @@ function renderDashboardSummary(){
  if($('kJP'))$('kJP').textContent=money(allLedger.jp);
  if($('kRangeJP'))$('kRangeJP').textContent=money(rangeLedger.jp);
  if($('kMonthExpense'))$('kMonthExpense').textContent=money(rangeLedger.expense);
+ if($('kRangeRevenue'))$('kRangeRevenue').textContent=money(rangeLedger.revenue);
+ if($('kRangeDiscount'))$('kRangeDiscount').textContent=money(rangeLedger.discount);
  if($('kMonthEvents'))$('kMonthEvents').textContent=`${rangeLedger.events} 場`;
  if($('ledgerDateFrom') && !$('ledgerDateFrom').value)$('ledgerDateFrom').value=from;
  if($('ledgerDateTo') && !$('ledgerDateTo').value)$('ledgerDateTo').value=to;
