@@ -146,8 +146,8 @@ async function boot(force=false){
  try{return await window.eightReloadMembers_()}
  catch(e){if(cached.length){if(state)state.textContent='會員已載入 '+cached.length+' 人｜V3 即時同步';return {ok:false,cached:true,error:e.message}}throw e}
 }
-function goPage(page){document.querySelectorAll('#nav button').forEach(x=>x.classList.toggle('active',x.dataset.page===page));document.querySelectorAll('.page').forEach(x=>x.classList.toggle('active',x.id===page));const t=document.querySelector('#pageTitle');if(t&&pages[page])t.textContent=pages[page]}
-document.querySelectorAll('#nav button').forEach(b=>b.addEventListener('click',()=>{goPage(b.dataset.page);if(b.dataset.page==='events')showCachedEvents()}));
+function goPage(page){if(!page||!document.getElementById(page))return;document.querySelectorAll('#nav button[data-page]').forEach(x=>x.classList.toggle('active',x.dataset.page===page));document.querySelectorAll('.page').forEach(x=>x.classList.toggle('active',x.id===page));const t=document.querySelector('#pageTitle');if(t&&pages[page])t.textContent=pages[page]}
+document.querySelectorAll('#nav button[data-page]').forEach(b=>b.addEventListener('click',()=>{goPage(b.dataset.page);if(b.dataset.page==='events')showCachedEvents()}));
 document.querySelector('#themeBtn')?.addEventListener('click',()=>{const dark=document.body.dataset.theme==='dark';document.body.dataset.theme=dark?'light':'dark';document.querySelector('#themeBtn').textContent=dark?'☾ 深色模式':'☀ 一般模式';localStorage.setItem('eightTheme',document.body.dataset.theme)});
 document.body.dataset.theme=localStorage.getItem('eightTheme')||'dark';
 document.querySelector('#businessStart')?.addEventListener('change',refreshBusinessDay);document.querySelector('#businessEnd')?.addEventListener('change',refreshBusinessDay);
