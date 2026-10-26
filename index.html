@@ -8129,6 +8129,29 @@ window.addEventListener('epcFirestoreEvents',schedule);window.addEventListener('
 })();
 
 </script>
+<script id="restoreOriginalOverview20261026">
+/* Restore existing member and operating overview beside the new owner report. */
+(()=>{
+const dashboard=document.getElementById('dashboard'),owner=document.getElementById('ownerReport'),month=document.querySelector('#mgOverviewGrid>[data-mg-panel="month"]');
+if(!dashboard||!owner||!month)return;
+const holder=document.createElement('div');holder.id='ownerOriginalOverview';owner.before(holder);holder.append(month);
+month.open=true;
+const heading=month.querySelector(':scope>summary>span');if(heading)heading.textContent='會員與原有營運總覽';
+const css=document.createElement('style');css.textContent=`
+#ownerOriginalOverview{margin-bottom:12px}
+#ownerOriginalOverview .mg-panel-body>div:first-child{display:flex!important;align-items:end;justify-content:space-between;gap:12px;margin-bottom:9px!important}
+#ownerOriginalOverview h2{display:none}
+#ownerOriginalOverview .formgrid{min-width:0!important;max-width:480px;gap:9px}
+#ownerOriginalOverview label{font-size:11px}#ownerOriginalOverview input{padding:5px}
+#ownerOriginalOverview .grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr))!important;gap:7px!important}
+#ownerOriginalOverview .grid>.card{padding:9px 12px;margin:0;border-radius:8px}
+#ownerOriginalOverview .kpi .v{font-size:23px;line-height:1.2;margin-top:4px}
+#ownerOriginalOverview .small{font-size:10px;line-height:1.4}
+@media(max-width:650px){#ownerOriginalOverview .grid{grid-template-columns:repeat(2,minmax(0,1fr))!important}}
+`;document.head.append(css);
+})();
+
+</script>
 </body></html>
 
 
