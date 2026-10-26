@@ -7897,7 +7897,7 @@ function render(){
  const unpaid=ps.reduce((s,p)=>s+num(p.registrationUnpaidAmount)+num(p.rebuyUnpaidAmount),0);
  body.innerHTML='<p class="mg-note">財務採一般帳已結算賽事及已登記收支，與 EPC 帳務一致。獨立帳不納入。尚未登錄的人事、租金及活動支出不會自動估列。</p><div class="mg-grid">'+
  metric('營運結餘',money(a.net),'依已登記帳務計算，非盤點現金',true)+metric('折扣後行政費',money(a.gross-a.discountExpense),'原行政費 '+money(a.gross)+' − 優惠 '+money(a.discountExpense))+metric('優惠成本',money(a.discountExpense),'與帳務折扣支出相同')+metric('已登記其他支出',money(a.itemExpense),'含已登記的活動與店家補貼')+
- metric('入會費及其他收入',money(a.membershipIncome+a.itemIncome),'不含玩家買入獎池')+metric('已標示店家補貼',money(subsidy),'已含於其他支出；依「保底／補貼／補池」名稱辨識')+metric('到店會員／參賽人次',ids.size+' 人 / '+ps.length+' 人次','一般帳，含進行中賽事')+metric('首次參賽／回訪會員',newIds.length+' / '+(ids.size-newIds.length)+' 人','首次以目前已載入歷史判定')+'</div>'+
+ metric('入會費收入',money(a.membershipIncome),'入會費獨立統計')+metric('其他收入',money(a.itemIncome),'不含入會費與玩家買入獎池')+metric('已標示店家補貼',money(subsidy),'已含於其他支出；依「保底／補貼／補池」名稱辨識')+metric('到店會員／參賽人次',ids.size+' 人 / '+ps.length+' 人次','一般帳，含進行中賽事')+metric('首次參賽／回訪會員',newIds.length+' / '+(ids.size-newIds.length)+' 人','首次以目前已載入歷史判定')+'</div>'+
  '<div class="mg-split"><div class="mg-metric"><h3>今日場況</h3><div class="mg-list">一般帳 '+main.length+' 場 · 已結算 '+settled.length+' 場 · 未結算 '+pending.length+' 場<br>獨立帳 '+(events.length-main.length)+' 場（另計）<br>已標記待收款 '+money(unpaid)+'（不額外從結餘扣除）</div></div><div class="mg-metric"><h3>代管款項 · 不列營運收入</h3><div class="mg-list">已結算 JP 提撥 '+money(a.jp)+'<br>已結算可發獎池 '+money(settled.reduce((s,e)=>s+poolInfoForEvent(e).avail,0))+'<br>玩家寄存金：請至「玩家帳務」查看目前餘額</div></div></div><p class="mg-note">結餘＝原行政費＋入會費＋其他收入−優惠−其他支出。折扣後行政費為計算收入，是否已收款仍需核對；JP 為當日提撥，非目前可用餘額。</p>';
  }catch(e){body.textContent='資料尚未載入完成，請稍後按「更新數據」。';console.warn('EPC management view',e)}
 }
