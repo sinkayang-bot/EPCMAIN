@@ -5169,61 +5169,7 @@ function printDailyAccounting(){
   <h2>當日賽事明細</h2>
   <table><thead><tr><th>場次</th><th>賽事</th><th>組數</th><th>行政費收入</th><th>重買優惠</th><th>組數優惠</th><th>早晚鳥／手動優惠</th><th>折扣支出</th><th>實收行政費</th><th>JP</th></tr></thead><tbody>${eventRows}</tbody></table>
   <div class="sign"><div>製表：____________________</div><div>覆核：____________________</div></div>
- </div><script id="epcManagementView20261026">
-/* EPC management view: derived, read-only; no database writes. */
-(()=>{
-'use strict';
-const esc=v=>epcDisplayEscape_(String(v??''));
-const num=v=>Number(v)||0;
-const day=()=>{const p=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Taipei',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',hourCycle:'h23'}).formatToParts(new Date());const get=k=>p.find(x=>x.type===k).value;const d=new Date(`${get('year')}-${get('month')}-${get('day')}T00:00:00Z`);if(+get('hour')<7)d.setUTCDate(d.getUTCDate()-1);return d.toISOString().slice(0,10)};
-const shift=(date,n)=>{const d=new Date(date+'T00:00:00Z');d.setUTCDate(d.getUTCDate()+n);return d.toISOString().slice(0,10)};
-const valid=e=>e&&!['deleted','cancelled','canceled','已刪除','已取消'].includes(e.status);
-const metric=(label,value,hint='',accent=false)=>`<div class="mg-metric ${accent?'mg-accent':''}"><div class="small">${esc(label)}</div><strong>${esc(value)}</strong><div class="small">${esc(hint)}</div></div>`;
-const style=document.createElement('style');style.textContent='.mg-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}.mg-metric{padding:16px;border:1px solid var(--line);border-radius:12px;background:var(--card2)}.mg-metric strong{display:block;font-size:26px;margin:8px 0;overflow-wrap:anywhere}.mg-accent{border-color:var(--accent)}.mg-accent strong{color:var(--accent)}.mg-head{display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap}.mg-note{line-height:1.7;margin:12px 0;color:var(--muted)}.mg-split{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px}.mg-list{line-height:1.9}.mg-tag{display:inline-block;padding:5px 10px;border-radius:20px;background:var(--card2);border:1px solid var(--accent);margin:4px}.mg-sub{font-size:12px;letter-spacing:2px;color:var(--accent);margin-bottom:8px}@media(max-width:850px){.mg-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:520px){.mg-split{grid-template-columns:1fr}.mg-metric strong{font-size:22px}}';document.head.append(style);
-const root=document.createElement('div');root.className='card';root.id='epcManagementDaily';
-root.innerHTML='<div class="mg-sub">EPC · MANAGER VIEW</div><div class="mg-head"><div><h2>每日營運總覽</h2><span class="small">營業日依台灣時間，07:00 換日</span></div><div class="toolbar"><input aria-label="營運查詢營業日" type="date" id="mgDate" style="width:auto"><button id="mgToday">今天</button><button id="mgRefresh">更新數據</button></div></div><div id="mgDailyBody"></div>';
-document.getElementById('dashboard')?.prepend(root);
-const dateInput=document.getElementById('mgDate');dateInput.value=day();dateInput.onchange=render;
-document.getElementById('mgToday').onclick=()=>{dateInput.value=day();render()};document.getElementById('mgRefresh').onclick=render;
-function render(){
- const date=dateInput.value;if(!date)return;
- const body=document.getElementById('mgDailyBody');
- try{
- const a=dailyAccountingInfo(date),events=(db.events||[]).filter(e=>valid(e)&&businessDateForEvent(e)===date),main=events.filter(e=>!isIndependentAccountingEvent(e)),settled=main.filter(isSettledAccountingEvent_),pending=main.filter(e=>!isSettledAccountingEvent_(e));
- const ps=main.flatMap(e=>e.players||[]),ids=new Set(ps.map(p=>String(p.memberId||'')).filter(Boolean));
- const entries=reportingLedgerEntries().filter(x=>x.date===date&&x.direction==='expense');
- // A single classified subset of itemExpense, never subtracted twice.
- const subsidy=entries.filter(x=>/保底|補貼|補池/.test(x.category+' '+x.name)).reduce((s,x)=>s+num(x.amount),0);
- const newIds=[...ids].filter(id=>!(db.events||[]).some(e=>valid(e)&&businessDateForEvent(e)<date&&(e.players||[]).some(p=>String(p.memberId)===id)));
- const unpaid=ps.reduce((s,p)=>s+num(p.registrationUnpaidAmount)+num(p.rebuyUnpaidAmount),0);
- body.innerHTML='<p class="mg-note">財務採一般帳已結算賽事及已登記收支，與 EPC 帳務一致。獨立帳不納入。尚未登錄的人事、租金及活動支出不會自動估列。</p><div class="mg-grid">'+
- metric('營運結餘',money(a.net),'依已登記帳務計算，非盤點現金',true)+metric('折扣後行政費',money(a.gross-a.discountExpense),'原行政費 '+money(a.gross)+' − 優惠 '+money(a.discountExpense))+metric('優惠成本',money(a.discountExpense),'與帳務折扣支出相同')+metric('已登記其他支出',money(a.itemExpense),'含已登記的活動與店家補貼')+
- metric('入會費及其他收入',money(a.membershipIncome+a.itemIncome),'不含玩家買入獎池')+metric('已標示店家補貼',money(subsidy),'已含於其他支出；依「保底／補貼／補池」名稱辨識')+metric('到店會員／參賽人次',ids.size+' 人 / '+ps.length+' 人次','一般帳，含進行中賽事')+metric('首次參賽／回訪會員',newIds.length+' / '+(ids.size-newIds.length)+' 人','首次以目前已載入歷史判定')+'</div>'+
- '<div class="mg-split"><div class="mg-metric"><h3>今日場況</h3><div class="mg-list">一般帳 '+main.length+' 場 · 已結算 '+settled.length+' 場 · 未結算 '+pending.length+' 場<br>獨立帳 '+(events.length-main.length)+' 場（另計）<br>已標記待收款 '+money(unpaid)+'（不額外從結餘扣除）</div></div><div class="mg-metric"><h3>代管款項 · 不列營運收入</h3><div class="mg-list">已結算 JP 提撥 '+money(a.jp)+'<br>已結算可發獎池 '+money(settled.reduce((s,e)=>s+poolInfoForEvent(e).avail,0))+'<br>玩家寄存金：請至「玩家帳務」查看目前餘額</div></div></div><p class="mg-note">結餘＝原行政費＋入會費＋其他收入−優惠−其他支出。折扣後行政費為計算收入，是否已收款仍需核對；JP 為當日提撥，非目前可用餘額。</p>';
- }catch(e){body.textContent='資料尚未載入完成，請稍後按「更新數據」。';console.warn('EPC management view',e)}
-}
-const original=openMemberProfile_;
-window.openMemberProfile_=function(id){
- original.apply(this,arguments);
- const m=(db.members||[]).find(x=>String(x.id)===String(id)),panel=document.getElementById('memberProfilePanel');if(!m||!panel)return;
- panel.querySelector('#mgMemberCard')?.remove();
- const today=day(),from=shift(today,-29),all=(db.events||[]).filter(e=>valid(e)&&businessDateForEvent(e)<=today&&(e.players||[]).some(p=>String(p.memberId)===String(id))).sort((a,b)=>businessDateForEvent(a).localeCompare(businessDateForEvent(b)));
- const recent=all.filter(e=>businessDateForEvent(e)>=from),dates=[...new Set(recent.map(businessDateForEvent))],first=all.length?businessDateForEvent(all[0]):'',last=all.length?businessDateForEvent(all.at(-1)):'',gap=last?Math.round((new Date(today+'T00:00:00Z')-new Date(last+'T00:00:00Z'))/86400000):null;
- const counts={};let discounts=0,discountGames=0;
- recent.forEach(e=>{const time=String(e.startTime||'').match(/(?:T|^|\s)(\d{1,2}):(\d{2})/);if(time){const hour=+time[1],label=hour<7?'凌晨 00–07':hour<18?'白天 07–18':hour<22?'晚間 18–22':'深夜 22–24';counts[label]=(counts[label]||0)+1;}const p=(e.players||[]).find(p=>String(p.memberId)===String(id));if(p){const amount=num(calcPlayerForEvent(p,e).totalDiscount);discounts+=amount;if(amount>0)discountGames++;}});
- const favorite=Object.entries(counts).sort((a,b)=>b[1]-a[1])[0];
- const status=gap===null?'尚無參賽紀錄':all.length===1?'首訪會員':gap>=30?'30 天未回訪':gap>=14?'14 天未回訪':gap>=7?'7 天未回訪':'近期有到店';
- const action=gap===null?'確認是否完成首次參賽':all.length===1?'關心首次體驗，邀請第二次到店':gap>=14?'安排一次回訪關心，記錄未到店原因':gap>=7?'依常來時段邀約近期場次':'維持互動，告知適合的場次';
- const box=document.createElement('div');box.id='mgMemberCard';box.className='card';box.innerHTML='<div class="mg-sub">MEMBER · 經營資料卡</div><div class="mg-head"><h3>'+esc(epcPlayerDisplayName_(m))+'</h3><span class="mg-tag">'+esc(status)+'</span></div><p class="small">以下以全部已載入歷史及近 30 個營業日計算，不受下方參賽紀錄查詢期間影響。</p><div class="mg-grid">'+metric('首次參賽',first||'尚無紀錄','目前可見最早參賽日期')+metric('最後來店',last||'尚無紀錄',gap===null?'':gap+' 天前')+metric('近 30 天參賽',recent.length+' 場',dates.length+' 個到店日')+metric('近 30 天優惠',money(discounts),discountGames+' 場使用優惠')+'</div><div class="mg-split"><div class="mg-metric"><h3>到店習慣與下一步</h3><p>常來時段：'+esc(favorite?favorite[0]+'（'+favorite[1]+' 場）':'開賽時間紀錄不足')+'</p><p>建議：'+esc(action)+'</p></div><div class="mg-metric"><h3>待建立的經營紀錄</h3><p>新客來源：尚未建立紀錄</p><p>最近邀約／邀約結果：尚未建立紀錄</p><p class="small">此版先呈現現有資料；來源與邀約的輸入、共用儲存待下一步建立。</p></div></div>';
- panel.insertBefore(box,panel.children[2]||null);
-};
-const baseDaily=renderDashboardDailyReport;window.renderDashboardDailyReport=function(){const r=baseDaily.apply(this,arguments);render();return r};
-render();
-let timer;new MutationObserver(()=>{clearTimeout(timer);timer=setTimeout(render,200)}).observe(document.getElementById('drNet'),{childList:true,characterData:true,subtree:true});
-})();
-
-</script>
-</body></html>`;
+ </div></body></html>`;
 
  const w=window.open('','_blank');
  if(!w){
@@ -7920,7 +7866,61 @@ async function epcShowRecoveryAudit_(){
 <script src="firebase-events.js?v=20261023-tablet-rgb41"></script>
 <script src="sync-v3.js?v=20261007-0780"></script>
 <script src="app.js?v=20261018-no-diag1"></script><script type="module" src="player-free/backoffice-relay.js?v=9"></script><dialog id="ppDialog"><div class="toolbar" style="justify-content:space-between"><h2 id="ppDialogTitle">玩家帳務</h2><button onclick="document.getElementById('ppDialog').close()">關閉</button></div><div id="ppDialogBody"></div></dialog>
-<dialog id="ppRegistrationDialog"><div class="toolbar" style="justify-content:space-between"><h2 id="ppRegistrationTitle">加入本場</h2><button data-pp-action onclick="PP.cancelRegistration()">取消</button></div><div id="ppRegistrationBody"></div></dialog><script src="player-payments-core.js?v=20261017-remove1"></script><script src="player-payments.js?v=20261024-brand-unpaid46"></script><script src="ui-layout.js?v=20261018-layout1"></script><dialog id="epcTimerDialog" style="width:98vw;max-width:none;height:96vh;max-height:none;padding:0;background:#050505;border:1px solid #b7933b;border-radius:12px;color:white"><div style="height:44px;display:flex;justify-content:space-between;align-items:center;padding:4px 16px"><b>賽事計時器</b><button type="button" onclick="document.getElementById('epcTimerDialog').close()">關閉</button></div><iframe id="epcTimerFrame" title="賽事計時器後臺" style="width:100%;height:calc(100% - 48px);border:0"></iframe></dialog><dialog id="newEventDialog" style="width:min(580px,94vw);padding:24px;border:1px solid #b89340;border-radius:12px;background:var(--bg,#111);color:var(--text,#eee)"><h2>建立賽事</h2><label for="newEventName">賽事名稱</label><input id="newEventName"><label for="newEventTimerTemplate">計時器範本</label><select id="newEventTimerTemplate" onchange="epcNewEventTimerHint_()"><option value="">不啟用計時器</option><option value="standard">20 分鐘標準賽（內建）</option></select><p class="small" id="newEventTimerHint"></p><p class="small">範本請在獨立「計時器」管理。按建立後，賽事與該場計時器會一同產生。</p><div class="toolbar"><button id="newEventConfirm" class="primary" onclick="epcConfirmNewEvent_()">建立賽事與計時器</button><button onclick="document.getElementById('newEventDialog').close()">取消</button></div></dialog><dialog id="epcTimerProjectionDialog" style="width:96vw;max-width:1920px;height:94vh;max-height:none;padding:0;background:#000;border:1px solid #b89340;border-radius:12px;color:white"><div style="height:48px;display:flex;justify-content:space-between;align-items:center;gap:12px;padding:6px 16px"><b id="epcTimerProjectionTitle">投影預覽</b><button type="button" onclick="document.getElementById('epcTimerProjectionDialog').close()">關閉</button></div><iframe id="epcTimerProjectionFrame" title="設備計時器投影預覽" style="width:100%;height:calc(100% - 90px);border:0;background:#000"></iframe><div class="small" style="padding:8px 16px">此為設備投影預覽。確認畫面後，回到此設備按「套用到螢幕」。</div></dialog></body></html>
+<dialog id="ppRegistrationDialog"><div class="toolbar" style="justify-content:space-between"><h2 id="ppRegistrationTitle">加入本場</h2><button data-pp-action onclick="PP.cancelRegistration()">取消</button></div><div id="ppRegistrationBody"></div></dialog><script src="player-payments-core.js?v=20261017-remove1"></script><script src="player-payments.js?v=20261024-brand-unpaid46"></script><script src="ui-layout.js?v=20261018-layout1"></script><dialog id="epcTimerDialog" style="width:98vw;max-width:none;height:96vh;max-height:none;padding:0;background:#050505;border:1px solid #b7933b;border-radius:12px;color:white"><div style="height:44px;display:flex;justify-content:space-between;align-items:center;padding:4px 16px"><b>賽事計時器</b><button type="button" onclick="document.getElementById('epcTimerDialog').close()">關閉</button></div><iframe id="epcTimerFrame" title="賽事計時器後臺" style="width:100%;height:calc(100% - 48px);border:0"></iframe></dialog><dialog id="newEventDialog" style="width:min(580px,94vw);padding:24px;border:1px solid #b89340;border-radius:12px;background:var(--bg,#111);color:var(--text,#eee)"><h2>建立賽事</h2><label for="newEventName">賽事名稱</label><input id="newEventName"><label for="newEventTimerTemplate">計時器範本</label><select id="newEventTimerTemplate" onchange="epcNewEventTimerHint_()"><option value="">不啟用計時器</option><option value="standard">20 分鐘標準賽（內建）</option></select><p class="small" id="newEventTimerHint"></p><p class="small">範本請在獨立「計時器」管理。按建立後，賽事與該場計時器會一同產生。</p><div class="toolbar"><button id="newEventConfirm" class="primary" onclick="epcConfirmNewEvent_()">建立賽事與計時器</button><button onclick="document.getElementById('newEventDialog').close()">取消</button></div></dialog><dialog id="epcTimerProjectionDialog" style="width:96vw;max-width:1920px;height:94vh;max-height:none;padding:0;background:#000;border:1px solid #b89340;border-radius:12px;color:white"><div style="height:48px;display:flex;justify-content:space-between;align-items:center;gap:12px;padding:6px 16px"><b id="epcTimerProjectionTitle">投影預覽</b><button type="button" onclick="document.getElementById('epcTimerProjectionDialog').close()">關閉</button></div><iframe id="epcTimerProjectionFrame" title="設備計時器投影預覽" style="width:100%;height:calc(100% - 90px);border:0;background:#000"></iframe><div class="small" style="padding:8px 16px">此為設備投影預覽。確認畫面後，回到此設備按「套用到螢幕」。</div></dialog><script id="epcManagementView20261026">
+/* EPC management view: derived, read-only; no database writes. */
+(()=>{
+'use strict';
+const esc=v=>epcDisplayEscape_(String(v??''));
+const num=v=>Number(v)||0;
+const day=()=>{const p=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Taipei',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',hourCycle:'h23'}).formatToParts(new Date());const get=k=>p.find(x=>x.type===k).value;const d=new Date(`${get('year')}-${get('month')}-${get('day')}T00:00:00Z`);if(+get('hour')<7)d.setUTCDate(d.getUTCDate()-1);return d.toISOString().slice(0,10)};
+const shift=(date,n)=>{const d=new Date(date+'T00:00:00Z');d.setUTCDate(d.getUTCDate()+n);return d.toISOString().slice(0,10)};
+const valid=e=>e&&!['deleted','cancelled','canceled','已刪除','已取消'].includes(e.status);
+const metric=(label,value,hint='',accent=false)=>`<div class="mg-metric ${accent?'mg-accent':''}"><div class="small">${esc(label)}</div><strong>${esc(value)}</strong><div class="small">${esc(hint)}</div></div>`;
+const style=document.createElement('style');style.textContent='.mg-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}.mg-metric{padding:16px;border:1px solid var(--line);border-radius:12px;background:var(--card2)}.mg-metric strong{display:block;font-size:26px;margin:8px 0;overflow-wrap:anywhere}.mg-accent{border-color:var(--accent)}.mg-accent strong{color:var(--accent)}.mg-head{display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap}.mg-note{line-height:1.7;margin:12px 0;color:var(--muted)}.mg-split{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px}.mg-list{line-height:1.9}.mg-tag{display:inline-block;padding:5px 10px;border-radius:20px;background:var(--card2);border:1px solid var(--accent);margin:4px}.mg-sub{font-size:12px;letter-spacing:2px;color:var(--accent);margin-bottom:8px}@media(max-width:850px){.mg-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:520px){.mg-split{grid-template-columns:1fr}.mg-metric strong{font-size:22px}}';document.head.append(style);
+const root=document.createElement('div');root.className='card';root.id='epcManagementDaily';
+root.innerHTML='<div class="mg-sub">EPC · MANAGER VIEW</div><div class="mg-head"><div><h2>每日營運總覽</h2><span class="small">營業日依台灣時間，07:00 換日</span></div><div class="toolbar"><input aria-label="營運查詢營業日" type="date" id="mgDate" style="width:auto"><button id="mgToday">今天</button><button id="mgRefresh">更新數據</button></div></div><div id="mgDailyBody"></div>';
+document.getElementById('dashboard')?.prepend(root);
+const dateInput=document.getElementById('mgDate');dateInput.value=day();dateInput.onchange=render;
+document.getElementById('mgToday').onclick=()=>{dateInput.value=day();render()};document.getElementById('mgRefresh').onclick=render;
+function render(){
+ const date=dateInput.value;if(!date)return;
+ const body=document.getElementById('mgDailyBody');
+ try{
+ const a=dailyAccountingInfo(date),events=(db.events||[]).filter(e=>valid(e)&&businessDateForEvent(e)===date),main=events.filter(e=>!isIndependentAccountingEvent(e)),settled=main.filter(isSettledAccountingEvent_),pending=main.filter(e=>!isSettledAccountingEvent_(e));
+ const ps=main.flatMap(e=>e.players||[]),ids=new Set(ps.map(p=>String(p.memberId||'')).filter(Boolean));
+ const entries=reportingLedgerEntries().filter(x=>x.date===date&&x.direction==='expense');
+ // A single classified subset of itemExpense, never subtracted twice.
+ const subsidy=entries.filter(x=>/保底|補貼|補池/.test(x.category+' '+x.name)).reduce((s,x)=>s+num(x.amount),0);
+ const newIds=[...ids].filter(id=>!(db.events||[]).some(e=>valid(e)&&businessDateForEvent(e)<date&&(e.players||[]).some(p=>String(p.memberId)===id)));
+ const unpaid=ps.reduce((s,p)=>s+num(p.registrationUnpaidAmount)+num(p.rebuyUnpaidAmount),0);
+ body.innerHTML='<p class="mg-note">財務採一般帳已結算賽事及已登記收支，與 EPC 帳務一致。獨立帳不納入。尚未登錄的人事、租金及活動支出不會自動估列。</p><div class="mg-grid">'+
+ metric('營運結餘',money(a.net),'依已登記帳務計算，非盤點現金',true)+metric('折扣後行政費',money(a.gross-a.discountExpense),'原行政費 '+money(a.gross)+' − 優惠 '+money(a.discountExpense))+metric('優惠成本',money(a.discountExpense),'與帳務折扣支出相同')+metric('已登記其他支出',money(a.itemExpense),'含已登記的活動與店家補貼')+
+ metric('入會費及其他收入',money(a.membershipIncome+a.itemIncome),'不含玩家買入獎池')+metric('已標示店家補貼',money(subsidy),'已含於其他支出；依「保底／補貼／補池」名稱辨識')+metric('到店會員／參賽人次',ids.size+' 人 / '+ps.length+' 人次','一般帳，含進行中賽事')+metric('首次參賽／回訪會員',newIds.length+' / '+(ids.size-newIds.length)+' 人','首次以目前已載入歷史判定')+'</div>'+
+ '<div class="mg-split"><div class="mg-metric"><h3>今日場況</h3><div class="mg-list">一般帳 '+main.length+' 場 · 已結算 '+settled.length+' 場 · 未結算 '+pending.length+' 場<br>獨立帳 '+(events.length-main.length)+' 場（另計）<br>已標記待收款 '+money(unpaid)+'（不額外從結餘扣除）</div></div><div class="mg-metric"><h3>代管款項 · 不列營運收入</h3><div class="mg-list">已結算 JP 提撥 '+money(a.jp)+'<br>已結算可發獎池 '+money(settled.reduce((s,e)=>s+poolInfoForEvent(e).avail,0))+'<br>玩家寄存金：請至「玩家帳務」查看目前餘額</div></div></div><p class="mg-note">結餘＝原行政費＋入會費＋其他收入−優惠−其他支出。折扣後行政費為計算收入，是否已收款仍需核對；JP 為當日提撥，非目前可用餘額。</p>';
+ }catch(e){body.textContent='資料尚未載入完成，請稍後按「更新數據」。';console.warn('EPC management view',e)}
+}
+const original=openMemberProfile_;
+window.openMemberProfile_=function(id){
+ original.apply(this,arguments);
+ const m=(db.members||[]).find(x=>String(x.id)===String(id)),panel=document.getElementById('memberProfilePanel');if(!m||!panel)return;
+ panel.querySelector('#mgMemberCard')?.remove();
+ const today=day(),from=shift(today,-29),all=(db.events||[]).filter(e=>valid(e)&&businessDateForEvent(e)<=today&&(e.players||[]).some(p=>String(p.memberId)===String(id))).sort((a,b)=>businessDateForEvent(a).localeCompare(businessDateForEvent(b)));
+ const recent=all.filter(e=>businessDateForEvent(e)>=from),dates=[...new Set(recent.map(businessDateForEvent))],first=all.length?businessDateForEvent(all[0]):'',last=all.length?businessDateForEvent(all.at(-1)):'',gap=last?Math.round((new Date(today+'T00:00:00Z')-new Date(last+'T00:00:00Z'))/86400000):null;
+ const counts={};let discounts=0,discountGames=0;
+ recent.forEach(e=>{const time=String(e.startTime||'').match(/(?:T|^|\s)(\d{1,2}):(\d{2})/);if(time){const hour=+time[1],label=hour<7?'凌晨 00–07':hour<18?'白天 07–18':hour<22?'晚間 18–22':'深夜 22–24';counts[label]=(counts[label]||0)+1;}const p=(e.players||[]).find(p=>String(p.memberId)===String(id));if(p){const amount=num(calcPlayerForEvent(p,e).totalDiscount);discounts+=amount;if(amount>0)discountGames++;}});
+ const favorite=Object.entries(counts).sort((a,b)=>b[1]-a[1])[0];
+ const status=gap===null?'尚無參賽紀錄':all.length===1?'首訪會員':gap>=30?'30 天未回訪':gap>=14?'14 天未回訪':gap>=7?'7 天未回訪':'近期有到店';
+ const action=gap===null?'確認是否完成首次參賽':all.length===1?'關心首次體驗，邀請第二次到店':gap>=14?'安排一次回訪關心，記錄未到店原因':gap>=7?'依常來時段邀約近期場次':'維持互動，告知適合的場次';
+ const box=document.createElement('div');box.id='mgMemberCard';box.className='card';box.innerHTML='<div class="mg-sub">MEMBER · 經營資料卡</div><div class="mg-head"><h3>'+esc(epcPlayerDisplayName_(m))+'</h3><span class="mg-tag">'+esc(status)+'</span></div><p class="small">以下以全部已載入歷史及近 30 個營業日計算，不受下方參賽紀錄查詢期間影響。</p><div class="mg-grid">'+metric('首次參賽',first||'尚無紀錄','目前可見最早參賽日期')+metric('最後來店',last||'尚無紀錄',gap===null?'':gap+' 天前')+metric('近 30 天參賽',recent.length+' 場',dates.length+' 個到店日')+metric('近 30 天優惠',money(discounts),discountGames+' 場使用優惠')+'</div><div class="mg-split"><div class="mg-metric"><h3>到店習慣與下一步</h3><p>常來時段：'+esc(favorite?favorite[0]+'（'+favorite[1]+' 場）':'開賽時間紀錄不足')+'</p><p>建議：'+esc(action)+'</p></div><div class="mg-metric"><h3>待建立的經營紀錄</h3><p>新客來源：尚未建立紀錄</p><p>最近邀約／邀約結果：尚未建立紀錄</p><p class="small">此版先呈現現有資料；來源與邀約的輸入、共用儲存待下一步建立。</p></div></div>';
+ panel.insertBefore(box,panel.children[2]||null);
+};
+const baseDaily=renderDashboardDailyReport;window.renderDashboardDailyReport=function(){const r=baseDaily.apply(this,arguments);render();return r};
+render();
+let timer;new MutationObserver(()=>{clearTimeout(timer);timer=setTimeout(render,200)}).observe(document.getElementById('drNet'),{childList:true,characterData:true,subtree:true});
+})();
+
+</script>
+</body></html>
 
 
 <script type="module" src="display-phone-pair.js?v=20261022-qr27"></script>
