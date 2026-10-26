@@ -2084,6 +2084,8 @@ window.addEventListener('error',function(e){
   <div class="card kpi"><div class="l">總 JP 累計</div><div class="v" id="kJP">$0</div></div>
   <div class="card kpi"><div class="l">區間 JP</div><div class="v" id="kRangeJP">$0</div></div>
   <div class="card kpi"><div class="l">區間總收入</div><div class="v" id="kRangeRevenue">$0</div><div class="small">折扣前行政費＋入會費＋其他收入</div></div>
+  <div class="card kpi"><div class="l">區間入會費收入</div><div class="v" id="kRangeMembershipIncome">$0</div></div>
+  <div class="card kpi"><div class="l">區間其他收入</div><div class="v" id="kRangeOtherIncome">$0</div></div>
   <div class="card kpi"><div class="l">區間優惠支出</div><div class="v" id="kRangeDiscount">$0</div><div class="small">重買、超買與其他折扣優惠</div></div>
   <div class="card kpi"><div class="l">區間一般支出</div><div class="v" id="kMonthExpense">$0</div></div>
   <div class="card kpi"><div class="l">區間賽事場次</div><div class="v" id="kMonthEvents">0 場</div><div class="small" id="kLevelBreakdown">尚無賽事</div></div>
@@ -5771,35 +5773,23 @@ function dashboardDefaultRange(){
  return {first,end};
 }
 function memberCreatedBusinessDate(m){
- const raw=String(m.createdDate||m.createdAt||'').trim();
- if(!raw)return '';
-
- let d=null;
-
- // Google Form format: M/D/YYYY H:mm:ss
- let hit=raw.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:\s+(\d{1,2}):(\d{1,2})(?::(\d{1,2}))?)?/);
- if(hit){
-   d=new Date(+hit[3],+hit[1]-1,+hit[2],+(hit[4]||0),+(hit[5]||0),+(hit[6]||0));
- }else{
-   // ISO / YYYY-MM-DD formats used by desktop/mobile/API records.
-   hit=raw.match(/^(\d{4})-(\d{1,2})-(\d{1,2})(?:[T\s](\d{1,2}):(\d{1,2})(?::(\d{1,2}))?)?/);
-   if(hit){
-     d=new Date(+hit[1],+hit[2]-1,+hit[3],+(hit[4]||0),+(hit[5]||0),+(hit[6]||0));
-   }else{
-     const parsed=new Date(raw);
-     if(!isNaN(parsed))d=parsed;
-   }
+ const values=[m.createdDate,m.createdAt,m.joinDate,m.timestamp];
+ for(const value of values){
+  if(value===null||value===undefined||value==='')continue;
+  const raw=String(value).trim();
+  // Backend date-only values already represent the registration day.
+  let hit=raw.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})$/);
+  if(hit)return hit[1]+'-'+hit[2].padStart(2,'0')+'-'+hit[3].padStart(2,'0');
+  let d;
+  if(/^\d{10,13}$/.test(raw))d=new Date(Number(raw)*(raw.length===10?1000:1));
+  else if(value&&typeof value==='object'&&Number.isFinite(value.seconds))d=new Date(value.seconds*1000);
+  else if((hit=raw.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:\s+(\d{1,2}):(\d{1,2})(?::(\d{1,2}))?)?/)))d=new Date(+hit[3],+hit[1]-1,+hit[2],+(hit[4]||0),+(hit[5]||0),+(hit[6]||0));
+  else d=new Date(raw);
+  if(!d||isNaN(d))continue;
+  const parts=Object.fromEntries(new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Taipei',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(d).map(p=>[p.type,p.value]));
+  return parts.year+'-'+parts.month+'-'+parts.day;
  }
- if(!d||isNaN(d))return '';
-
- // EPC business day: records created after midnight and before 07:00
- // belong to the previous business date.
- if(d.getHours()<7)d.setDate(d.getDate()-1);
-
- const y=d.getFullYear();
- const mo=String(d.getMonth()+1).padStart(2,'0');
- const day=String(d.getDate()).padStart(2,'0');
- return `${y}-${mo}-${day}`;
+ return '';
 }
 // Read-only participation report: use event registrations, never ledger totals or member history.
 function participationStats_(events,from,to,status='all'){
@@ -5868,10 +5858,12 @@ function renderDashboardSummary(){
    a.expense+=+ai.itemExpense||0;
    a.revenue+=+ai.revenue||0;
    a.discount+=+ai.discountExpense||0;
+   a.otherIncome+=+ai.itemIncome||0;
+   a.membershipIncome+=+ai.membershipIncome||0;
    a.jp+=+ai.jp||0;
    a.events+=Array.isArray(ai.events)?ai.events.length:0;
    return a;
- },{net:0,expense:0,revenue:0,discount:0,jp:0,events:0});
+ },{net:0,expense:0,revenue:0,discount:0,otherIncome:0,membershipIncome:0,jp:0,events:0});
 
  const allLedger=ledgerTotals(allLedgerDates);
  const rangeLedger=ledgerTotals(rangeLedgerDates);
@@ -5902,6 +5894,8 @@ function renderDashboardSummary(){
  if($('kRangeJP'))$('kRangeJP').textContent=money(rangeLedger.jp);
  if($('kMonthExpense'))$('kMonthExpense').textContent=money(rangeLedger.expense);
  if($('kRangeRevenue'))$('kRangeRevenue').textContent=money(rangeLedger.revenue);
+ if($('kRangeOtherIncome'))$('kRangeOtherIncome').textContent=money(rangeLedger.otherIncome);
+ if($('kRangeMembershipIncome'))$('kRangeMembershipIncome').textContent=money(rangeLedger.membershipIncome);
  if($('kRangeDiscount'))$('kRangeDiscount').textContent=money(rangeLedger.discount);
  if($('kMonthEvents'))$('kMonthEvents').textContent=`${rangeLedger.events} 場`;
  if($('ledgerDateFrom') && !$('ledgerDateFrom').value)$('ledgerDateFrom').value=from;
@@ -7892,7 +7886,7 @@ async function epcShowRecoveryAudit_(){
 <script src="phone/stack-core.js?v=20261009-settlement-confirmed"></script>
 <script src="firebase-events.js?v=20261026-arrival3"></script>
 <script src="sync-v3.js?v=20261007-0780"></script>
-<script src="app.js?v=readable-theme-20261026-20261026-manager3"></script><script type="module" src="player-free/backoffice-relay.js?v=9"></script><dialog id="ppDialog"><div class="toolbar" style="justify-content:space-between"><h2 id="ppDialogTitle">玩家帳務</h2><button onclick="document.getElementById('ppDialog').close()">關閉</button></div><div id="ppDialogBody"></div></dialog>
+<script src="app.js?v=member-dates-20261026-readable-theme-20261026-20261026-manager3"></script><script type="module" src="player-free/backoffice-relay.js?v=9"></script><dialog id="ppDialog"><div class="toolbar" style="justify-content:space-between"><h2 id="ppDialogTitle">玩家帳務</h2><button onclick="document.getElementById('ppDialog').close()">關閉</button></div><div id="ppDialogBody"></div></dialog>
 <dialog id="ppRegistrationDialog"><div class="toolbar" style="justify-content:space-between"><h2 id="ppRegistrationTitle">加入本場</h2><button data-pp-action onclick="PP.cancelRegistration()">取消</button></div><div id="ppRegistrationBody"></div></dialog><script src="player-payments-core.js?v=20261017-remove1"></script><script src="player-payments.js?v=20261024-brand-unpaid46"></script><script src="ui-layout.js?v=20261018-layout1"></script><dialog id="epcTimerDialog" style="width:98vw;max-width:none;height:96vh;max-height:none;padding:0;background:#050505;border:1px solid #b7933b;border-radius:12px;color:white"><div style="height:44px;display:flex;justify-content:space-between;align-items:center;padding:4px 16px"><b>賽事計時器</b><button type="button" onclick="document.getElementById('epcTimerDialog').close()">關閉</button></div><iframe id="epcTimerFrame" title="賽事計時器後臺" style="width:100%;height:calc(100% - 48px);border:0"></iframe></dialog><dialog id="newEventDialog" style="width:min(580px,94vw);padding:24px;border:1px solid #b89340;border-radius:12px;background:var(--bg,#111);color:var(--text,#eee)"><h2>建立賽事</h2><label for="newEventName">賽事名稱</label><input id="newEventName"><label for="newEventTimerTemplate">計時器範本</label><select id="newEventTimerTemplate" onchange="epcNewEventTimerHint_()"><option value="">不啟用計時器</option><option value="standard">20 分鐘標準賽（內建）</option></select><p class="small" id="newEventTimerHint"></p><p class="small">範本請在獨立「計時器」管理。按建立後，賽事與該場計時器會一同產生。</p><div class="toolbar"><button id="newEventConfirm" class="primary" onclick="epcConfirmNewEvent_()">建立賽事與計時器</button><button onclick="document.getElementById('newEventDialog').close()">取消</button></div></dialog><dialog id="epcTimerProjectionDialog" style="width:96vw;max-width:1920px;height:94vh;max-height:none;padding:0;background:#000;border:1px solid #b89340;border-radius:12px;color:white"><div style="height:48px;display:flex;justify-content:space-between;align-items:center;gap:12px;padding:6px 16px"><b id="epcTimerProjectionTitle">投影預覽</b><button type="button" onclick="document.getElementById('epcTimerProjectionDialog').close()">關閉</button></div><iframe id="epcTimerProjectionFrame" title="設備計時器投影預覽" style="width:100%;height:calc(100% - 90px);border:0;background:#000"></iframe><div class="small" style="padding:8px 16px">此為設備投影預覽。確認畫面後，回到此設備按「套用到螢幕」。</div></dialog><script id="epcManagementView20261026">
 /* EPC management view: derived, read-only; no database writes. */
 (()=>{
