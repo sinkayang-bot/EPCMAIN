@@ -8024,6 +8024,13 @@ const body=rows.map(r=>'<tr class="'+(r.settled?'':'daily-open')+'"><td>'+esc(ev
 const shared={membership:num(d.membership)-sum(settled,'membership'),other:num(d.otherIncome)-sum(settled,'other'),cost:cost-sum(settled,'cost')};shared.net=shared.membership+shared.other-shared.cost;
 events.innerHTML='<h3>本日逐場收支</h3><div class="tablewrap"><table><thead><tr><th>場次／狀態</th><th>總組數</th><th>優惠</th><th>折扣後行政費</th><th>入會費</th><th>其他收入</th><th>支出</th><th>本場淨結餘</th></tr></thead><tbody>'+body+'<tr><td>當日共用收支<div class="small">未分攤到個別場次，只計一次</div></td><td>—</td><td>—</td><td>—</td><td>'+money(shared.membership)+'</td><td>'+money(shared.other)+'</td><td>'+money(shared.cost)+'</td><td>'+money(shared.net)+'</td></tr></tbody><tfoot><tr><td>本日正式合計</td><td>'+num(d.groups)+'</td><td>'+money(d.discountExpense)+'</td><td>'+money(num(d.gross)-num(d.discountExpense))+'</td><td>'+money(d.membership)+'</td><td>'+money(d.otherIncome)+'</td><td>'+money(cost)+'</td><td>'+money(d.net)+'</td></tr></tfoot></table></div><div class="daily-hint">正式合計不含未結算預估；當日共用支出不重複扣到每場。獎池、JP、寄存金不列營收；獨立帳維持另計。</div>';
 }
+
+/* Two-column daily detail panels; all values keep existing sources. */
+const split=document.createElement('div');split.id='dailyOperationsSplit';
+events.before(split);
+const ledgerPanel=document.createElement('div');ledgerPanel.className='daily-ledger-panel';
+split.append(events,ledgerPanel);ledgerPanel.append(ledgerTitle,ledger);
+const splitStyle=document.createElement('style');splitStyle.textContent='#dailyOperationsSplit{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px;align-items:start;margin-top:16px}#dailyOperationsSplit>div{min-width:0;padding:12px;border:1px solid var(--line);border-radius:10px;background:var(--card2)}#dailyOperationsSplit #dailyOperationsEvents{margin:0}#dailyOperationsSplit h3{font-size:16px;margin:0 0 10px}#dailyOperationsSplit .tablewrap{max-width:100%;overflow-x:auto}#dailyOperationsSplit table{font-size:12px}#dailyOperationsSplit th,#dailyOperationsSplit td{padding:7px 5px}#dailyOperationsSplit .daily-ledger-panel table{min-width:460px}#dailyOperationsSplit #dailyOperationsEvents table{min-width:690px}@media(max-width:760px){#dailyOperationsSplit{grid-template-columns:minmax(0,1fr)}}';document.head.append(splitStyle);
 const original=window.renderDashboardDailyReport;window.renderDashboardDailyReport=function(){const r=original.apply(this,arguments);render();return r};
 let timer;const schedule=()=>{clearTimeout(timer);timer=setTimeout(render,120)};window.addEventListener('epcFirestoreEvents',schedule);window.addEventListener('epcFirestoreAccounting',schedule);render();
 })();
