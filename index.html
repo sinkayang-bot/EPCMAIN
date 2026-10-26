@@ -8047,6 +8047,48 @@ let timer;new MutationObserver(()=>{clearTimeout(timer);timer=setTimeout(()=>{re
 
 
 </script>
+<script id="epcWideSummary20261026">
+/* EPC wide summary rows and compact system status. Presentation only. */
+(()=>{
+'use strict';
+const style=document.createElement('style');style.id='epcWideSummaryStyle';style.textContent=`
+#mgOverviewGrid{display:block!important}
+#mgOverviewGrid .grid,#mgOverviewGrid .mg-grid{grid-template-columns:repeat(4,minmax(0,1fr))!important}
+#mgOverviewGrid>.mg-panel{width:100%}
+#mgOverviewGrid .report-topbar>div:last-child{width:auto;min-width:220px!important}
+#mgStatusRow{display:grid;grid-template-columns:1fr 1fr 1.15fr;gap:8px;margin-bottom:12px;align-items:stretch}
+#mgStatusRow>.card{margin:0!important;padding:9px 12px!important;min-width:0;box-sizing:border-box;gap:8px;flex-wrap:wrap;align-content:center}
+#mgStatusRow>.card>div{min-width:0!important}
+#mgStatusRow #epcTerminalMode{width:120px!important;padding:6px}
+#mgStatusRow label,#mgStatusRow strong,#mgStatusRow #epcAccountingAuthState{font-size:12px!important}
+#mgStatusRow #epcTerminalModeMessage,#mgStatusRow #saveState{font-size:10px!important;line-height:1.4}
+#mgStatusRow #epcTerminalModeMessage{flex-basis:100%}
+#mgStatusRow button{font-size:11px!important;padding:5px 8px!important;white-space:nowrap}
+.mg-arrival-inline{margin:10px 0;font-size:12px;line-height:1.5;color:var(--muted)}
+@media(max-width:900px){#mgStatusRow{grid-template-columns:1fr 1fr}#mgStatusRow>.card:last-child{grid-column:1/-1}#mgOverviewGrid .grid,#mgOverviewGrid .mg-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important}}
+@media(max-width:520px){#mgStatusRow{grid-template-columns:1fr}#mgOverviewGrid .grid,#mgOverviewGrid .mg-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important}}
+`;document.head.append(style);
+function mountStatus(){
+ if(document.getElementById('mgStatusRow'))return;
+ const mode=document.getElementById('epcTerminalModeBar'),member=document.getElementById('eightMemberState')?.closest('.card'),auth=document.getElementById('epcAccountingAuthState')?.closest('.card');
+ if(!mode||!member||!auth)return;
+ const row=document.createElement('div');row.id='mgStatusRow';mode.before(row);row.append(mode,member,auth);
+}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',mountStatus,{once:true});else mountStatus();
+function compactArrival(){
+ const card=document.getElementById('mgMemberCard');if(!card)return;
+ const block=[...card.querySelectorAll('.mg-metric')].find(el=>el.querySelector('h3')?.textContent.includes('到店時間 · 自動記錄'));
+ if(!block)return;
+ const split=block.closest('.mg-split');block.remove();if(split)split.style.gridTemplateColumns='minmax(0,1fr)';
+ const line=document.createElement('p');line.className='mg-arrival-inline';line.textContent='到店時間：每天第一次報名賽事時自動記錄；續打與重買不重複計算。';
+ line.title='舊場次沒有報名時間時，仍以開賽時段供參考。';
+ if(split)split.before(line);else card.append(line);
+}
+const profile=window.openMemberProfile_;if(typeof profile==='function')window.openMemberProfile_=function(){const r=profile.apply(this,arguments);compactArrival();return r};
+compactArrival();
+})();
+
+</script>
 </body></html>
 
 
