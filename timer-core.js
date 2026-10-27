@@ -28,11 +28,11 @@ export function validateLevels(levels){
  if(!Array.isArray(levels)||!levels.length||levels.length>100)throw Error('盲注結構須為 1–100 級。');
  return levels.map(l=>{const min=Number(l.min);if(!Number.isFinite(min)||min<=0||min>600)throw Error('每級時間須大於 0 且不超過 600 分鐘。');if(l.break)return {break:true,min};const row={min};for(const k of ['sb','bb','ante']){row[k]=Number(l[k]);if(!Number.isSafeInteger(row[k])||row[k]<0)throw Error('盲注須為非負整數。')}return row});
 }
-export function newTimer(levels=DEFAULT_LEVELS){const structure=validateLevels(levels);return {levels:structure,index:0,remaining:structure[0].min*60,running:false,endsAt:0,announcement:'歡迎參加 EPC 限時錦標賽',payoutInput:'依籌碼比例分配',revision:0}}
+export function newTimer(levels=DEFAULT_LEVELS){const structure=validateLevels(levels);return {levels:structure,index:0,remaining:structure[0].min*60,running:false,endsAt:0,announcement:'歡迎參加 EPC 限時錦標賽',payoutInput:'依籌碼比例分配',featuredHand:{enabled:false,title:'指定手牌',left:{rank:'7',suit:'♠'},right:{rank:'A',suit:'♥'}},revision:0}}
 export function command(timer,action,value,now=Date.now()){
  let t=structuredClone(timerAt(timer||newTimer(),now));const seconds=remaining(t,now);
  if(action==='background'){t.background=['black-gold','light','emerald','velvet'].includes(value)?value:'classic';return t}
- if(action==='settings'){if(Object.hasOwn(value,'appearance'))t.appearance=normalizeAppearance(value.appearance);if(Object.hasOwn(value,'background'))t.background=['black-gold','light','emerald','velvet'].includes(value.background)?value.background:'classic';t.announcement=String(value.announcement||'').slice(0,6000);t.payoutInput=String(value.payoutInput||'').slice(0,6000);return t}
+ if(action==='settings'){if(Object.hasOwn(value,'appearance'))t.appearance=normalizeAppearance(value.appearance);if(Object.hasOwn(value,'background'))t.background=['black-gold','light','emerald','velvet'].includes(value.background)?value.background:'classic';t.announcement=String(value.announcement||'').slice(0,6000);t.payoutInput=String(value.payoutInput||'').slice(0,6000);if(value.featuredHand){const v=value.featuredHand,card=c=>({rank:['A','K','Q','J','10','9','8','7','6','5','4','3','2'].includes(String(c?.rank))?String(c.rank):'A',suit:['♠','♥','♦','♣'].includes(c?.suit)?c.suit:'♠'});t.featuredHand={enabled:v.enabled===true,title:String(v.title||'指定手牌').slice(0,24),left:card(v.left),right:card(v.right)}}return t}
  if(action==='structure'){t.levels=validateLevels(value);t.index=0;t.remaining=t.levels[0].min*60;t.running=false;t.endsAt=0;return t}
  if(action==='toggle'){t.remaining=seconds;t.running=!t.running&&seconds>0}
  else if(action==='set'){t.remaining=parseTime(value);if(t.remaining===0)t.running=false}
