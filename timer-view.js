@@ -28,7 +28,7 @@ function render(){
  for(const [p,row] of [['cur',l],['next',next]])for(const [suffix,key] of [['SB','sb'],['BB','bb'],['Ante','ante']])text($(p+suffix),!row?'—':row.break?(p==='next'&&suffix==='SB'?'休息':'—'):num(row[key]));
  for(const [field,key] of [['sPlayers','players'],['sRebuys','rebuyGroups'],['sGroups','groups'],['chipsInPlay','chips'],['avgStack','average']])text($(field),totals[key]===null?'—':num(totals[key]));
  const hand=state.featuredHand||{};$('featuredHand').hidden=hand.enabled!==true;if(hand.enabled===true){text($('handTitle'),hand.title||'指定手牌');for(const [side,key] of [['Left','left'],['Right','right']]){const c=hand[key]||{},el=$('hand'+side),s=['♠','♥','♦','♣'].includes(c.suit)?c.suit:'♠';el.className='handSuit '+(['♥','♦'].includes(s)?'red':'black');if(el.dataset.suit!==s){el.dataset.suit=s;el.replaceChildren(document.createTextNode(s),el.querySelector('b'))}text(el.querySelector('b'),c.rank||'A')}}
- text($('extraContent'),'(state.payoutInput||'');
+ text($('extraContent'),'$'+num(totals.pool));payout(state.payoutInput||'');
  const ann=$('announcementDisplay');if(ann.textContent!==(state.announcement||'')){ann.textContent=state.announcement||'';let size=40;ann.style.fontSize=size+'px';while(size>18&&ann.scrollHeight>$('announcementBody').clientHeight-50){size-=2;ann.style.fontSize=size+'px'}}
  const lit=Math.ceil(Math.min(1,seconds/(l.min*60))*72);[...$('ringTicks').children].forEach((t,i)=>flag(t,'lit',i<lit));
  let until=seconds;for(let i=state.index+1;i<levels.length&&!levels[i].break;i++)until+=levels[i].min*60;
