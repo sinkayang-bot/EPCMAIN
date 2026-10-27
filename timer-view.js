@@ -27,29 +27,19 @@ function render(){
  text($('levelTitle'),l.break?'BREAK':'LEVEL '+level);text($('clock'),finished?'Finish':timeText(seconds));const digits=String($('clock').textContent.length);if($('clock').dataset.digits!==digits)$('clock').dataset.digits=digits;flag($('progressRing'),'isBreak',!!l.break);flag($('progressRing'),'isFinished',finished);
  for(const [p,row] of [['cur',l],['next',next]])for(const [suffix,key] of [['SB','sb'],['BB','bb'],['Ante','ante']])text($(p+suffix),!row?'—':row.break?(p==='next'&&suffix==='SB'?'休息':'—'):num(row[key]));
  for(const [field,key] of [['sPlayers','players'],['sRebuys','rebuyGroups'],['sGroups','groups'],['chipsInPlay','chips'],['avgStack','average']])text($(field),totals[key]===null?'—':num(totals[key]));
- const hand=state.featuredHand||{};$('featuredHand').hidden=hand.enabled!==true;if(hand.enabled===true){text($('handTitle'),hand.title||'指定手牌');for(const [side,key] of [['Left','left'],['Right','right']]){const c=hand[key]||{},el=$('hand'+side),s=['♠','♥','♦','♣'].includes(c.suit)?c.suit:'♠';el.className='handSuit '+(['♥','♦'].includes(s)?'red':'black');if(el.dataset.suit!==s){el.dataset.suit=s;el.replaceChildren(document.createTextNode(s),el.querySelector('b'))}text(el.querySelector('b'),c.rank||'A')}}
+ const hand=state.featuredHand||{};
+ $('featuredHand').hidden=hand.enabled!==true;
+ if(hand.enabled===true){
+  text($('handTitle'),hand.title||'指定手牌');
+  for(const [side,key] of [['Left','left'],['Right','right']]){
+   const card=hand[key]||{},el=$('hand'+side);
+   const suit=['♠','♥','♦','♣'].includes(card.suit)?card.suit:'♠';
+   el.className='handSuit '+(['♥','♦'].includes(suit)?'red':'black');
+   if(el.dataset.suit!==suit){el.dataset.suit=suit;el.replaceChildren(document.createTextNode(suit),el.querySelector('b'))}
+   text(el.querySelector('b'),card.rank||'A');
+  }
+ }
  text($('extraContent'),'$'+num(totals.pool));payout(state.payoutInput||'');
- const ann=$('announcementDisplay');if(ann.textContent!==(state.announcement||'')){ann.textContent=state.announcement||'';let size=40;ann.style.fontSize=size+'px';while(size>18&&ann.scrollHeight>$('announcementBody').clientHeight-50){size-=2;ann.style.fontSize=size+'px'}}
- const lit=Math.ceil(Math.min(1,seconds/(l.min*60))*72);[...$('ringTicks').children].forEach((t,i)=>flag(t,'lit',i<lit));
- let until=seconds;for(let i=state.index+1;i<levels.length&&!levels[i].break;i++)until+=levels[i].min*60;
- const hasBreak=levels.slice(state.index).some(l=>l.break),value=l.break?seconds:until;
- text($('breakCaption'),finished?'TOURNAMENT FINISHED':l.break?'BREAK REMAINING':'NEXT BREAK IN');text($('breakCountdown'),!finished&&hasBreak?String(Math.floor(value/3600)).padStart(2,'0')+':'+timeText(value%3600):'—');
-}
-for(let i=0;i<72;i++){const tick=document.createElement('i');tick.style.transform='rotate('+(i*5)+'deg) translateY(-285px)';$('ringTicks').append(tick)}
-fit();addEventListener('resize',fit);setInterval(render,250);
-addEventListener('offline',()=>message('連線中斷，正在顯示最後同步資料'));addEventListener('online',()=>message('正在重新連線…'));
-if(params.has('templatePreview')){
- message('正在載入範本預覽…');
- addEventListener('message',e=>{if(e.origin!==location.origin||e.source!==parent||e.data?.type!=='epc-template-preview')return;try{const t=e.data.template;timer={...newTimer(t.levels),background:t.background,appearance:t.appearance,announcement:String(t.announcement||''),payoutInput:String(t.payoutInput||'')};event={name:'範本預覽｜'+String(t.name||'EPC'),players:[],chips:Number(t.startingStack)||0,buyin:0,jpRate:0,jpRound:100};message('');render()}catch(err){message('範本預覽失敗：'+err.message)}});
- parent.postMessage({type:'epc-timer-preview-ready'},location.origin);
-}else try{
- if(!demo&&!id)throw Error('請從顯示設備選擇要投影的賽事。');
- service=demo?(await import('./timer-demo.js?v=20261023-tablet-rgb41')).demoCloud():await(await import('./timer-cloud.js?v=20261023-tablet-rgb41')).timerCloud();
- const error=e=>message('計時器連線失敗：'+e.message);
- service.subscribeEvent(id,e=>{event=e;message(!e?'找不到賽事，請從後臺重新選擇。':!timer?'此場尚未選用計時器範本，請回賽事設定儲存。':'');render()},error);
- service.subscribeTimer(id,t=>{timer=t;message(!event?'正在讀取賽事…':!t?'此場尚未選用計時器範本，請回賽事設定儲存。':'');render()},error);
-}catch(e){message(e.message)}
-+num(totals.pool));payout(state.payoutInput||'');
  const ann=$('announcementDisplay');if(ann.textContent!==(state.announcement||'')){ann.textContent=state.announcement||'';let size=40;ann.style.fontSize=size+'px';while(size>18&&ann.scrollHeight>$('announcementBody').clientHeight-50){size-=2;ann.style.fontSize=size+'px'}}
  const lit=Math.ceil(Math.min(1,seconds/(l.min*60))*72);[...$('ringTicks').children].forEach((t,i)=>flag(t,'lit',i<lit));
  let until=seconds;for(let i=state.index+1;i<levels.length&&!levels[i].break;i++)until+=levels[i].min*60;
