@@ -3,6 +3,9 @@ import {DEFAULT_LEVELS,newTimer,remaining,timeText,eventTotals,parseTime,validat
 import {STANDARD_TEMPLATE} from './timer-store.js?v=20261023-tablet-rgb41';
 const $=id=>document.getElementById(id),params=new URLSearchParams(location.search),demo=params.has('demo'),id=params.get('eventId'),esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 let event,timer,service,templates=[],busy=false,draft=structuredClone(DEFAULT_LEVELS),textLoaded=false,structureLoaded=false,textDirty=false,structureDirty=false,textRevision=0,structureRevision=0;
+for(const side of ['Left','Right']){const r=$('hand'+side+'Rank'),s=$('hand'+side+'Suit');r.innerHTML=['A','K','Q','J','10','9','8','7','6','5','4','3','2'].map(v=>'<option>'+v+'</option>').join('');s.innerHTML=['♠','♥','♦','♣'].map(v=>'<option>'+v+'</option>').join('')}
+function handValue(){return {enabled:$('handEnabled').checked,title:$('handTitle').value,left:{rank:$('handLeftRank').value,suit:$('handLeftSuit').value},right:{rank:$('handRightRank').value,suit:$('handRightSuit').value}}}
+function fillHand(v){v=v||{};$('handEnabled').checked=v.enabled===true;$('handTitle').value=v.title||'指定手牌';for(const [side,key,rank,suit] of [['Left','left','7','♠'],['Right','right','A','♥']]){$('hand'+side+'Rank').value=v[key]?.rank||rank;$('hand'+side+'Suit').value=v[key]?.suit||suit}}
 const appearanceEditor=mountAppearanceEditor($('appearanceEditor'),()=>{if(!textDirty)textRevision=timer?.revision||0;textDirty=true});
 function canWrite(){try{return demo||window.parent!==window&&!window.parent.EPCMode.isView()}catch(_){return false}}
 function message(s){$('message').textContent=s}
@@ -31,8 +34,8 @@ function setTime(){try{parseTime($('remainingTime').value);send('set',$('remaini
  $('setTime').onclick=setTime;$('remainingTime').onkeydown=e=>{if(e.key==='Enter')setTime()};
  $('applyStructure').onclick=structure;
  $('applyTemplateBackground').onclick=()=>{const t=timer?.templateId==='standard'?STANDARD_TEMPLATE:templates.find(t=>t.id===timer?.templateId);if(!t)return message('找不到本場範本，請先重新讀取或直接選擇背景。');send('background',t.background||'classic')};
- $('saveText').onclick=()=>send('settings',{background:$('background').value,appearance:appearanceEditor.read(),announcement:$('announcement').value,payoutInput:$('payoutInput').value},textRevision);
- for(const field of ['announcement','payoutInput','background'])$(field).oninput=()=>{if(!textDirty)textRevision=timer?.revision||0;textDirty=true};
+ $('saveText').onclick=()=>send('settings',{background:$('background').value,appearance:appearanceEditor.read(),announcement:$('announcement').value,payoutInput:$('payoutInput').value,featuredHand:handValue()},textRevision);
+ for(const field of ['announcement','payoutInput','background','handEnabled','handTitle','handLeftRank','handLeftSuit','handRightRank','handRightSuit'])$(field).oninput=()=>{if(!textDirty)textRevision=timer?.revision||0;textDirty=true};
  $('reloadSettings').onclick=()=>location.reload();
  $('previewTimer').onclick=()=>{if(!timer)return message('本場尚未產生計時器');$('timerPreviewFrame').src='timer.html?'+(demo?'demo=1':'eventId='+encodeURIComponent(id))+'&v=20261024-start-level3';$('timerPreviewDialog').showModal()};$('closePreview').onclick=()=>$('timerPreviewDialog').close();
  function dirtyStructure(){if(!structureDirty)structureRevision=timer?.revision||0;structureDirty=true}
@@ -45,6 +48,6 @@ try{
  const error=e=>message('連線失敗：'+e.message);
  service.subscribeTemplates(rows=>{templates=rows},error);
  service.subscribeEvent(id,e=>{event=e;message(e?(timer?'已連線':'請回賽事設定選擇計時器範本並儲存，將自動產生本場計時器。'):'找不到賽事');update()},error);
- service.subscribeTimer(id,t=>{timer=t;if(!busy)message(['settled','已結算'].includes(event?.status)?'此場賽事已結算，僅供檢視。':t?'已連線，時間與公告同步中。':'請回賽事設定選擇計時器範本並儲存，將自動產生本場計時器。');if(t&&!textDirty){appearanceEditor.fill(t.appearance);$('background').value=t.background||'classic';$('announcement').value=t.announcement||'';$('payoutInput').value=t.payoutInput||'';textRevision=t.revision;textLoaded=true}if(t&&!structureDirty){structureRevision=t.revision;if(!structureLoaded||JSON.stringify(draft)!==JSON.stringify(t.levels)){draft=structuredClone(t.levels);structureLoaded=true;levels()}}update()},error);
+ service.subscribeTimer(id,t=>{timer=t;if(!busy)message(['settled','已結算'].includes(event?.status)?'此場賽事已結算，僅供檢視。':t?'已連線，時間與公告同步中。':'請回賽事設定選擇計時器範本並儲存，將自動產生本場計時器。');if(t&&!textDirty){appearanceEditor.fill(t.appearance);$('background').value=t.background||'classic';$('announcement').value=t.announcement||'';$('payoutInput').value=t.payoutInput||'';fillHand(t.featuredHand);textRevision=t.revision;textLoaded=true}if(t&&!structureDirty){structureRevision=t.revision;if(!structureLoaded||JSON.stringify(draft)!==JSON.stringify(t.levels)){draft=structuredClone(t.levels);structureLoaded=true;levels()}}update()},error);
 }catch(e){message(e.message)}
 levels();setInterval(()=>{update();document.querySelectorAll('#levels [data-field]').forEach(el=>{if(draft[el.dataset.index]?.break&&el.dataset.field!=='min')el.disabled=true})},250);
