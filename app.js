@@ -123,6 +123,14 @@ function nextMemberId(){
  }
  throw new Error('A 開頭的六位數會員編號已用完');
 }
+function fillNewMemberId_(){
+ const field=document.querySelector('#mId');
+ if(field&&!field.disabled&&!field.value.trim())field.value=nextMemberId();
+}
+window.epcGenerateNewMemberId_=function(){
+ const field=document.querySelector('#mId');
+ if(field&&!field.disabled)field.value=nextMemberId();
+};
 function openMemberModal(member=null){if(member){window.epcModeMemberBases=window.epcModeMemberBases||{};window.epcModeMemberBases[String(member.memberKey)]=JSON.parse(JSON.stringify(member));}document.querySelector('#memberForm').reset();document.querySelector('#memberKey').value=member?.memberKey||'';document.querySelector('#memberId').value=member?.memberId||nextMemberId();document.querySelector('#memberName').value=member?.name||'';document.querySelector('#memberNickname').value=member?.nickname||'';document.querySelector('#memberGroup').value=member?.group||'';document.querySelector('#memberBirth').value=member?.birth||'';document.querySelector('#memberPhone').value=member?.phone||'';document.querySelector('#memberAddress').value=member?.address||'';document.querySelector('#memberModalTitle').textContent=member?'編輯會員':'新增會員';document.querySelector('#memberFormState').textContent='';document.querySelector('#memberFormState').className='form-state';document.querySelector('#memberModal').hidden=false}
 function closeMemberModal(){document.querySelector('#memberModal').hidden=true}
 async function saveMember(e){e.preventDefault();const btn=document.querySelector('#memberSaveBtn'),state=document.querySelector('#memberFormState'),memberKey=document.querySelector('#memberKey').value;const data={memberId:document.querySelector('#memberId').value.trim(),name:document.querySelector('#memberName').value.trim(),nickname:document.querySelector('#memberNickname').value.trim(),group:document.querySelector('#memberGroup').value.trim(),birth:document.querySelector('#memberBirth').value.trim(),phone:document.querySelector('#memberPhone').value.trim(),address:document.querySelector('#memberAddress').value.trim()};if(memberKey){const original=MEMBER_ROWS.find(x=>x.memberKey===memberKey);['birth','phone','address'].forEach(k=>{if(original&&original[k]===undefined)delete data[k]})}if(!data.memberId||!data.name){state.textContent='POKER FANS ID 與姓名為必填';state.className='form-state bad';return}btn.disabled=true;state.textContent='儲存中…';try{let r;if(memberKey)r=await api('member.update',{memberKey,patch:data,expectedRevision:MEMBER_ROWS.find(x=>x.memberKey===memberKey)?.revision});else r=await api('member.create',{member:data});if(r.member){const i=MEMBER_ROWS.findIndex(x=>x.memberKey===r.member.memberKey);if(i>=0)MEMBER_ROWS[i]={...MEMBER_ROWS[i],...r.member};else MEMBER_ROWS.unshift(r.member);localStorage.setItem('eightMemberCache',JSON.stringify(MEMBER_ROWS));renderMembers();document.querySelector('#kMembers').textContent=money(MEMBER_ROWS.length)}state.textContent='儲存成功';state.className='form-state good';closeMemberModal()}catch(err){console.error(err);const msg={MEMBER_ID_ALREADY_EXISTS:'POKER FANS ID 已存在',MEMBER_ID_REQUIRED:'POKER FANS ID 為必填',MEMBER_NAME_REQUIRED:'姓名為必填',MEMBER_NOT_FOUND:'找不到此會員'}[err.message]||err.message;state.textContent='儲存失敗：'+msg;state.className='form-state bad'}finally{btn.disabled=false}}
@@ -609,6 +617,7 @@ window.addMember=async function(){
   syncLegacyMemberFromV3_(r.member,note);
   if(referrerId)await window.epcSaveSignupReferrer_(String(r.member.memberId),referrerId);
   ['mName','mNickname','mId','mGroup','mNote'].forEach(x=>{const el=document.querySelector('#'+x);if(el)el.value=''});
+  fillNewMemberId_();
   const s=document.querySelector('#memberSearch');if(s)s.value='';
   if(typeof window.actionMsg==='function')window.actionMsg('會員「'+name+'」已寫入 V3 與 Google Sheet');
   if(typeof window.setCloudState==='function')window.setCloudState('● V3 會員資料已同步');
@@ -663,6 +672,12 @@ window.performDelMember=async function(id){
   alert('刪除會員失敗：'+err.message);
  }
 };
+
+const cancelMemberForId_=window.cancelMemberEdit;
+if(typeof cancelMemberForId_==='function')window.cancelMemberEdit=function(){
+ const result=cancelMemberForId_.apply(this,arguments);fillNewMemberId_();return result;
+};
+fillNewMemberId_();
 
 })();
 
