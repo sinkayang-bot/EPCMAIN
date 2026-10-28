@@ -679,6 +679,35 @@ if(typeof cancelMemberForId_==='function')window.cancelMemberEdit=function(){
 };
 fillNewMemberId_();
 
+window.epcLoadMemberFormProfile_=async function(id){
+ const panel=document.getElementById('memberProfilePanel');
+ const status=document.getElementById('memberFormProfileStatus');
+ const fields=document.getElementById('memberFormProfileFields');
+ if(!panel||!status||!fields||panel.dataset.memberId!==String(id))return;
+ status.textContent='正在讀取入會申請資料…';
+ try{
+  const member=MEMBER_ROWS.find(m=>String(m.memberId)===String(id));
+  if(!member?.memberKey)throw Error('找不到會員資料，請先重新讀取會員');
+  if(typeof window.EPCFirestore?.getMemberProfileIdToken!=='function')throw Error('請先至 EPC 帳務使用 Google 管理員登入');
+  const idToken=await window.EPCFirestore.getMemberProfileIdToken();
+  const result=await api('member.profile',{memberKey:member.memberKey,idToken});
+  if(panel.dataset.memberId!==String(id)||!fields.isConnected)return;
+  fields.replaceChildren();
+  const grid=document.createElement('div');grid.className='formgrid';
+  for(const item of result.fields||[]){
+   const row=document.createElement('div'),label=document.createElement('div'),value=document.createElement('div');
+   label.className='small';label.textContent=String(item.label||'');
+   value.textContent=String(item.value||'未填寫');value.style.overflowWrap='anywhere';
+   row.append(label,value);grid.append(row);
+  }
+  fields.append(grid);status.textContent='已讀取原始入會資料';
+ }catch(error){
+  if(panel.dataset.memberId!==String(id)||!status.isConnected)return;
+  const message=String(error.message||error);
+  status.textContent=/UNKNOWN_ACTION/.test(message)?'完整入會資料功能等待後端更新；目前仍可查看姓名、生日、手機與地址。':message;
+ }
+};
+
 })();
 
 

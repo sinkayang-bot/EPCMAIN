@@ -91,7 +91,7 @@
   try{
    const [authMod,accountingAuth]=await Promise.all([
     import('https://www.gstatic.com/firebasejs/12.4.0/firebase-auth.js'),
-    import('./firebase-accounting-auth.js?v=20261016-phone-payments1')
+    import('./firebase-accounting-auth.js?v=20261029-member-profile')
    ]);
    accountingAuth.setupAccountingAuth({app,fs,accountingCol,bridge:window.EPCFirestore,authMod});
   }catch(err){

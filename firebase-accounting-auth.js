@@ -43,6 +43,10 @@ export function setupAccountingAuth({app, fs, accountingCol, bridge, authMod}) {
   if(!auth.currentUser)throw Error('請先按「Google 管理員登入」再新增收支');
   if(!bridge.accountingReady)throw Error(bridge.accountingState==='denied'?'此帳號尚未取得帳務管理員權限':'帳務尚未完成伺服器連線，請稍後或按「重試帳務連線」');
  };
+ bridge.getMemberProfileIdToken=async()=>{
+  bridge.requireAccountingAccess();
+  return auth.currentUser.getIdToken();
+ };
  async function login() {
   const button=el('epcAccountingLogin');if(button)button.disabled=true;
   try{
