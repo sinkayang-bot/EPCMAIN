@@ -176,7 +176,7 @@
    el('ppCorrectSave').onclick=async()=>{
     const button=el('ppCorrectSave'),status=el('ppCorrectStatus');
     try{
-     ensure();if(ledger(host.dataset.memberId).revision!==Number(host.dataset.revision))throw Error('帳務已有更新，請關閉後重新開啟修正');
+     ensure();if(busy)throw Error('上一筆操作處理中，請稍後再按儲存');if(ledger(host.dataset.memberId).revision!==Number(host.dataset.revision))throw Error('帳務已有更新，請關閉後重新開啟修正');
      const wallet=Number(el('ppCorrectWallet').value),n=Number(paid.value),note=el('ppCorrectReason').value.trim();
      if(!note)throw Error('請填寫修正原因');
      if(el('ppCorrectWallet').value===''||!Number.isSafeInteger(wallet)||wallet<0||(select.value&&(paid.value===''||!Number.isSafeInteger(n)||n<0)))throw Error('請填寫非負整數金額');
