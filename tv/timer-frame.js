@@ -1,5 +1,5 @@
 // Preview and paired screens share one timer page release.
-export const TIMER_VIEW_VERSION='20261028-rank-contrast8';
+export const TIMER_VIEW_VERSION='20261028-rank-small9';
 export function timerProjectionUrl(eventId,base='../',revision=''){
  return base+'timer.html?eventId='+encodeURIComponent(String(eventId||''))+'&v='+TIMER_VIEW_VERSION+(revision?'&refresh='+encodeURIComponent(String(revision)):'');
 }
