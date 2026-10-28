@@ -92,12 +92,22 @@ window.epcUpdateMemberNickname= function(memberId,value){
  });memberNicknameQueues.set(id,job);job.finally(()=>{if(memberNicknameQueues.get(id)===job)memberNicknameQueues.delete(id)}).catch(()=>{});return job;
 };
 function memberSearchText(v){return String(v??'').normalize('NFKC').toLowerCase().replace(/\s+/g,'')}
+function syncLegacyMemberRows_(rows){
+ const ldb=legacyDb_();if(!ldb)return;
+ const previous=new Map((ldb.members||[]).map(m=>[String(m.id),m]));
+ ldb.members=(rows||[]).map(m=>{
+  const old=previous.get(String(m.memberId))||{};
+  return {...old,...m,id:m.memberId,
+   createdDate:m.createdDate||m.createdAt||old.createdDate||old.createdAt||'',
+   createdAt:m.createdAt||old.createdAt,
+   history:Array.isArray(old.history)?old.history:[]};
+ });
+ if(typeof window.renderDashboardSummary==='function')window.renderDashboardSummary();
+}
 function renderMembers(rows=MEMBER_ROWS){
  const ldb=legacyDb_();
  if(ldb){
-  const previous=new Map((ldb.members||[]).map(m=>[String(m.id),m]));
-  ldb.members=rows.map(m=>({createdDate:m.createdDate||m.createdAt||previous.get(String(m.memberId))?.createdDate||'',id:m.memberId,name:m.name,nickname:m.nickname,group:m.group,birth:m.birth,phone:m.phone,address:m.address,memberKey:m.memberKey,revision:m.revision,createdAt:m.createdAt||previous.get(String(m.memberId))?.createdAt,eventCount:m.eventCount,totalEntries:m.totalEntries,pnl:m.pnl,spendShare:m.spendShare,lastVisit:m.lastVisit}));
-  if(typeof window.renderDashboardSummary==='function')window.renderDashboardSummary();
+  syncLegacyMemberRows_(rows);
   if(typeof window.renderMemberRows==='function'){window.renderMemberRows();return}
  }
  const tb=document.querySelector('#members tbody');if(!tb)return;
@@ -118,7 +128,7 @@ window.eightReloadMembers_=async function(){
   if(Number.isFinite(Number(r.cursor))){localStorage.setItem('epcCursor',String(Number(r.cursor)));if(window.EPCSync)window.EPCSync.state.cursor=Number(r.cursor)}
   localStorage.setItem('eightMemberCache',JSON.stringify(MEMBER_ROWS));
   const ldb=legacyDb_();
-  if(ldb)ldb.members=MEMBER_ROWS.map(m=>({id:m.memberId,name:m.name,nickname:m.nickname,group:m.group,birth:m.birth,phone:m.phone,address:m.address,memberKey:m.memberKey,revision:m.revision}));
+  if(ldb)syncLegacyMemberRows_(MEMBER_ROWS);
   const k=document.querySelector('#kMembers');if(k)k.textContent=money(MEMBER_ROWS.length);
   const ms=document.querySelector('#memberSearch');if(ms)ms.value='';
   const mf=document.querySelector('#memberFilterBy');if(mf)mf.value='all';
@@ -136,7 +146,7 @@ async function boot(force=false){
  if(cached.length){
   MEMBER_ROWS=cached;
   const k=document.querySelector('#kMembers');if(k)k.textContent=money(cached.length);
-  {const ldb=legacyDb_();if(ldb)ldb.members=cached.map(m=>({id:m.memberId,name:m.name,nickname:m.nickname,group:m.group,birth:m.birth,phone:m.phone,address:m.address,memberKey:m.memberKey,revision:m.revision}));}
+  syncLegacyMemberRows_(cached);
   if(typeof window.renderMemberRows==='function')window.renderMemberRows();
   if(state)state.textContent='會員已載入 '+cached.length+' 人｜V3 同步中';
   const ss=document.querySelector('#syncState');if(ss)setSync('資料庫：已連線');
@@ -562,7 +572,7 @@ window.addEventListener('focus',refreshActivityCloudV3_);
    so route those legacy handlers to EPC MAIN V3 instead of the disabled legacy cloud API. */
 function syncLegacyMemberFromV3_(m,note){
  if(!m)return;
- const legacy={id:m.memberId,name:m.name,nickname:m.nickname||'',group:m.group||'',note:note||'',memberKey:m.memberKey,revision:m.revision,createdDate:m.createdAt||'',source:'V3',history:[]};
+ const legacy={id:m.memberId,name:m.name,nickname:m.nickname||'',group:m.group||'',note:note||'',memberKey:m.memberKey,revision:m.revision,createdDate:m.createdDate||m.createdAt||'',createdAt:m.createdAt,source:'V3',history:[]};
  if(window.db&&Array.isArray(window.db.members)){
   const idx=window.db.members.findIndex(x=>String(x.memberKey||'')===String(m.memberKey||'')||String(x.id||'')===String(m.memberId||''));
   if(idx>=0)window.db.members[idx]={...window.db.members[idx],...legacy};
