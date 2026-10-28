@@ -2437,7 +2437,7 @@ window.addEventListener('error',function(e){
 
    <div class="card">
     <div class="report-topbar" style="margin-bottom:10px">
-      <div><h3 style="margin:0">其他收支</h3><div class="small">項目可自行輸入，也可從常用項目下拉選擇後新增。</div></div>
+      <div><h3 style="margin:0">其他收支</h3><div class="small">自行輸入項目名稱、選擇加項（收入）或減項（支出），金額填正數；也可選常用項目後調整。</div></div>
       <button type="button" class="primary" onclick="addAccountingItem()">＋ 新增收支</button>
     </div>
     <div class="formgrid" style="align-items:end">
@@ -2464,7 +2464,7 @@ window.addEventListener('error',function(e){
           </optgroup>
         </select>
       </div>
-      <input id="accountingItemType" type="hidden" value="income"><div><label>項目名稱</label><input id="accountingItemName" type="text" placeholder="例如：飲料收入、晚班薪資"></div>
+      <div><label for="accountingItemType">加減項</label><select id="accountingItemType"><option value="income">＋ 加項（收入）</option><option value="expense">－ 減項（支出）</option><option value="membership">＋ 入會費收入</option></select></div><div><label>項目名稱</label><input id="accountingItemName" type="text" placeholder="例如：飲料收入、晚班薪資"></div>
       <div><label>金額</label><input id="accountingItemAmount" type="number" min="0" step="1" inputmode="numeric" placeholder="0"></div>
     </div>
     <div class="tablewrap" style="margin-top:12px">
@@ -2501,7 +2501,7 @@ window.addEventListener('error',function(e){
      <div class="kpi"><span>其他支出</span><b id="eaOtherExpense">$0</b></div>
     </div>
     <div class="report-topbar" style="margin:14px 0 10px">
-      <div><h3 style="margin:0">其他收支</h3><div class="small">與當日帳務相同：可從常用項目選擇，也可自行輸入。</div></div>
+      <div><h3 style="margin:0">其他收支</h3><div class="small">可自行輸入項目並選擇加項（收入）或減項（支出），金額填正數；也可選常用項目後調整。</div></div>
       <button type="button" class="primary" onclick="addEventAccountingItem()">＋ 新增收支</button>
     </div>
     <div class="formgrid" style="align-items:end">
@@ -2526,7 +2526,7 @@ window.addEventListener('error',function(e){
         </optgroup>
        </select>
       </div>
-      <input id="eaItemType" type="hidden" value="income">
+      <div><label for="eaItemType">加減項</label><select id="eaItemType"><option value="income">＋ 加項（收入）</option><option value="expense">－ 減項（支出）</option><option value="membership">＋ 入會費收入</option></select></div>
       <div><label>項目名稱</label><input id="eaItemName" type="text" placeholder="例如：飲料收入、晚班薪資"></div>
       <div><label>金額</label><input id="eaItemAmount" type="number" min="0" step="1" inputmode="numeric" placeholder="0"></div>
     </div>
@@ -4714,10 +4714,7 @@ function addEventAccountingItem(){
  const preset=$('eaItemPreset')?.value||'';
  const name=$('eaItemName').value.trim(); const amount=Math.max(0,+$('eaItemAmount').value||0);
  let type=$('eaItemType')?.value||'income';
- if(!preset){
-   if(/入會費/.test(name))type='membership';
-   else type=/薪資|工資|餐費|水電|耗材|維修|租金|支出|費用/.test(name)?'expense':'income';
- }
+ if(!['income','expense','membership'].includes(type))return alert('請選擇加項或減項');
  if(!name)return alert('請輸入項目名稱');
  if(amount<=0)return alert('請輸入金額');
  const category=preset?name:(type==='membership'?'入會費收入':type==='expense'?'其他支出':'其他收入');
@@ -4900,10 +4897,7 @@ async function addAccountingItem(){
  const amount=+$('accountingItemAmount')?.value||0;
  let type=$('accountingItemType')?.value||'income';
  const preset=$('accountingItemPreset')?.value||'';
- if(!preset){
-   if(/入會費/.test(name))type='membership';
-   else type=/薪資|工資|餐費|水電|耗材|維修|租金|支出|費用/.test(name)?'expense':'income';
- }
+ if(!['income','expense','membership'].includes(type))return alert('請選擇加項或減項');
  if(!name)return alert('請輸入收支項目名稱');
  if(amount<=0)return alert('請輸入大於 0 的金額');
  let rec=db.dailyAccounting.find(x=>x&&x.date===date);
