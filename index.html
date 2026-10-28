@@ -7523,20 +7523,20 @@ function epcChooseTimerDisplay_(deviceId){
  select.value='timer';refreshDisplayControls_(deviceId,'timer',15);
  $('displaySpecific_'+deviceId)?.scrollIntoView({block:'nearest',behavior:'smooth'});
 }
+function epcSelectedTimerIds_(deviceId){return [0,1,2,3].map(i=>$('displayTimerEvent_'+deviceId+'_'+i)?.value||'').filter(Boolean).filter((id,i,a)=>a.indexOf(id)===i);}
 async function epcPreviewTimerDisplay_(deviceId){
- const device=displayDevicesCache.find(d=>String(d.deviceId)===String(deviceId));
- const eventId=$('displayTimerEvent_'+deviceId)?.value||device?.payload?.eventId||'';
- if(!eventId)return actionMsg('請先選擇要預覽的投影賽事',true);
- const event=(db.events||[]).find(e=>String(e.id)===String(eventId));
- $('epcTimerProjectionTitle').textContent='投影預覽｜'+(event?eventDisplayName_(event):'EPC 賽事計時器');
- const {timerProjectionUrl}=await import('./tv/timer-frame.js?v=20261023-tablet-rgb41');
- $('epcTimerProjectionFrame').src=timerProjectionUrl(eventId,'');
+ const ids=epcSelectedTimerIds_(deviceId);
+ if(!ids.length)return actionMsg('請先選擇至少一場投影賽事',true);
+ $('epcTimerProjectionTitle').textContent='投影預覽｜'+ids.length+' 場計時器';
+ $('epcTimerProjectionFrame').src=ids.length===1?'timer.html?eventId='+encodeURIComponent(ids[0])+'&v=20261028-multitimer1':'tv/multi-timer.html?ids='+encodeURIComponent(ids.join(','))+'&v=20261028-multitimer1';
  $('epcTimerProjectionDialog').showModal();
 }
 function epcTimerDisplayControls_(deviceId,ui){
  const escape=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
- const rows=(db.events||[]).filter(e=>e.timerId||String(e.id)===String(ui.eventId)),arg=escape(JSON.stringify(String(deviceId)));
- return '<div style="grid-column:1/-1"><label>投影賽事</label><select data-mode-control id="displayTimerEvent_'+escape(deviceId)+'"><option value="">請選擇已建立計時器的賽事</option>'+rows.map(e=>'<option value="'+escape(e.id)+'" '+(String(e.id)===String(ui.eventId)?'selected':'')+'>'+escape((e.date||'')+' '+eventDisplayName_(e)+(['settled','已結算'].includes(e.status)?'（已結束）':''))+'</option>').join('')+'</select><div class="toolbar" style="margin-top:10px"><button type="button" data-mode-control onclick="epcPreviewTimerDisplay_('+arg+')">預覽投影畫面</button></div><p class="small">在此預覽，確認後按「套用到螢幕」發送至這台設備。時間、盲注與公告請至左側「計時器」控制。</p></div>';
+ const ids=Array.isArray(ui.eventIds)?ui.eventIds.slice(0,4):ui.eventId?[String(ui.eventId)]:[];
+ const rows=(db.events||[]).filter(e=>e.timerId||ids.includes(String(e.id)));
+ const selectors=[0,1,2,3].map(i=>'<div><label>計時器 '+(i+1)+(i===0?'（必選）':'（選填）')+'</label><select data-mode-control id="displayTimerEvent_'+escape(deviceId)+'_'+i+'"><option value="">'+(i===0?'請選擇賽事':'不顯示')+'</option>'+rows.map(e=>'<option value="'+escape(e.id)+'" '+(String(e.id)===String(ids[i])?'selected':'')+'>'+escape((e.date||'')+' '+eventDisplayName_(e))+'</option>').join('')+'</select></div>').join('');
+ return '<div style="grid-column:1/-1"><h3>同螢幕計時器（最多 4 場）</h3><div class="formgrid" style="grid-template-columns:repeat(2,minmax(0,1fr))">'+selectors+'</div><div class="toolbar" style="margin-top:10px"><button type="button" data-mode-control onclick="epcPreviewTimerDisplay_('+escape(JSON.stringify(String(deviceId)))+')">預覽投影畫面</button></div><p class="small">1 場全螢幕、2 場左右並排、3～4 場四宮格。每場獨立計時與升盲；選好後按「套用到螢幕」。</p></div>';
 }
 
 /* ===== V1.50.0 Display Devices ===== */
@@ -7703,11 +7703,12 @@ async function publishDisplay_(deviceId,silent=false){
  if(type==='rotateParallel'){const acts=['weekly','pioneer','rank','hunter','umbrella','boss','extremeTen'];ui.parallelItems=acts.filter(t=>$('displayParallel_'+deviceId+'_'+t)?.checked);ui.rotateItems=acts.filter(t=>$('displayRotate_'+deviceId+'_'+t)?.checked).slice(0,1);ui.parallelSeconds=Math.max(5,Number($('displayParallelSec_'+deviceId)?.value||15));ui.rotateSeconds={};acts.forEach(t=>ui.rotateSeconds[t]=Math.max(5,Number($('displayRotateSec_'+deviceId+'_'+t)?.value||15)));if(!ui.parallelItems.length)return actionMsg('並排頁請至少勾選一個活動',true);if(ui.rotateItems.length!==1)return actionMsg('第 2 頁請選擇一個活動',true);}
  if(type==='rotate'){const acts=['weekly','pioneer','rank','hunter','umbrella','boss','extremeTen'];ui.rotateItems=acts.filter(t=>$('displayRotate_'+deviceId+'_'+t)?.checked);ui.rotateSeconds={};acts.forEach(t=>ui.rotateSeconds[t]=Math.max(5,+($('displayRotateSec_'+deviceId+'_'+t)?.value||15)));}
  if(type==='timer'){
-  ui.eventId=$('displayTimerEvent_'+deviceId)?.value||'';
-  if(!ui.eventId)return actionMsg('請選擇要投影的賽事',true);
+  ui.eventIds=epcSelectedTimerIds_(deviceId);
+  if(!ui.eventIds.length)return actionMsg('請至少選擇一場計時器',true);
+  if(ui.eventIds.some(id=>!(db.events||[]).some(e=>String(e.id)===id)))return actionMsg('有賽事不存在，請重新選擇',true);
+  ui.eventId=ui.eventIds[0];
   const event=(db.events||[]).find(e=>String(e.id)===ui.eventId);
-  if(!event)return actionMsg('找不到賽事，請重新選擇',true);
-  const payload={type:'timer',eventId:ui.eventId,title:eventDisplayName_(event),ui,refreshToken:crypto.randomUUID()};
+  const payload={type:'timer',eventId:ui.eventId,eventIds:ui.eventIds,title:eventDisplayName_(event),ui,refreshToken:crypto.randomUUID()};
   try{await displayFetch_({action:'publish',deviceId,contentType:type,rotateSeconds:sec,payload},true);saveDisplayPref_(deviceId,{type,sec,ui});if(!silent){actionMsg('已套用本場計時器；請在賽事管理開啟計時器後臺操作');await loadDisplays_()}}catch(e){actionMsg('計時器投影失敗：'+e.message,true)}
   return;
  }
