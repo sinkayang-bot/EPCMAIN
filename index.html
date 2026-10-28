@@ -2023,6 +2023,21 @@ body #dailyOperationsSplit h3{font-size:20px}
 body #dailyOperationsSplit .daily-hint{font-size:15px}
 }
 </style>
+
+<style id="epcCompactDashboard20261029">
+@media screen {
+ body #dashboard>.grid{gap:10px;align-items:stretch}
+ body #dashboard>.grid>.card.kpi{padding:12px 14px;margin-bottom:0;min-width:0;border-radius:10px}
+ body #dashboard .kpi .l{font-size:14px;line-height:1.4}
+ body #dashboard .kpi .v{font-size:26px;line-height:1.25;margin-top:5px;overflow-wrap:anywhere}
+ body #dashboard>.grid>.kpi .small{font-size:13px;line-height:1.5;margin-top:4px}
+ body #epcDailyOperations .grid>.card.kpi{padding:8px 10px}
+ body #epcDailyOperations .grid .v{font-size:24px}
+}
+@media screen and (min-width:1400px){
+ body #dashboard>.grid{grid-template-columns:repeat(6,minmax(0,1fr))!important}
+}
+</style>
 </head>
 <script>
 (function(){
