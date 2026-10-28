@@ -35,8 +35,8 @@ function render(){
    const card=hand[key]||{},el=$('hand'+side);
    const suit=['♠','♥','♦','♣'].includes(card.suit)?card.suit:'♠';
    el.className='handSuit '+(['♥','♦'].includes(suit)?'red':'black');
-   if(el.dataset.suit!==suit){el.dataset.suit=suit;el.replaceChildren(document.createTextNode(suit),el.querySelector('b'))}
-   text(el.querySelector('b'),card.rank||'A');
+   if(el.dataset.suit!==suit){el.dataset.suit=suit;const shapes={'♠':'M50 7 C42 24 12 36 12 56 C12 77 39 80 49 63 C48 77 42 87 31 89 L69 89 C58 87 52 77 51 63 C61 80 88 77 88 56 C88 36 58 24 50 7Z','♥':'M50 92 C39 79 7 58 7 34 C7 7 40 3 50 26 C60 3 93 7 93 34 C93 58 61 79 50 92Z','♦':'M50 3 L91 50 L50 97 L9 50 Z','♣':'M50 7 C31 7 27 30 39 39 C18 25 3 42 9 59 C15 77 37 73 46 62 C46 78 40 87 31 90 L69 90 C60 87 54 78 54 62 C63 73 85 77 91 59 C97 42 82 25 61 39 C73 30 69 7 50 7Z'};el.querySelector('path').setAttribute('d',shapes[suit]);el.querySelector('text').setAttribute('y',suit==='♥'?'47':'54')}
+   text(el.querySelector('text'),card.rank||'A');
   }
  }
  text($('extraContent'),'$'+num(totals.pool));payout(state.payoutInput||'');
