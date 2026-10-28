@@ -2171,7 +2171,8 @@ window.addEventListener('error',function(e){
    <div><label>搜尋會員</label><input id="memberSearch" type="search" autocomplete="off" placeholder="姓名、綽號、會員 ID 或結帳群組" oninput="renderMemberRows()"></div>
    <div><label>快速篩選</label><select id="memberFilterBy" onchange="renderMemberRows()"><option value="all">全部會員</option><option value="profit">獲利會員</option><option value="loss">虧損會員</option><option value="played">有參賽</option><option value="none">無參賽</option></select></div>
    <div><label>排序方式</label><select id="memberSortBy" onchange="renderMemberRows()">
-    <option value="eventsDesc">參賽場次：高 → 低</option><option value="eventsAsc">參賽場次：低 → 高</option>
+    <option value="registeredDesc">註冊順序：新 → 舊</option><option value="registeredAsc">註冊順序：舊 → 新</option>
+    <option value="eventsDesc" selected>參賽場次：高 → 低</option><option value="eventsAsc">參賽場次：低 → 高</option>
     <option value="shareDesc">消費占比：高 → 低</option><option value="shareAsc">消費占比：低 → 高</option>
     <option value="paidDesc">買入金額：高 → 低</option><option value="paidAsc">買入金額：低 → 高</option>
     <option value="prizeDesc">領回金額：高 → 低</option><option value="prizeAsc">領回金額：低 → 高</option>
@@ -2181,10 +2182,10 @@ window.addEventListener('error',function(e){
    <button type="button" style="align-self:end" onclick="setMemberRangeThisMonth()">本月</button>
    <button type="button" style="align-self:end" onclick="clearMemberSearch()">清除搜尋</button>
   </div>
-  <div class="small" style="margin-top:8px">參賽場次包含已登記的進行中與已結算賽事；買入、領回、盈虧與消費占比只計正式結算。消費占比＝該會員區間已結算買入 ÷ 全部會員區間已結算買入。</div>
+  <div class="small" style="margin-top:8px">參賽場次包含已登記的進行中與已結算賽事；買入、領回、盈虧與消費占比只計正式結算。消費占比＝該會員區間已結算買入 ÷ 全部會員區間已結算買入。註冊順序依註冊日期排列；同日保留資料原順序，未記錄日期者排最後。</div>
  </div>
  <div class="card tablewrap" style="margin-top:12px"><table>
-  <thead><tr><th>會員</th><th>玩家</th><th>綽號</th><th>會員編號</th><th>結帳群組</th><th>參賽場次</th><th>已結算場次</th><th>消費占比</th><th>買入</th><th>領回</th><th>盈虧</th><th>最後來店</th><th>操作</th></tr></thead>
+  <thead><tr><th>會員</th><th>玩家</th><th>綽號</th><th>會員編號</th><th>註冊日期</th><th>結帳群組</th><th>參賽場次</th><th>已結算場次</th><th>消費占比</th><th>買入</th><th>領回</th><th>盈虧</th><th>最後來店</th><th>操作</th></tr></thead>
   <tbody id="memberRows"></tbody><tfoot id="memberTotals"></tfoot>
  </table></div>
 </section>
@@ -5635,6 +5636,11 @@ function renderMemberRows(){
  });
  const share=x=>totalPaid>0?x.paid/totalPaid:0;
  const cmp=(a,b)=>{
+   if(sortBy==='registeredAsc'||sortBy==='registeredDesc'){
+     const da=memberCreatedBusinessDate(a.m),dbDate=memberCreatedBusinessDate(b.m);
+     if(!da||!dbDate)return da?-1:dbDate?1:0;
+     return sortBy==='registeredAsc'?da.localeCompare(dbDate):dbDate.localeCompare(da);
+   }
    if(sortBy==='eventsAsc')return a.events-b.events||share(b)-share(a);
    if(sortBy==='shareDesc')return share(b)-share(a)||b.events-a.events;
    if(sortBy==='shareAsc')return share(a)-share(b)||b.events-a.events;
@@ -5649,8 +5655,8 @@ function renderMemberRows(){
    return b.events-a.events||share(b)-share(a)||epcPlayerDisplayName_(a.m).localeCompare(epcPlayerDisplayName_(b.m),'zh-Hant');
  };
  const list=filtered.sort(cmp);
- tbody.innerHTML=list.map(({m,events,settledEvents,paid,prize,net})=>{const pct=totalPaid>0?paid/totalPaid*100:0;return `<tr><td>${`<button type="button" data-member-profile="${epcDisplayEscape_(m.id||"")}" onclick="openMemberProfile_(this.dataset.memberProfile)" style="border:0;background:none;color:#d6b35a;text-decoration:underline;font-weight:800;padding:0">${epcDisplayEscape_(epcMemberDisplayName_(m))}</button>`}</td><td>${epcPlayerDisplayHtml_(m)}</td><td>${epcDisplayEscape_(epcNickname_(m)||'—')}</td><td>${epcDisplayEscape_(m.id||'')}</td><td>${m.group||'-'}</td><td>${events}</td><td>${settledEvents}</td><td>${pct.toFixed(1)}%</td><td>${money(paid)}</td><td>${money(prize)}</td><td class="${epcPnlClass_(net)}">${money(net)}</td><td>${epcDisplayEscape_(memberLastVisit_(m))}</td><td><button onclick="editMember('${m.id}')">編輯</button> <button class="danger" onclick="delMember('${m.id}')">刪除</button></td></tr>`;}).join('')||'<tr><td colspan="13" class="small">找不到符合條件的會員</td></tr>';
- const foot=$('memberTotals');if(foot)foot.innerHTML=`<tr style="font-weight:800;border-top:2px solid #52677b"><td>區間總計</td><td colspan="4">${from||'全部'} ～ ${to||'全部'}</td><td>${totalEntries}</td><td>${stats.reduce((sum,x)=>sum+x.settledEvents,0)}</td><td>${totalPaid>0?'100.0%':'0.0%'}</td><td>${money(totalPaid)}</td><td>${money(totalPrize)}</td><td class="${epcPnlClass_(totalNet)}">${money(totalNet)}</td><td></td><td></td></tr>`;
+ tbody.innerHTML=list.map(({m,events,settledEvents,paid,prize,net})=>{const pct=totalPaid>0?paid/totalPaid*100:0;return `<tr><td>${`<button type="button" data-member-profile="${epcDisplayEscape_(m.id||"")}" onclick="openMemberProfile_(this.dataset.memberProfile)" style="border:0;background:none;color:#d6b35a;text-decoration:underline;font-weight:800;padding:0">${epcDisplayEscape_(epcMemberDisplayName_(m))}</button>`}</td><td>${epcPlayerDisplayHtml_(m)}</td><td>${epcDisplayEscape_(epcNickname_(m)||'—')}</td><td>${epcDisplayEscape_(m.id||'')}</td><td>${epcDisplayEscape_(memberCreatedBusinessDate(m)||'未記錄')}</td><td>${m.group||'-'}</td><td>${events}</td><td>${settledEvents}</td><td>${pct.toFixed(1)}%</td><td>${money(paid)}</td><td>${money(prize)}</td><td class="${epcPnlClass_(net)}">${money(net)}</td><td>${epcDisplayEscape_(memberLastVisit_(m))}</td><td><button onclick="editMember('${m.id}')">編輯</button> <button class="danger" onclick="delMember('${m.id}')">刪除</button></td></tr>`;}).join('')||'<tr><td colspan="14" class="small">找不到符合條件的會員</td></tr>';
+ const foot=$('memberTotals');if(foot)foot.innerHTML=`<tr style="font-weight:800;border-top:2px solid #52677b"><td>區間總計</td><td colspan="5">${from||'全部'} ～ ${to||'全部'}</td><td>${totalEntries}</td><td>${stats.reduce((sum,x)=>sum+x.settledEvents,0)}</td><td>${totalPaid>0?'100.0%':'0.0%'}</td><td>${money(totalPaid)}</td><td>${money(totalPrize)}</td><td class="${epcPnlClass_(totalNet)}">${money(totalNet)}</td><td></td><td></td></tr>`;
 }
 function setMemberRangeThisMonth(){const now=new Date(),y=now.getFullYear(),m=String(now.getMonth()+1).padStart(2,'0'),last=new Date(y,now.getMonth()+1,0).getDate();$('memberDateFrom').value=`${y}-${m}-01`;$('memberDateTo').value=`${y}-${m}-${String(last).padStart(2,'0')}`;renderMemberRows();}
 function clearMemberSearch(){
