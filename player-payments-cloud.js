@@ -1,4 +1,4 @@
-import './player-payments-core.js?v=20261017-remove1';
+import './player-payments-core.js?v=20261029-admin-correction';
 export function setupPlayerPayments({fs,db,col,accountingCol,bridge}){
  const Core=globalThis.EPCPlayerPaymentsCore;
  bridge.playerPaymentDocId=id=>'PLAYER_PAYMENTS_'+encodeURIComponent(String(id));

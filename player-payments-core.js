@@ -79,6 +79,17 @@
    if(Object.values(s.accounts).some(a=>a.paid>a.charge))throw Error('尚有溢付金額，請先處理後再刪除');
    if(Object.values(s.profits).some(p=>p.limit>p.used+p.cash))throw Error('尚有未領取盈餘，請先處理後再刪除');
    s.archived=true;
+  }else if(cmd.kind==='adminCorrection'){
+   if(!String(cmd.note||'').trim())throw Error('請填寫管理員修正原因');
+   if(!cmd.targetId||!s.items.some(x=>x.id===cmd.targetId))throw Error('找不到要修正的原始紀錄');
+   if(!money(cmd.wallet))throw Error('寄存餘額須為非負整數');
+   if(eventId){
+    const a=account();
+    if(!money(cmd.paid))throw Error('已付款金額須為非負整數');
+    if(a.cancelled)throw Error('此場報名已取消，請先核對取消紀錄');
+    a.paid=cmd.paid;
+   }
+   s.wallet=cmd.wallet;
   }else if(cmd.kind==='void'){
    const old=s.items.find(x=>x.id===cmd.targetId);
    if(!old||old.voidedBy||!old.effects||['void','change','reconcile','archive','cancelRegistration'].includes(old.kind)||(['add','rebuy'].includes(old.kind)&&!old.cashAmount))throw Error('此筆紀錄不能撤銷；請修正場次數量或核對後續使用');
