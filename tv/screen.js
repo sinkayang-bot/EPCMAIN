@@ -8,7 +8,11 @@ let id=localStorage.getItem('epcTvDeviceId');if(!id){id=Array.from(crypto.getRan
 let timer,cloud,lastSignature='',renewing=false;
 function identity(r,ui){return [ui.showName!==false?esc(r.name||r.member||''):null,ui.showMemberId?esc(r.memberId||r.id||''):null].filter(Boolean).join(' · ')}
 function render(p,target=host){
- if(p.type==='timer'){mountTimerFrame(target,p.eventId,p.refreshToken);return}
+ if(p.type==='timer'){
+  const ids=Array.isArray(p.eventIds)?[...new Set(p.eventIds.map(String).filter(Boolean))].slice(0,4):[String(p.eventId||'')].filter(Boolean);
+  if(ids.length<=1){mountTimerFrame(target,ids[0],p.refreshToken);return}
+  const frame=document.createElement('iframe');frame.title='EPC 多場計時器';frame.allow='autoplay';frame.src='./multi-timer.html?ids='+encodeURIComponent(ids.join(','))+'&v=20261028-multi1';frame.style.cssText='position:fixed;inset:0;width:100vw;height:100vh;border:0;background:#000';target.replaceChildren(frame);return;
+ }
  const ui=p.ui||{},header=`<header><div class="epc-tv-brand"><img class="epc-brand-logo" src="../assets/epc-brand.png?v=20261024-brand46" alt="EPC 原版 LOGO" width="128" height="58"><h1>${esc(p.title||'EPC')}</h1></div><span>${esc(p.activityFrom||'')} ～ ${esc(p.activityTo||'')}</span></header>`;
  if(p.type==='extremeTen'||ui.kind==='extremeTen'||String(p.title||'').replace(/\s/g,'')==='極限10秒'){
   const distance=r=>Number.isFinite(Number(r.seconds))?Math.abs(Math.round(Number(r.seconds)*100)-1000):Number.isFinite(Number(r.difference))?Math.round(Number(r.difference)*100):Infinity;
