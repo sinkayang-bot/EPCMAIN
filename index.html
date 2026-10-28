@@ -2246,7 +2246,7 @@ window.addEventListener('error',function(e){
   <div class="toolbar"><button class="primary" onclick="saveEvent()">儲存賽事設定</button></div>
  </div>
  <div class="card pp-add-card">
-  <div class="pp-add-row"><label for="addPlayerSearch">加入玩家</label><div class="pp-search-box"><input id="addPlayerSearch" autocomplete="off" placeholder="搜尋姓名、綽號或會員編號" oninput="filterAddPlayerMembers(this.value)" onfocus="filterAddPlayerMembers(this.value)" onkeydown="handleAddPlayerSearchKey(event)"><select id="addPlayerMember" size="5" hidden onchange="syncAddPlayerSearch()"></select></div><button class="primary" data-pp-action onclick="addPlayer()">加入本場</button></div>
+  <div class="pp-add-row"><label for="addPlayerSearch">加入玩家</label><div class="pp-search-box"><input id="addPlayerSearch" autocomplete="off" placeholder="搜尋姓名、綽號、會員編號或手機末三碼" oninput="filterAddPlayerMembers(this.value)" onfocus="filterAddPlayerMembers(this.value)" onkeydown="handleAddPlayerSearchKey(event)"><select id="addPlayerMember" size="5" hidden onchange="syncAddPlayerSearch()"></select></div><button class="primary" data-pp-action onclick="addPlayer()">加入本場</button></div>
  </div>
  <div class="card" style="margin-bottom:10px">
   <div class="player-col-controls">
@@ -4142,7 +4142,7 @@ async function saveEvent(){
 }
 function filterAddPlayerMembers(keyword){
  const sel=$('addPlayerMember');if(!sel)return;
- const q=String(keyword||'').trim().toLowerCase();
+ const q=String(keyword||'').normalize('NFKC').trim().toLowerCase();
  const current=sel.value;
  if(!q){sel.innerHTML='<option value="">請先輸入關鍵字</option>';sel.hidden=true;return;}
  const list=db.members.filter(m=>{
@@ -4150,8 +4150,8 @@ function filterAddPlayerMembers(keyword){
    const nickname=String(m.nickname||'').toLowerCase();
    const id=String(m.id||'').toLowerCase();
    const group=String(m.group||m.settleGroup||m.settlementGroup||m.accountGroup||'').toLowerCase();
-   return !((currentEvent()?.players||[]).some(p=>String(p.memberId)===String(m.id))) && (!q || name.includes(q) || nickname.includes(q) || id.includes(q) || group.includes(q) || memberSearchLabel_(m).toLowerCase().includes(q));
- }).slice(0,30);
+   return !((currentEvent()?.players||[]).some(p=>String(p.memberId)===String(m.id))) && (!q || name.includes(q) || nickname.includes(q) || id.includes(q) || group.includes(q) || memberPhoneMatches_(m,q) || memberSearchLabel_(m).toLowerCase().includes(q));
+ });
  sel.hidden=!q;
  sel.innerHTML=list.length
    ? list.map(m=>`<option value="${m.id}">${epcDisplayEscape_(memberSearchLabel_(m))}</option>`).join('')
@@ -5624,7 +5624,7 @@ function memberProfileGroupedHistory_(items){
 }
 function closeMemberProfile_(){const p=$('memberProfilePanel');if(p)p.hidden=true;}
 function memberPhoneMatches_(m,query){
- const digits=String(m?.phone||'').replace(/\D/g,'');
+ const digits=String(m?.phone||'').normalize('NFKC').replace(/\D/g,'');
  const q=String(query||'').normalize('NFKC').trim();
  return /^\d{3}$/.test(q)?digits.endsWith(q):/^\d{4,}$/.test(q)&&digits.includes(q);
 }
@@ -5637,7 +5637,7 @@ function memberFormProfileHtml_(m){
 }
 function renderMemberRows(){
  const tbody=$('memberRows');if(!tbody)return;
- const q=String($('memberSearch')?.value||'').trim().toLowerCase(),from=$('memberDateFrom')?.value||'',to=$('memberDateTo')?.value||'';
+ const q=String($('memberSearch')?.value||'').normalize('NFKC').trim().toLowerCase(),from=$('memberDateFrom')?.value||'',to=$('memberDateTo')?.value||'';
  const stats=(db.members||[]).map(m=>{const h=memberHistoryInRange(m,from,to);const settledEvents=new Set(h.map(x=>x.eventId||`${x.date}|${x.eventSeq||''}|${x.level||''}`)).size;const events=memberParticipationInRange_(m,from,to).length;const paid=h.reduce((s,x)=>s+(+x.paid||0),0),prize=h.reduce((s,x)=>s+(+x.prize||0),0);return {m,events,settledEvents,paid,prize,net:prize-paid};});
  const totalPaid=stats.reduce((s,x)=>s+x.paid,0),totalPrize=stats.reduce((s,x)=>s+x.prize,0),totalNet=totalPrize-totalPaid,totalEntries=stats.reduce((s,x)=>s+x.events,0);
  const sortBy=$('memberSortBy')?.value||'eventsDesc',filterBy=$('memberFilterBy')?.value||'all';
@@ -7902,7 +7902,7 @@ async function epcShowRecoveryAudit_(){
 <script src="phone/stack-core.js?v=20261009-settlement-confirmed"></script>
 <script src="firebase-events.js?v=20261029-member-profile"></script>
 <script src="sync-v3.js?v=20261007-0780"></script>
-<script src="app.js?v=member-profile-phone-search-20261029"></script><script type="module" src="player-free/backoffice-relay.js?v=9"></script><dialog id="ppDialog"><div class="toolbar" style="justify-content:space-between"><h2 id="ppDialogTitle">玩家帳務</h2><button onclick="document.getElementById('ppDialog').close()">關閉</button></div><div id="ppDialogBody"></div></dialog>
+<script src="app.js?v=member-phone-registration-20261029"></script><script type="module" src="player-free/backoffice-relay.js?v=9"></script><dialog id="ppDialog"><div class="toolbar" style="justify-content:space-between"><h2 id="ppDialogTitle">玩家帳務</h2><button onclick="document.getElementById('ppDialog').close()">關閉</button></div><div id="ppDialogBody"></div></dialog>
 <dialog id="ppRegistrationDialog"><div class="toolbar" style="justify-content:space-between"><h2 id="ppRegistrationTitle">加入本場</h2><button data-pp-action onclick="PP.cancelRegistration()">取消</button></div><div id="ppRegistrationBody"></div></dialog><script src="player-payments-core.js?v=20261017-remove1"></script><script src="player-payments.js?v=20261024-brand-unpaid46"></script><script src="ui-layout.js?v=20261028-cloud-layout2"></script><dialog id="epcTimerDialog" style="width:98vw;max-width:none;height:96vh;max-height:none;padding:0;background:#050505;border:1px solid #b7933b;border-radius:12px;color:white"><div style="height:44px;display:flex;justify-content:space-between;align-items:center;padding:4px 16px"><b>賽事計時器</b><button type="button" onclick="document.getElementById('epcTimerDialog').close()">關閉</button></div><iframe id="epcTimerFrame" title="賽事計時器後臺" style="width:100%;height:calc(100% - 48px);border:0"></iframe></dialog><dialog id="newEventDialog" style="width:min(580px,94vw);padding:24px;border:1px solid #b89340;border-radius:12px;background:var(--bg,#111);color:var(--text,#eee)"><h2>建立賽事</h2><label for="newEventName">賽事名稱</label><input id="newEventName"><label for="newEventTimerTemplate">計時器範本</label><select id="newEventTimerTemplate" onchange="epcNewEventTimerHint_()"><option value="">不啟用計時器</option><option value="standard">20 分鐘標準賽（內建）</option></select><p class="small" id="newEventTimerHint"></p><p class="small">範本請在獨立「計時器」管理。按建立後，賽事與該場計時器會一同產生。</p><div class="toolbar"><button id="newEventConfirm" class="primary" onclick="epcConfirmNewEvent_()">建立賽事與計時器</button><button onclick="document.getElementById('newEventDialog').close()">取消</button></div></dialog><dialog id="epcTimerProjectionDialog" style="width:96vw;max-width:1920px;height:94vh;max-height:none;padding:0;background:#000;border:1px solid #b89340;border-radius:12px;color:white"><div style="height:48px;display:flex;justify-content:space-between;align-items:center;gap:12px;padding:6px 16px"><b id="epcTimerProjectionTitle">投影預覽</b><button type="button" onclick="document.getElementById('epcTimerProjectionDialog').close()">關閉</button></div><iframe id="epcTimerProjectionFrame" title="設備計時器投影預覽" style="width:100%;height:calc(100% - 90px);border:0;background:#000"></iframe><div class="small" style="padding:8px 16px">此為設備投影預覽。確認畫面後，回到此設備按「套用到螢幕」。</div></dialog><script id="epcManagementView20261026">
 /* EPC management view: derived, read-only; no database writes. */
 (()=>{
