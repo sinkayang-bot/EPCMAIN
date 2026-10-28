@@ -111,7 +111,7 @@ function renderMembers(rows=MEMBER_ROWS){
   if(typeof window.renderMemberRows==='function'){window.renderMemberRows();return}
  }
  const tb=document.querySelector('#members tbody');if(!tb)return;
- const q=memberSearchText(document.querySelector('#memberSearch')?.value||''),filtered=q?rows.filter(m=>[m.memberId,m.name,m.nickname,m.group,m.phone].some(v=>memberSearchText(v).includes(q))):rows;
+ const q=memberSearchText(document.querySelector('#memberSearch')?.value||''),filtered=q?rows.filter(m=>([m.memberId,m.name,m.nickname,m.group].some(v=>memberSearchText(v).includes(q))||window.memberPhoneMatches_?.(m,q))):rows;
  tb.innerHTML=filtered.map(m=>'<tr data-key="'+esc(m.memberKey)+'"><td>'+esc(m.memberId)+'</td><td>'+esc(window.epcMemberDisplayName_(m))+'</td><td>'+esc(window.epcNickname_(m))+'</td><td>'+esc(m.group)+'</td><td>'+money(m.eventCount)+'</td><td>'+money(m.totalEntries)+'</td><td class="'+pnlClass(m.pnl)+'">'+money(m.pnl)+'</td><td>'+esc(m.spendShare||'—')+'</td><td>'+esc(m.lastVisit||'—')+'</td></tr>').join('')||'<tr><td colspan="10" class="empty">目前沒有符合的會員資料</td></tr>';
 }
 function nextMemberId(){
@@ -311,7 +311,7 @@ async function openEventWorkspace(id){
 async function loadWorkspacePlayers(force=false){if(!ACTIVE_EVENT)return;const id=ACTIVE_EVENT;if(!force&&WORKSPACE_PLAYERS.length)return;try{const r=await api('player.list',{eventId:id});if(ACTIVE_EVENT!==id)return;WORKSPACE_PLAYERS=r.players||[];bridgeV3Activities_([WORKSPACE_EVENT],{[id]:WORKSPACE_PLAYERS});WS_PLAYER_SYNC.set(id,Date.now());try{localStorage.setItem('eightEventPlayers:'+id,JSON.stringify(WORKSPACE_PLAYERS))}catch(_){}renderWorkspace();filterWorkspaceMembers(document.querySelector('#workspaceMemberSearch').value)}catch(err){if(ACTIVE_EVENT===id&&!WORKSPACE_PLAYERS.length)alert('載入玩家失敗：'+err.message)}}
 function filterWorkspaceMembers(q){
  q=memberSearchText(q);const joined=new Set(WORKSPACE_PLAYERS.map(x=>x.memberKey));
- const list=MEMBER_ROWS.filter(m=>!joined.has(m.memberKey)&&(!q||[m.memberId,m.name,m.nickname,m.group].some(v=>memberSearchText(v).includes(q)))).slice(0,30);
+ const list=MEMBER_ROWS.filter(m=>!joined.has(m.memberKey)&&(!q||([m.memberId,m.name,m.nickname,m.group].some(v=>memberSearchText(v).includes(q))||window.memberPhoneMatches_?.(m,q))));
  const sel=document.querySelector('#workspaceMemberSelect');sel.innerHTML=list.length?list.map(m=>'<option value="'+esc(m.memberKey)+'">'+esc(playerDisplayName(m))+' ('+esc(m.memberId)+')'+'</option>').join(''):'<option value="">找不到會員</option>';
  if(list.length===1)sel.value=list[0].memberKey;
 }
@@ -588,7 +588,7 @@ window.addEventListener('focus',refreshActivityCloudV3_);
    so route those legacy handlers to EPC MAIN V3 instead of the disabled legacy cloud API. */
 function syncLegacyMemberFromV3_(m,note){
  if(!m)return;
- const legacy={id:m.memberId,name:m.name,nickname:m.nickname||'',group:m.group||'',note:note||'',memberKey:m.memberKey,revision:m.revision,createdDate:m.createdDate||m.createdAt||'',createdAt:m.createdAt,source:'V3',history:[]};
+ const legacy={id:m.memberId,name:m.name,nickname:m.nickname||'',group:m.group||'',birth:m.birth,phone:m.phone,address:m.address,referrer:m.referrer,note:note||'',memberKey:m.memberKey,revision:m.revision,createdDate:m.createdDate||m.createdAt||'',createdAt:m.createdAt,source:'V3',history:[]};
  if(window.db&&Array.isArray(window.db.members)){
   const idx=window.db.members.findIndex(x=>String(x.memberKey||'')===String(m.memberKey||'')||String(x.id||'')===String(m.memberId||''));
   if(idx>=0)window.db.members[idx]={...window.db.members[idx],...legacy};
