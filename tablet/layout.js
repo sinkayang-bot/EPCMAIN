@@ -1,7 +1,18 @@
 (function(){
  'use strict';if(new URLSearchParams(location.search).get('layout')!=='tablet')return;
  document.documentElement.classList.add('epc-tablet');
- const link=document.createElement('link');link.rel='stylesheet';link.href='tablet/layout.css?v=44';document.head.append(link);
+ const link=document.createElement('link');link.rel='stylesheet';link.href='tablet/layout.css?v=45';document.head.append(link);
+ function labelEventRows(){
+  const body=document.getElementById('eventRows');if(!body)return;
+  const labels=['營業日','場次','級別','玩家數','早鳥','晚鳥','重買數','總組數','獎池','JP','狀態','操作'];
+  for(const tr of body.rows)Array.from(tr.cells).forEach((td,i)=>{if(labels[i])td.dataset.epcLabel=labels[i]});
+ }
+ function watchEventRows(){
+  const body=document.getElementById('eventRows');if(!body)return;
+  labelEventRows();
+  new MutationObserver(labelEventRows).observe(body,{childList:true,subtree:false});
+ }
+ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',watchEventRows,{once:true});else watchEventRows();
  function mount(){
   if(document.getElementById('tabletModes'))return;
   const nav=document.getElementById('nav'),header=document.querySelector('body>header'),bar=document.getElementById('epcTerminalModeBar');if(!nav||!header||!bar||!window.EPCMode)return;
