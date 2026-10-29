@@ -7914,6 +7914,24 @@ document.addEventListener('focusout',function(e){
  },800);
 },true);
 
+
+function epcPublicRankPreview_(){
+ ensureActDb_();
+ const A=db.activityManagement;
+ const rank=(arr)=>arr.sort((a,b)=>b.score-a.score||String(a.id).localeCompare(String(b.id))).map((x,i)=>({...x,rank:i+1}));
+ const h={};hunterRows_().forEach(x=>{const id=String(x.killer||'');if(id)h[id]=(h[id]||0)+Number(x.points||0)});
+ const hunter=rank(Object.entries(h).map(([id,score])=>({id,score})));
+ const extreme=extremeTenStats_().leaderboard.map((x,i)=>({id:String(x.memberId),rank:i+1,seconds:(Number(x.cents)/100).toFixed(2),difference:(Math.abs(Number(x.cents)-1000)/100).toFixed(2),claimed:!!x.claimed,awardType:x.awardType||''}));
+ const totals={};actEvents_('rank').forEach(e=>eventTopScores_(e).forEach(x=>{totals[x.id]=(totals[x.id]||0)+x.score}));
+ Object.entries(A.rankAdjust||{}).forEach(([id,v])=>{const n=Number(typeof v==='object'?(v.score??v.points??v.adjust??0):v);if(Number.isFinite(n))totals[id]=(totals[id]||0)+n});
+ const weeklyRank=rank(Object.entries(totals).map(([id,score])=>({id,score})));
+ const weekly=actPlayerStats_('weekly').map(x=>{const ad=A.weeklyAdjust[x.id]||{};return {id:x.id,games:x.games+(+ad.games||0),days:x.days+(+ad.days||0),claimed:!!A.weeklyClaims[(actActivityRange_('weekly').from||'')+'_'+(actActivityRange_('weekly').to||'')+'_'+x.id]};});
+ const umbrella=umbrellaStats_();
+ const data={version:2,generatedAt:new Date().toISOString(),ranges:A.activityRanges||{},leaderboards:{hunter,extreme,weeklyRank,umbrella:umbrella.periodRank.map((x,i)=>({id:x.id,score:x.score,rank:i+1}))},weekly};
+ const blob=new Blob([JSON.stringify(data)],{type:'application/json'}),url=URL.createObjectURL(blob),link=document.createElement('a');link.href=url;link.download='activity-ranking.json';document.body.append(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);
+ alert('活動排行榜已匯出。請上傳至 GitHub EPCMAIN/activity-lookup/activity-ranking.json。注意：這是公開資料，只包含會員編號、名次、分數及任務進度。');
+}
+window.epcPublicRankPreview_=epcPublicRankPreview_;
 </script>
 <script id="epcRecoveryAuditUi">
 async function epcShowRecoveryAudit_(){
