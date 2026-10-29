@@ -1,4 +1,4 @@
-<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>EPC｜活動參與查詢</title><style>*{box-sizing:border-box}body{margin:0;background:#0b0d11;color:#f5f2eb;font-family:system-ui,-apple-system,"Noto Sans TC",sans-serif}main{max-width:520px;margin:auto;padding:38px 18px}.brand{text-align:center;color:#e7c479;letter-spacing:3px;font-weight:800;font-size:13px}h1{text-align:center;font-size:29px;margin:20px 0 6px}p{text-align:center;color:#aeb4bd}.panel{margin-top:30px;background:#171b22;border:1px solid #655536;border-radius:16px;padding:22px}label{display:block;margin-bottom:12px;font-weight:700}input{width:100%;padding:15px;font-size:18px;border-radius:9px;border:1px solid #626977;background:#0b0f15;color:#fff}button{margin-top:14px;width:100%;border:0;border-radius:9px;background:#e6c278;padding:15px;font-weight:800;font-size:18px;color:#20190c}.hint{font-size:13px;color:#b9bec6;line-height:1.7;text-align:left}.status{margin-top:15px;padding:13px;background:#252c38;border-radius:9px;color:#e6d3aa;line-height:1.6}.hidden{display:none}.footer{font-size:12px;margin-top:32px}</style></head><body><main><div class="brand">EIGHT POKER CLUB</div><h1>會員活動參與查詢</h1><p>查詢自己目前的活動進度</p><div class="panel"><label for="member">會員編號</label><input id="member" placeholder="請輸入會員編號" autocomplete="off"><button id="go" type="button">查詢活動</button><div id="status" class="status hidden" role="status"></div><div class="hint"><p class="hint">直接讀取 EPCMAIN 雲端賽事紀錄。目前測試參賽場數與參賽日期，活動積分尚未接入。</p></div></div><p class="footer">EPC · 活動參與查詢</p></main><script type="module">
+<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>EPC｜活動參與查詢</title><style>*{box-sizing:border-box}body{margin:0;background:#0b0d11;color:#f5f2eb;font-family:system-ui,-apple-system,"Noto Sans TC",sans-serif}main{max-width:520px;margin:auto;padding:38px 18px}.brand{text-align:center;color:#e7c479;letter-spacing:3px;font-weight:800;font-size:13px}h1{text-align:center;font-size:29px;margin:20px 0 6px}p{text-align:center;color:#aeb4bd}.panel{margin-top:30px;background:#171b22;border:1px solid #655536;border-radius:16px;padding:22px}label{display:block;margin-bottom:12px;font-weight:700}input{width:100%;padding:15px;font-size:18px;border-radius:9px;border:1px solid #626977;background:#0b0f15;color:#fff}button{margin-top:14px;width:100%;border:0;border-radius:9px;background:#e6c278;padding:15px;font-weight:800;font-size:18px;color:#20190c}.hint{font-size:13px;color:#b9bec6;line-height:1.7;text-align:left}.status{margin-top:15px;padding:13px;background:#252c38;border-radius:9px;color:#e6d3aa;line-height:1.6}.hidden{display:none}.footer{font-size:12px;margin-top:32px}</style></head><body><main><div class="brand">EIGHT POKER CLUB</div><h1>會員活動參與查詢</h1><p>查詢自己目前的活動進度</p><div class="panel"><label for="member">會員編號</label><input id="member" placeholder="請輸入會員編號" autocomplete="off"><button id="go" type="button">查詢活動</button><div id="status" class="status hidden" role="status"></div><div class="hint"><p class="hint">活動排行需由 EPCMAIN 後台發布；尚未發布時顯示雲端賽事測試資料。</p></div></div><p class="footer">EPC · 活動參與查詢</p></main><script type="module">
 import {initializeApp,getApps,getApp} from 'https://www.gstatic.com/firebasejs/12.4.0/firebase-app.js';
 import {getFirestore,collection,getDocs} from 'https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js';
 import {getAuth,signInAnonymously} from 'https://www.gstatic.com/firebasejs/12.4.0/firebase-auth.js';
@@ -13,6 +13,22 @@ button.onclick=async()=>{
  const id=input.value.trim().toUpperCase();if(!/^[A-Z0-9_-]{3,32}$/.test(id))return show('請輸入正確會員編號。');
  button.disabled=true;show('正在讀取 EPCMAIN 即時賽事資料…');
  try{
+  const leaderboardResponse=await fetch('./activity-ranking.json?ts='+Date.now(),{cache:'no-store'});
+  if(leaderboardResponse.ok){
+   const rankings=await leaderboardResponse.json();
+   if(rankings.generatedAt){
+    const labels={hunter:'TOP HUNTER',extreme:'極限 10 秒',weeklyRank:'週排行榜',umbrella:'保護傘'};
+    const cards=Object.entries(labels).map(([key,label])=>{
+     const rows=rankings.leaderboards?.[key]||[],pos=rows.findIndex(x=>String(x.id).toUpperCase()===id),own=rows[pos];
+     const ahead=pos>0?rows.slice(Math.max(0,pos-3),pos).map(x=>'#'+x.rank+' '+safe(x.id)+'（'+safe(x.score??x.seconds)+'）').join('、'):'';
+     return '<div style="padding:13px 0;border-top:1px solid #454d59"><b>'+label+'</b><div>'+(own?'第 '+safe(own.rank)+' 名'+(key==='extreme'?'｜最佳 '+safe(own.seconds)+' 秒':'｜'+safe(own.score)+' 分'):'目前未上榜')+'</div>'+(ahead?'<div style="font-size:12px">前面玩家：'+ahead+'</div>':'')+'</div>';
+    });
+    const task=(rankings.weekly||[]).find(x=>String(x.id).toUpperCase()===id);
+    cards.push('<div style="padding:13px 0;border-top:1px solid #454d59"><b>每週任務卡</b><div>'+(task?'已完成 '+safe(task.games)+' 場／'+safe(task.days)+' 天｜'+(task.claimed?'已領取':'尚未標記領取'):'目前沒有任務紀錄')+'</div></div>');
+    status.innerHTML='<b>會員編號：'+safe(id)+'</b>'+cards.join('')+'<div style="font-size:12px;margin-top:12px">活動資料更新：'+safe(new Date(rankings.generatedAt).toLocaleString('zh-TW',{timeZone:'Asia/Taipei'}))+'（非即時）</div>';
+    return;
+   }
+  }
   const snap=await getDocs(collection(db,'epc_events'));
   let games=0,days=new Set(),last='';
   for(const d of snap.docs){
