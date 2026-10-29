@@ -1,19 +1,7 @@
 /** EPC public activity lookup: never expose member lists, balances or raw activity data. */
-function epcLookupHash_(id,pin){const b=Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256,String(id).toUpperCase()+':'+String(pin));return Utilities.base64EncodeWebSafe(b)}
-/** Run manually by an authorized script editor to issue/change a member's private lookup PIN. */
-function epcSetLookupPin_(memberId,pin){
- const id=String(memberId||'').trim().toUpperCase();
- if(!/^[A-Z0-9_-]{3,32}$/.test(id)||!/^[0-9]{6,10}$/.test(String(pin)))throw Error('會員編號或驗證碼格式不正確');
- const m=members_().find(x=>String(x.memberId).toUpperCase()===id);
- if(!m)throw Error('MEMBER_NOT_FOUND');
- PropertiesService.getScriptProperties().setProperty('EPC_LOOKUP_'+id,epcLookupHash_(id,pin));
- return {ok:true,memberId:id};
-}
 function epcPublicLookup_(r){
- const id=String(r.memberId||'').trim().toUpperCase(),pin=String(r.pin||'');
- if(!/^[A-Z0-9_-]{3,32}$/.test(id)||!/^[0-9]{6,10}$/.test(pin))return{ok:false,error:'會員編號或驗證碼錯誤'};
- const expected=PropertiesService.getScriptProperties().getProperty('EPC_LOOKUP_'+id);
- if(!expected||expected!==epcLookupHash_(id,pin))return{ok:false,error:'會員編號或驗證碼錯誤'};
+ const id=String(r.memberId||'').trim().toUpperCase();
+ if(!/^[A-Z0-9_-]{3,32}$/.test(id))return{ok:false,error:'會員編號格式不正確'};
  const m=members_().find(x=>String(x.memberId).toUpperCase()===id);
  if(!m)return{ok:false,error:'會員不存在'};
  const sh=db_().getSheetByName(PL),ev=db_().getSheetByName(EV),entries=[];
@@ -31,7 +19,7 @@ function epcPublicLookup_(r){
   const mine=rows.filter(x=>[x.memberId,x.memberKey,x.member,x.playerId,x.killer,x.id].some(v=>String(v||'').toUpperCase()===id||String(v||'')===String(m.memberKey)));
   records.push({key,label:{hunter:'TOP HUNTER',umbrella:'保護傘',pioneer:'開桌先鋒',extremeTen:'極限10秒'}[key],count:mine.length,points:mine.reduce((n,x)=>n+(Number(x.points)||Number(x.coupons)||0),0)});
  }
- return{ok:true,member:{id,name:String(m.name||'')},summary:{events:entries.length,entries:entries.reduce((n,x)=>n+x.entries,0)},activities:records,history:entries.slice(0,30),note:'僅顯示 Google Sheet 已同步資料；其他 Firebase 活動待整合'};
+ return{ok:true,member:{id},summary:{events:entries.length,entries:entries.reduce((n,x)=>n+x.entries,0)},activities:records,history:[],note:'僅提供活動統計；Firebase 活動尚待整合'};
 }
 const epcPublicLookupBaseHandle_=handle_;
 handle_=function(r){
