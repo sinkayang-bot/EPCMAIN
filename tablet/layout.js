@@ -1,7 +1,7 @@
 (function(){
  'use strict';if(new URLSearchParams(location.search).get('layout')!=='tablet')return;
  document.documentElement.classList.add('epc-tablet');
- const link=document.createElement('link');link.rel='stylesheet';link.href='tablet/layout.css?v=45';document.head.append(link);
+ const link=document.createElement('link');link.rel='stylesheet';link.href='tablet/layout.css?v=46';document.head.append(link);
  function labelEventRows(){
   const body=document.getElementById('eventRows');if(!body)return;
   const labels=['營業日','場次','級別','玩家數','早鳥','晚鳥','重買數','總組數','獎池','JP','狀態','操作'];
