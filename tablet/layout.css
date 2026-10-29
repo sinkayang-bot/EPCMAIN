@@ -53,3 +53,15 @@
  html.epc-tablet #events #eventRows td:last-child::before{width:100%!important}
  html.epc-tablet #events #eventRows td:last-child button{display:inline-flex!important;align-items:center!important;justify-content:center!important;flex:1 1 105px!important;min-width:0!important;width:auto!important;max-width:none!important;white-space:nowrap!important;word-break:keep-all!important;margin:0!important;padding:10px 6px!important;font-size:14px!important}
 }
+
+/* v45: force event card geometry even when desktop table rules have higher specificity */
+@media screen and (max-width:1200px){
+ html.epc-tablet #events .card.tablewrap{overflow:visible!important;min-width:0!important}
+ html.epc-tablet #events .card.tablewrap>table{display:block!important;min-width:0!important;width:100%!important}
+ html.epc-tablet #events .card.tablewrap>table>tbody#eventRows{display:flex!important;width:100%!important;min-width:0!important;flex-direction:column!important}
+ html.epc-tablet #events tbody#eventRows>tr{display:grid!important;grid-template-columns:minmax(0,1fr) minmax(0,1fr)!important;width:100%!important;min-width:0!important}
+ html.epc-tablet #events tbody#eventRows>tr>td{display:flex!important;float:none!important;position:static!important;width:auto!important;min-width:0!important;max-width:100%!important;word-break:normal!important}
+ html.epc-tablet #events tbody#eventRows>tr>td:nth-child(2),
+ html.epc-tablet #events tbody#eventRows>tr>td:last-child{grid-column:1/-1!important}
+ html.epc-tablet #events tbody#eventRows>tr>td:last-child>button{display:inline-flex!important;writing-mode:horizontal-tb!important;white-space:nowrap!important;flex:1 1 120px!important;min-width:105px!important}
+}
