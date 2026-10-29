@@ -1,7 +1,7 @@
 (function(){
  'use strict';if(new URLSearchParams(location.search).get('layout')!=='tablet')return;
  document.documentElement.classList.add('epc-tablet');
- const link=document.createElement('link');link.rel='stylesheet';link.href='tablet/layout.css?v=43';document.head.append(link);
+ const link=document.createElement('link');link.rel='stylesheet';link.href='tablet/layout.css?v=44';document.head.append(link);
  function mount(){
   if(document.getElementById('tabletModes'))return;
   const nav=document.getElementById('nav'),header=document.querySelector('body>header'),bar=document.getElementById('epcTerminalModeBar');if(!nav||!header||!bar||!window.EPCMode)return;
