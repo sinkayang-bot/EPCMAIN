@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="zh-Hant">
-<head><script defer src="tablet/layout.js?v=45"></script><script src="terminal-mode.js?v=20261016-modes1"></script><script src="event-patch-core.js?v=20261016-modes1"></script>
+<head><script defer src="tablet/layout.js?v=46"></script><script src="terminal-mode.js?v=20261016-modes1"></script><script src="event-patch-core.js?v=20261016-modes1"></script>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
 <link rel="icon" type="image/png" sizes="32x32" href="assets/epc-icon-32.png?v=20261024-brand46"><link rel="apple-touch-icon" sizes="180x180" href="assets/epc-icon-180.png?v=20261024-brand46"><meta name="apple-mobile-web-app-title" content="EPC"><link rel="stylesheet" href="brand.css?v=20261024-brand46"><link rel="manifest" href="manifest.webmanifest?v=20261024-brand46"><title>EPC POKER MANAGEMENT V3.0</title>
@@ -2224,6 +2224,7 @@ window.addEventListener('error',function(e){
   </div>
   <div class="small" style="margin-top:10px">營業日會依營業時間歸類。預設 16:00～隔日 07:00，例如 9/23 04:00 的賽事會歸在 9/22 營業日。</div>
  </div>
+ <div class="toolbar no-print" style="margin:10px 0;display:flex;gap:8px;flex-wrap:wrap"><button type="button" onclick="epcShowAllEvents_()">顯示全部賽事</button><button type="button" onclick="epcShowTodayEvents_()">返回當日</button><span id="epcEventFilterStatus" class="small" style="align-self:center"></span></div>
  <div class="card tablewrap">
   <table>
    <thead><tr><th>營業日</th><th>場次</th><th>級別</th><th>玩家數</th><th>早鳥</th><th>晚鳥</th><th>重買數</th><th>總組數</th><th>獎池</th><th>JP</th><th>狀態</th><th>操作</th></tr></thead>
@@ -5458,22 +5459,34 @@ async function checkoutReceive_(eventId,memberId){
  try{const ok=await syncEventToFirestore_(e,true);if(!ok)throw Error('Firebase 未連線');actionMsg('收款已記錄 '+money(n))}
  catch(err){Object.assign(p,before);touchEvent_(e);persist();renderEventUnpaidStatus_();renderPlayerCheckout_();actionMsg('雲端同步未確認，請勿重複收款；'+String(err?.message||err),true)}
 }
+function epcShowAllEvents_(){
+ const a=$('eventDateFrom'),b=$('eventDateTo'),d=$('eventBusinessDate');
+ if(a)a.value='';if(b)b.value='';if(d)d.value='';
+ window.epcShowAllEvents=true;renderEventList();
+}
+function epcShowTodayEvents_(){
+ window.epcShowAllEvents=false;
+ for(const id of ['eventDateFrom','eventDateTo','eventBusinessDate']){const el=$(id);if(el)el.value=''}
+ renderEventList();
+}
 function renderEventList(){
  let body=$('eventRows'); if(!body)return;
  if($('businessStartTime'))$('businessStartTime').value=db.settings.businessStart||'16:00';
  if($('businessEndTime'))$('businessEndTime').value=db.settings.businessEnd||'07:00';
- if($('eventBusinessDate') && !$('eventBusinessDate').value){
+ if(!window.epcShowAllEvents && $('eventBusinessDate') && !$('eventBusinessDate').value){
    let now=new Date();
    let today=`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
    let mins=now.getHours()*60+now.getMinutes(),end=hmMinutes(db.settings.businessEnd,'07:00');
    $('eventBusinessDate').value=(mins<end)?shiftDate(today,-1):today;
  }
- let selected=$('eventBusinessDate')?.value||'';
- let from=$('eventDateFrom')?.value||'',to=$('eventDateTo')?.value||'';
+ let selected=window.epcShowAllEvents?'':($('eventBusinessDate')?.value||'');
+ let from=window.epcShowAllEvents?'':($('eventDateFrom')?.value||''),to=window.epcShowAllEvents?'':($('eventDateTo')?.value||'');
+ const filterStatus=$('epcEventFilterStatus');if(filterStatus)filterStatus.textContent=window.epcShowAllEvents?'顯示全部賽事':(from||to?'日期區間篩選中':'目前營業日：'+selected);
  let rows=db.events.map((e,eventIndex)=>({e,eventIndex})).filter(x=>{
    const d=businessDateForEvent(x.e);
    return (from||to)?((!from||d>=from)&&(!to||d<=to)):(!selected||d===selected);
  });
+ if(filterStatus)filterStatus.textContent+='｜顯示 '+rows.length+' / '+db.events.length+' 場';
  body.innerHTML=rows.map(({e,eventIndex})=>{
    let groups=e.players.reduce((sum,p)=>sum+calcPlayerForEvent(p,e).groups,0);
    let rebuys=e.players.reduce((sum,p)=>sum+(+p.rebuy||0),0);
