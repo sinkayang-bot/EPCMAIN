@@ -33,7 +33,7 @@ function exportPublicActivity(){
 function mount(){if(document.getElementById('epcExportPublicActivity'))return;
  const section=document.getElementById('events');if(!section)return;
  const btn=document.createElement('button');btn.id='epcExportPublicActivity';btn.type='button';btn.textContent='匯出會員活動查詢資料';btn.style.margin='8px 0 14px';btn.onclick=exportPublicActivity;
- const heading=section.querySelector('h2');heading?.after(btn);
+ const heading=section.querySelector('h2');heading?.after(btn);const rank=document.createElement('button');rank.type='button';rank.id='epcExportRankings';rank.textContent='匯出活動排行榜（獵人／極限10秒／週排行／任務卡）';rank.style.margin='8px';rank.onclick=()=>{if(typeof window.epcPublicRankPreview_==='function')window.epcPublicRankPreview_();else alert('活動計分程式尚未載入，請稍後重試')};btn.after(rank);
 }
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',mount,{once:true});else mount();
 })();
