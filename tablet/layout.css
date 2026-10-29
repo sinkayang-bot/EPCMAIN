@@ -35,3 +35,13 @@
  @media(max-width:650px){html.epc-tablet .grid,html.epc-tablet .formgrid{grid-template-columns:minmax(0,1fr)!important}#tabletSection{display:none}html.epc-tablet #epcTerminalModeMessage{min-width:100%}}
 }
 @media print{#tabletMenu,#tabletModes,#tabletMenuBackdrop,#tabletSection,#epcTerminalModeBar{display:none!important}}
+
+/* iPad event-list repair: keep action labels horizontal and rows compact */
+@media screen and (max-width:1200px){
+ #events .tablewrap{overflow-x:auto!important;-webkit-overflow-scrolling:touch!important;max-width:100%!important}
+ #events .tablewrap table{width:max-content!important;min-width:1080px!important;table-layout:auto!important}
+ #events .tablewrap th,#events .tablewrap td{white-space:nowrap!important;vertical-align:middle!important;height:auto!important;word-break:keep-all!important}
+ #events #eventRows td:last-child{min-width:290px!important;white-space:nowrap!important}
+ #events #eventRows td:last-child button{display:inline-block!important;white-space:nowrap!important;word-break:keep-all!important;width:auto!important;min-width:0!important;margin:3px!important;padding:9px 11px!important;line-height:1.25!important;vertical-align:middle!important}
+ #events #eventRows input{min-width:160px!important}
+}
