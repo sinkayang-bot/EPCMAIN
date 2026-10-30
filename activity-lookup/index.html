@@ -6,7 +6,10 @@ import '../firebase-config.js';
 const cfg=window.EPC_FIREBASE_CONFIG;
 const app=getApps().find(a=>a.name==='epc-activity-public')||initializeApp(cfg,'epc-activity-public');
 const db=getFirestore(app);
-const apiUrl=new URLSearchParams(location.search).get('api')||'';
+if(demoMode){document.querySelector('.hint').textContent='展示模式：輸入任意 3 位以上英數會員編號即可測試查詢介面，所有結果皆為示範資料。';}
+const params=new URLSearchParams(location.search);
+const apiUrl=params.get('api')||'';
+const demoMode=params.get('demo')==='1';
 async function queryPublicApi(id){
  if(!apiUrl)return null;
  const u=new URL(apiUrl);
@@ -23,6 +26,10 @@ button.onclick=async()=>{
  const id=input.value.trim().toUpperCase();if(!/^[A-Z0-9_-]{3,32}$/.test(id))return show('請輸入正確會員編號。');
  button.disabled=true;show('正在讀取 EPCMAIN 即時賽事資料…');
  try{
+  if(demoMode){
+   status.innerHTML='<b>展示模式（非真實會員資料）</b><div style="padding:12px 0">會員編號：'+safe(id)+'</div><div>參賽場數：12｜累計組數：17</div><div style="padding:10px 0;border-top:1px solid #454d59">TOP HUNTER｜3 筆紀錄｜80 分</div><div style="padding:10px 0;border-top:1px solid #454d59">極限 10 秒｜1 筆紀錄</div><p class="hint">此畫面僅供測試查詢介面，不代表 EPCMAIN 真實數據。</p>';
+   return;
+  }
   if(apiUrl){
    const result=await queryPublicApi(id);
    if(!result?.ok)return show(result?.error||'查詢暫時無法完成');
