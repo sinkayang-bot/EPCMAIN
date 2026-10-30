@@ -6,10 +6,10 @@ import '../firebase-config.js';
 const cfg=window.EPC_FIREBASE_CONFIG;
 const app=getApps().find(a=>a.name==='epc-activity-public')||initializeApp(cfg,'epc-activity-public');
 const db=getFirestore(app);
-if(demoMode){document.querySelector('.hint').textContent='展示模式：輸入任意 3 位以上英數會員編號即可測試查詢介面，所有結果皆為示範資料。';}
 const params=new URLSearchParams(location.search);
 const apiUrl=params.get('api')||'';
 const demoMode=params.get('demo')==='1';
+if(demoMode){document.querySelector('.hint').textContent='展示模式：輸入任意 3 位以上英數會員編號即可測試查詢介面，所有結果皆為示範資料。';}
 async function queryPublicApi(id){
  if(!apiUrl)return null;
  const u=new URL(apiUrl);
