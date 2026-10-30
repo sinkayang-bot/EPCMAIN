@@ -6160,10 +6160,22 @@ function actPublicVisibilityPanel_(){
 function actSetPublicVisibility_(key,enabled){
  ensureActDb_();
  if(!['weekly','pioneer','rank','hunter','umbrella','extremeTen'].includes(key))return;
+ if(window.EPCMode?.assertWrite)try{window.EPCMode.assertWrite()}catch(e){alert('目前為檢視模式，無法修改公開設定');renderActivities();return}
+ if(!window.EPC_ACTIVITY_LOADED||typeof window.saveActivityCloudV3!=='function'){
+  alert('活動雲端資料尚未載入完成，請稍後再試');renderActivities();return;
+ }
  db.activityManagement.publicActivityVisibility[key]=!!enabled;
  persist();
- if(window.saveActivityCloudV3)Promise.resolve(window.saveActivityCloudV3()).catch(e=>console.error('公開設定雲端儲存失敗',e));
+ window.saveActivityCloudV3();
  renderActivities();
+ const state=document.getElementById('activitySyncState');
+ if(state)state.textContent='公開設定已在本機保存，正在確認雲端同步…';
+ if(typeof window.retryActivityCloudV3==='function'){
+  Promise.resolve(window.retryActivityCloudV3()).then(()=>{
+   const pending=localStorage.getItem('epcActivityPendingV1');
+   if(state)state.textContent=pending?'公開設定尚未同步成功，請重試':'公開設定已同步至活動雲端（公開看板仍待發布）';
+  }).catch(e=>{if(state)state.textContent='公開設定雲端同步失敗：'+String(e.message||e)});
+ }
 }
 function actBusinessDate_(e){return String(e?.businessDate||e?.date||businessDateForEvent(e)||'').slice(0,10)}
 // Local event state is authoritative for accounting-group changes.
