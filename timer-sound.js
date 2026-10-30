@@ -1,4 +1,4 @@
-import {preloadSelectedTimerSounds,playSelectedTimerSound} from './timer-selected-sounds.js?v=20261024-start-level3';
+import {preloadSelectedTimerSounds,playSelectedTimerSound} from './timer-selected-sounds.js?v=20261031-double5';
 // Only a naturally advancing countdown may trigger a cue; opening, seeking,
 // pausing or switching levels must not replay an old warning.
 export function countdownCue(previous,current){
@@ -44,15 +44,13 @@ export function countdownSound(){
  details.ontoggle=()=>{panel.style.opacity=details.open?'.95':panelOpacity()};
  function bell(kind='level'){
   if(!enabled||context?.state!=='running')return;
-  if(samplesReady){playSelectedTimerSound(context,kind,volume/100);if(kind==='five'){
-   const delay=.34;const ctx=context;
-   // Two distinct short strikes for the five-second warning.
-   const osc=ctx.createOscillator(),gain=ctx.createGain(),at=ctx.currentTime+delay;
-   osc.type='sine';osc.frequency.value=880;gain.gain.setValueAtTime(.0001,at);
-   gain.gain.exponentialRampToValueAtTime(Math.max(.001,volume/100*.22),at+.01);
-   gain.gain.exponentialRampToValueAtTime(.0001,at+.19);
-   osc.connect(gain);gain.connect(ctx.destination);osc.start(at);osc.stop(at+.20);
-  }}
+  if(samplesReady){
+   if(kind==='five'){
+    // Two clearly separated strikes of the SAME approved countdown sample.
+    playSelectedTimerSound(context,'five',volume/100,0,.22);
+    playSelectedTimerSound(context,'five',volume/100,.38,.22);
+   }else playSelectedTimerSound(context,kind,volume/100);
+  }
  }
  function pauseBell(){
   if(!enabled||context?.state!=='running')return;
@@ -62,7 +60,7 @@ export function countdownSound(){
    const at=base+i*.24,osc=context.createOscillator(),gain=context.createGain();
    osc.type='sine';osc.frequency.setValueAtTime(hz,at);
    gain.gain.setValueAtTime(.0001,at);
-   gain.gain.exponentialRampToValueAtTime(Math.max(.001,volume/100*.25),at+.012);
+   gain.gain.exponentialRampToValueAtTime(Math.max(.001,volume/100*.55),at+.012);
    gain.gain.exponentialRampToValueAtTime(.0001,at+.20);
    osc.connect(gain);gain.connect(context.destination);
    osc.onended=()=>{osc.disconnect();gain.disconnect()};
