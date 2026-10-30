@@ -24,7 +24,7 @@ function render(){
  text($('screenEvent'),event.name||'EPC 限時錦標賽');text($('screenLevel'),'LEVEL '+level+' / '+levels.filter(l=>!l.break).length);
  text($('tournamentCountdown'),durationText(tournamentRemaining(state,now)));
  const finished=state.index===levels.length-1&&seconds===0;
- const paused=!state.running&&!finished&&Number(state.startedAt||0)>0;
+ const paused=!state.running&&!finished&&seconds<Number(l.min||0)*60;
  flag($('progressRing'),'isPaused',paused);
  text($('pauseIndicator'),paused?'Ⅱ 已暫停 PAUSED':'');
  $('pauseIndicator').hidden=!paused;
