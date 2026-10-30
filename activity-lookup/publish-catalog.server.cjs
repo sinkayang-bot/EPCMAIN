@@ -33,7 +33,8 @@ function rank(rows,scoreKey){rows.sort((a,b)=>numeric(b[scoreKey])-numeric(a[sco
  const ids=e=>[...new Set((e.players||[]).map(p=>String(p.memberId||'').trim()).filter(valid))];
  const weekly=new Map();
  for(const e of events){if(!eligible(e)||!inRange(e,'weekly'))continue;for(const id of ids(e)){if(!weekly.has(id))weekly.set(id,{memberId:id,games:0,dates:new Set()});const x=weekly.get(id);x.games++;x.dates.add(day(e))}}
- const weeklyRows=[...weekly.values()].map(x=>{
+ const weeklyIds=new Set([...weekly.keys(),...Object.keys(a.weeklyAdjust||{}).filter(valid)]);
+ const weeklyRows=[...weeklyIds].map(id=>weekly.get(id)||{memberId:id,games:0,dates:new Set()}).map(x=>{
   const id=x.memberId,adj=a.weeklyAdjust?.[id]||{};
   const games=x.games+numeric(adj.games),days=x.dates.size+numeric(adj.days);
   const gameLevel=games>=15?3:games>=10?2:games>=5?1:0,dayLevel=days>=7?3:days>=5?2:days>=3?1:0;
@@ -72,7 +73,8 @@ function rank(rows,scoreKey){rows.sort((a,b)=>numeric(b[scoreKey])-numeric(a[sco
  rankRows.forEach((x,i)=>x.rank=i+1);
  activities.push({id:'weeklyRank',title:'週排行榜',active:true,period:[ranges.rank?.from,ranges.rank?.to].filter(Boolean).join(' ～ '),rules:'每場前三名 3／2／1 分；依後台加倍規則及人工調整計算。',leaderboard:rankRows});
 
- const visibility=a.publicActivityVisibility||{};
+ if(!a.publicActivityVisibility||typeof a.publicActivityVisibility!=='object'||Array.isArray(a.publicActivityVisibility))throw Error('Public visibility settings missing from V3 cloud; refusing to overwrite existing public catalog');
+ const visibility=a.publicActivityVisibility;
  const activityKeys={umbrella:'umbrella',extreme:'extremeTen',weekly:'weekly',weeklyRank:'rank',hunter:'hunter',pioneer:'pioneer'};
  const publicActivities=activities.filter(item=>visibility[activityKeys[item.id]]===true);
  const catalog={version:1,sourceRevision:numeric(body.revision),generatedAt:admin.firestore.FieldValue.serverTimestamp(),activities:publicActivities};
