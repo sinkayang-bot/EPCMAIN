@@ -5,6 +5,24 @@ import '../firebase-config.js';
 const app=initializeApp(window.EPC_FIREBASE_CONFIG,'epc-public-lookup');
 const db=getFirestore(app),input=document.getElementById('member'),status=document.getElementById('status'),button=document.getElementById('go');
 function show(message){status.classList.remove('hidden');status.textContent=message}
-function render(data,id){status.replaceChildren();status.classList.remove('hidden');const heading=document.createElement('b');heading.textContent='會員編號：'+id;status.append(heading);for(const [name,value] of Object.entries(data.activities||{})){const row=document.createElement('div');row.style.padding='12px 0';row.style.borderTop='1px solid #454d59';row.textContent=name+'：'+String(value);status.append(row)}if(!Object.keys(data.activities||{}).length)show('目前沒有已發布的活動紀錄。')}
+function render(data,id){
+ status.replaceChildren();status.classList.remove('hidden');
+ const heading=document.createElement('b');heading.textContent='會員編號：'+id;status.append(heading);
+ const add=(label,value)=>{const row=document.createElement('div');row.style.padding='10px 0';row.style.borderTop='1px solid #454d59';const title=document.createElement('strong');title.textContent=label+'　';row.append(title,document.createTextNode(String(value)));status.append(row)};
+ const summary=data.summary||{};
+ if(Number.isFinite(Number(summary.events)))add('參與場次',Number(summary.events));
+ if(Number.isFinite(Number(summary.entries)))add('參賽組數',Number(summary.entries));
+ const activities=data.activities||{};
+ const labels={hunter:'獵人活動',umbrella:'保護傘',extremeTen:'極限10秒',weekly:'每週排行',tasks:'任務卡'};
+ for(const [name,value] of Object.entries(activities)){
+  const label=labels[name]||name;
+  if(value&&typeof value==='object'&&!Array.isArray(value)){
+   const fields=[['points','點數'],['count','次數'],['rank','名次'],['progress','進度'],['status','狀態']];
+   const parts=fields.filter(([k])=>value[k]!==undefined).map(([k,l])=>l+' '+String(value[k]));
+   if(parts.length)add(label,parts.join('｜'));
+  }else if(['string','number','boolean'].includes(typeof value))add(label,value);
+ }
+ if(status.children.length===1)add('活動紀錄','目前沒有已發布的活動紀錄');
+}
 button.onclick=async()=>{const id=input.value.trim().toUpperCase();if(!/^[A-Z0-9_-]{3,32}$/.test(id))return show('請輸入正確會員編號');button.disabled=true;show('正在讀取公開活動資料…');try{const snap=await getDoc(doc(db,'epc_public_activity',id));if(!snap.exists())return show('尚無此會員的公開活動資料。');render(snap.data(),id)}catch(e){show(e.code==='permission-denied'?'公開查詢權限尚未設定，請管理員設定 Firebase 規則。':'讀取失敗：'+String(e.message||e))}finally{button.disabled=false}};
 </script></body></html>
