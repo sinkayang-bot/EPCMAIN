@@ -1,74 +1,10 @@
-<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>EPC｜活動參與查詢</title><style>*{box-sizing:border-box}body{margin:0;background:#0b0d11;color:#f5f2eb;font-family:system-ui,-apple-system,"Noto Sans TC",sans-serif}main{max-width:520px;margin:auto;padding:38px 18px}.brand{text-align:center;color:#e7c479;letter-spacing:3px;font-weight:800;font-size:13px}h1{text-align:center;font-size:29px;margin:20px 0 6px}p{text-align:center;color:#aeb4bd}.panel{margin-top:30px;background:#171b22;border:1px solid #655536;border-radius:16px;padding:22px}label{display:block;margin-bottom:12px;font-weight:700}input{width:100%;padding:15px;font-size:18px;border-radius:9px;border:1px solid #626977;background:#0b0f15;color:#fff}button{margin-top:14px;width:100%;border:0;border-radius:9px;background:#e6c278;padding:15px;font-weight:800;font-size:18px;color:#20190c}.hint{font-size:13px;color:#b9bec6;line-height:1.7;text-align:left}.status{margin-top:15px;padding:13px;background:#252c38;border-radius:9px;color:#e6d3aa;line-height:1.6}.hidden{display:none}.footer{font-size:12px;margin-top:32px}</style></head><body><main><div class="brand">EIGHT POKER CLUB</div><h1>會員活動參與查詢</h1><p>查詢自己目前的活動進度</p><div class="panel"><label for="member">會員編號</label><input id="member" placeholder="請輸入會員編號" autocomplete="off"><button id="go" type="button">查詢活動</button><details style="margin-top:14px"><summary style="cursor:pointer;color:#e6c278">查詢服務連線設定（管理員）</summary><label for="apiEndpoint" style="margin-top:12px;font-size:13px">Apps Script /exec 網址</label><input id="apiEndpoint" type="url" placeholder="https://script.google.com/macros/s/.../exec" style="font-size:13px"><button id="saveEndpoint" type="button" style="font-size:14px;padding:10px">儲存連線網址</button><p class="hint">只儲存在此瀏覽器；不會上傳會員或帳務資料。</p></details><div id="status" class="status hidden" role="status"></div><div class="hint"><p class="hint">目前顯示已發布的活動資料；正式查詢服務啟用後，將由後端回傳會員活動統計。</p></div></div><p class="footer">EPC · 活動參與查詢</p></main><script type="module">
-import {initializeApp,getApps,getApp} from 'https://www.gstatic.com/firebasejs/12.4.0/firebase-app.js';
-import {getFirestore,collection,getDocs} from 'https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js';
-import {getAuth,signInAnonymously} from 'https://www.gstatic.com/firebasejs/12.4.0/firebase-auth.js';
+<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>EPC｜活動參與查詢</title><style>*{box-sizing:border-box}body{margin:0;background:#0b0d11;color:#f5f2eb;font-family:system-ui,-apple-system,"Noto Sans TC",sans-serif}main{max-width:520px;margin:auto;padding:38px 18px}.brand{text-align:center;color:#e7c479;letter-spacing:3px;font-weight:800;font-size:13px}h1{text-align:center;font-size:29px;margin:20px 0 6px}p{text-align:center;color:#aeb4bd}.panel{margin-top:30px;background:#171b22;border:1px solid #655536;border-radius:16px;padding:22px}label{display:block;margin-bottom:12px;font-weight:700}input{width:100%;padding:15px;font-size:18px;border-radius:9px;border:1px solid #626977;background:#0b0f15;color:#fff}button{margin-top:14px;width:100%;border:0;border-radius:9px;background:#e6c278;padding:15px;font-weight:800;font-size:18px;color:#20190c}.hint{font-size:13px;color:#b9bec6;line-height:1.7;text-align:left}.status{margin-top:15px;padding:13px;background:#252c38;border-radius:9px;color:#e6d3aa;line-height:1.6}.hidden{display:none}.footer{font-size:12px;margin-top:32px}</style></head><body><main><div class="brand">EIGHT POKER CLUB</div><h1>會員活動參與查詢</h1><p>查詢自己目前的活動進度</p><div class="panel"><label for="member">會員編號</label><input id="member" placeholder="請輸入會員編號" autocomplete="off"><button id="go" type="button">查詢活動</button><div id="status" class="status hidden" role="status"></div><div class="hint"><p class="hint">僅顯示已發布的活動紀錄，不包含會員個人資料或帳務。</p></div></div><p class="footer">EPC · 活動參與查詢</p></main><script type="module">
+import {initializeApp} from 'https://www.gstatic.com/firebasejs/12.4.0/firebase-app.js';
+import {getFirestore,doc,getDoc} from 'https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js';
 import '../firebase-config.js';
-const cfg=window.EPC_FIREBASE_CONFIG;
-const app=getApps().find(a=>a.name==='epc-activity-public')||initializeApp(cfg,'epc-activity-public');
-const db=getFirestore(app);
-const params=new URLSearchParams(location.search);
-let apiUrl=params.get('api')||localStorage.getItem('epcPublicLookupApi')||'';
-const demoMode=params.get('demo')==='1';
-if(demoMode){document.querySelector('.hint').textContent='展示模式：輸入任意 3 位以上英數會員編號即可測試查詢介面，所有結果皆為示範資料。';}
-async function queryPublicApi(id){
- if(!apiUrl)return null;
- const u=new URL(apiUrl);
- if(u.protocol!=='https:'||!['script.google.com','script.googleusercontent.com'].includes(u.hostname))throw Error('查詢服務網址不正確');
- u.searchParams.set('action','activity.lookup');u.searchParams.set('memberId',id);
- const response=await fetch(u.toString(),{redirect:'follow',cache:'no-store'});
- if(!response.ok)throw Error('查詢服務暫時無法使用');
- return response.json();
-}
-const input=document.getElementById('member'),status=document.getElementById('status'),button=document.getElementById('go');
-const endpointInput=document.getElementById('apiEndpoint');endpointInput.value=apiUrl;
-document.getElementById('saveEndpoint').onclick=()=>{try{const u=new URL(endpointInput.value.trim());if(u.protocol!=='https:'||u.hostname!=='script.google.com'||!u.pathname.endsWith('/exec'))throw Error('請輸入正確的 Apps Script /exec 網址');apiUrl=u.origin+u.pathname;localStorage.setItem('epcPublicLookupApi',apiUrl);show('連線網址已儲存。請輸入會員編號測試正式查詢。')}catch(e){show(e.message)}};
-function show(s){status.classList.remove('hidden');status.textContent=s}
-function safe(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'}[c]))}
-button.onclick=async()=>{
- const id=input.value.trim().toUpperCase();if(!/^[A-Z0-9_-]{3,32}$/.test(id))return show('請輸入正確會員編號。');
- button.disabled=true;show('正在讀取 EPCMAIN 即時賽事資料…');
- try{
-  if(demoMode){
-   status.innerHTML='<b>展示模式（非真實會員資料）</b><div style="padding:12px 0">會員編號：'+safe(id)+'</div><div>參賽場數：12｜累計組數：17</div><div style="padding:10px 0;border-top:1px solid #454d59">TOP HUNTER｜3 筆紀錄｜80 分</div><div style="padding:10px 0;border-top:1px solid #454d59">極限 10 秒｜1 筆紀錄</div><p class="hint">此畫面僅供測試查詢介面，不代表 EPCMAIN 真實數據。</p>';
-   return;
-  }
-  if(apiUrl){
-   const result=await queryPublicApi(id);
-   if(!result?.ok)return show(result?.error||'查詢暫時無法完成');
-   const summary=result.summary||{},activities=Array.isArray(result.activities)?result.activities:[];
-   status.innerHTML='<b>會員編號：'+safe(id)+'</b><div style="padding:12px 0">參賽場數：'+safe(summary.events??0)+'｜累計組數：'+safe(summary.entries??0)+'</div>'+activities.map(x=>'<div style="padding:10px 0;border-top:1px solid #454d59"><b>'+safe(x.label||x.key)+'</b>｜紀錄 '+safe(x.count??0)+' 筆｜'+safe(x.points??0)+' 分</div>').join('')+'<p class="hint">以上由 EPC 查詢服務提供，未包含會員帳務。</p>';
-   return;
-  }
-  if(!apiUrl)return show('尚未設定正式查詢服務。請展開「查詢服務連線設定」並儲存 Apps Script /exec 網址。');
-  const leaderboardResponse=await fetch('./activity-ranking.json?ts='+Date.now(),{cache:'no-store'});
-  if(leaderboardResponse.ok){
-   const rankings=await leaderboardResponse.json();
-   if(rankings.generatedAt){
-    const labels={hunter:'TOP HUNTER',extreme:'極限 10 秒',weeklyRank:'週排行榜',umbrella:'保護傘'};
-    const cards=Object.entries(labels).map(([key,label])=>{
-     const rows=rankings.leaderboards?.[key]||[],pos=rows.findIndex(x=>String(x.id).toUpperCase()===id),own=rows[pos];
-     const ahead=pos>0?rows.slice(Math.max(0,pos-3),pos).map(x=>'#'+x.rank+' '+safe(x.id)+'（'+safe(x.score??x.seconds)+'）').join('、'):'';
-     return '<div style="padding:13px 0;border-top:1px solid #454d59"><b>'+label+'</b><div>'+(own?'第 '+safe(own.rank)+' 名'+(key==='extreme'?'｜最佳 '+safe(own.seconds)+' 秒':'｜'+safe(own.score)+' 分'):'目前未上榜')+'</div>'+(ahead?'<div style="font-size:12px">前面玩家：'+ahead+'</div>':'')+'</div>';
-    });
-    const task=(rankings.weekly||[]).find(x=>String(x.id).toUpperCase()===id);
-    cards.push('<div style="padding:13px 0;border-top:1px solid #454d59"><b>每週任務卡</b><div>'+(task?'已完成 '+safe(task.games)+' 場／'+safe(task.days)+' 天｜'+(task.claimed?'已領取':'尚未標記領取'):'目前沒有任務紀錄')+'</div></div>');
-    status.innerHTML='<b>會員編號：'+safe(id)+'</b>'+cards.join('')+'<div style="font-size:12px;margin-top:12px">活動資料更新：'+safe(new Date(rankings.generatedAt).toLocaleString('zh-TW',{timeZone:'Asia/Taipei'}))+'（非即時）</div>';
-    return;
-   }
-  }
-  const snap=await getDocs(collection(db,'epc_events'));
-  let games=0,days=new Set(),last='';
-  for(const d of snap.docs){
-   const e=d.data();if(e.status==='deleted')continue;
-   const players=Array.isArray(e.players)?e.players:Object.values(e.players||{});
-   if(!players.some(p=>String(p?.memberId||'').trim().toUpperCase()===id))continue;
-   games++;
-   const date=String(e.businessDate||e.date||'').slice(0,10);if(date)days.add(date);
-   if(date>last)last=date;
-  }
-  if(!games)return show('查無此會員的雲端賽事紀錄。可能尚未同步，或該會員未曾參賽。');
-  status.innerHTML='<b>會員編號：'+safe(id)+'</b><div style="margin-top:12px">已記錄參賽場數：'+games+'<div>參賽日期數：'+days.size+'</div><div>最近參賽日期：'+safe(last||'未記錄')+'</div></div><p style="font-size:12px;margin-top:14px">以上直接讀取 EPCMAIN Firebase 賽事紀錄。活動點數、抽獎券及任務進度尚未接入，不會以賽事場數冒充活動分數。</p>';
- }catch(e){show('Firebase 讀取失敗：'+(e?.code==='permission-denied'?'目前資料庫未開放此查詢權限。':String(e?.message||e)));}
- finally{button.disabled=false}
-};
+const app=initializeApp(window.EPC_FIREBASE_CONFIG,'epc-public-lookup');
+const db=getFirestore(app),input=document.getElementById('member'),status=document.getElementById('status'),button=document.getElementById('go');
+function show(message){status.classList.remove('hidden');status.textContent=message}
+function render(data,id){status.replaceChildren();status.classList.remove('hidden');const heading=document.createElement('b');heading.textContent='會員編號：'+id;status.append(heading);for(const [name,value] of Object.entries(data.activities||{})){const row=document.createElement('div');row.style.padding='12px 0';row.style.borderTop='1px solid #454d59';row.textContent=name+'：'+String(value);status.append(row)}if(!Object.keys(data.activities||{}).length)show('目前沒有已發布的活動紀錄。')}
+button.onclick=async()=>{const id=input.value.trim().toUpperCase();if(!/^[A-Z0-9_-]{3,32}$/.test(id))return show('請輸入正確會員編號');button.disabled=true;show('正在讀取公開活動資料…');try{const snap=await getDoc(doc(db,'epc_public_activity',id));if(!snap.exists())return show('尚無此會員的公開活動資料。');render(snap.data(),id)}catch(e){show(e.code==='permission-denied'?'公開查詢權限尚未設定，請管理員設定 Firebase 規則。':'讀取失敗：'+String(e.message||e))}finally{button.disabled=false}};
 </script></body></html>
