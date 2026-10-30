@@ -1,4 +1,4 @@
-<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>EPC｜活動參與查詢</title><style>*{box-sizing:border-box}body{margin:0;background:#0b0d11;color:#f5f2eb;font-family:system-ui,-apple-system,"Noto Sans TC",sans-serif}main{max-width:520px;margin:auto;padding:38px 18px}.brand{text-align:center;color:#e7c479;letter-spacing:3px;font-weight:800;font-size:13px}h1{text-align:center;font-size:29px;margin:20px 0 6px}p{text-align:center;color:#aeb4bd}.panel{margin-top:30px;background:#171b22;border:1px solid #655536;border-radius:16px;padding:22px}label{display:block;margin-bottom:12px;font-weight:700}input{width:100%;padding:15px;font-size:18px;border-radius:9px;border:1px solid #626977;background:#0b0f15;color:#fff}button{margin-top:14px;width:100%;border:0;border-radius:9px;background:#e6c278;padding:15px;font-weight:800;font-size:18px;color:#20190c}.hint{font-size:13px;color:#b9bec6;line-height:1.7;text-align:left}.status{margin-top:15px;padding:13px;background:#252c38;border-radius:9px;color:#e6d3aa;line-height:1.6}.hidden{display:none}.footer{font-size:12px;margin-top:32px}</style></head><body><main><div class="brand">EIGHT POKER CLUB</div><h1>會員活動參與查詢</h1><p>查詢自己目前的活動進度</p><div class="panel"><label for="member">會員編號</label><input id="member" placeholder="請輸入會員編號" autocomplete="off"><button id="go" type="button">查詢活動</button><div id="status" class="status hidden" role="status"></div><div class="hint"><p class="hint">活動排行需由 EPCMAIN 後台發布；尚未發布時顯示雲端賽事測試資料。</p></div></div><p class="footer">EPC · 活動參與查詢</p></main><script type="module">
+<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>EPC｜活動參與查詢</title><style>*{box-sizing:border-box}body{margin:0;background:#0b0d11;color:#f5f2eb;font-family:system-ui,-apple-system,"Noto Sans TC",sans-serif}main{max-width:520px;margin:auto;padding:38px 18px}.brand{text-align:center;color:#e7c479;letter-spacing:3px;font-weight:800;font-size:13px}h1{text-align:center;font-size:29px;margin:20px 0 6px}p{text-align:center;color:#aeb4bd}.panel{margin-top:30px;background:#171b22;border:1px solid #655536;border-radius:16px;padding:22px}label{display:block;margin-bottom:12px;font-weight:700}input{width:100%;padding:15px;font-size:18px;border-radius:9px;border:1px solid #626977;background:#0b0f15;color:#fff}button{margin-top:14px;width:100%;border:0;border-radius:9px;background:#e6c278;padding:15px;font-weight:800;font-size:18px;color:#20190c}.hint{font-size:13px;color:#b9bec6;line-height:1.7;text-align:left}.status{margin-top:15px;padding:13px;background:#252c38;border-radius:9px;color:#e6d3aa;line-height:1.6}.hidden{display:none}.footer{font-size:12px;margin-top:32px}</style></head><body><main><div class="brand">EIGHT POKER CLUB</div><h1>會員活動參與查詢</h1><p>查詢自己目前的活動進度</p><div class="panel"><label for="member">會員編號</label><input id="member" placeholder="請輸入會員編號" autocomplete="off"><button id="go" type="button">查詢活動</button><div id="status" class="status hidden" role="status"></div><div class="hint"><p class="hint">目前顯示已發布的活動資料；正式查詢服務啟用後，將由後端回傳會員活動統計。</p></div></div><p class="footer">EPC · 活動參與查詢</p></main><script type="module">
 import {initializeApp,getApps,getApp} from 'https://www.gstatic.com/firebasejs/12.4.0/firebase-app.js';
 import {getFirestore,collection,getDocs} from 'https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js';
 import {getAuth,signInAnonymously} from 'https://www.gstatic.com/firebasejs/12.4.0/firebase-auth.js';
@@ -6,6 +6,16 @@ import '../firebase-config.js';
 const cfg=window.EPC_FIREBASE_CONFIG;
 const app=getApps().find(a=>a.name==='epc-activity-public')||initializeApp(cfg,'epc-activity-public');
 const db=getFirestore(app);
+const apiUrl=new URLSearchParams(location.search).get('api')||'';
+async function queryPublicApi(id){
+ if(!apiUrl)return null;
+ const u=new URL(apiUrl);
+ if(u.protocol!=='https:'||!['script.google.com','script.googleusercontent.com'].includes(u.hostname))throw Error('查詢服務網址不正確');
+ u.searchParams.set('action','activity.lookup');u.searchParams.set('memberId',id);
+ const response=await fetch(u.toString(),{redirect:'follow',cache:'no-store'});
+ if(!response.ok)throw Error('查詢服務暫時無法使用');
+ return response.json();
+}
 const input=document.getElementById('member'),status=document.getElementById('status'),button=document.getElementById('go');
 function show(s){status.classList.remove('hidden');status.textContent=s}
 function safe(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'}[c]))}
@@ -13,6 +23,13 @@ button.onclick=async()=>{
  const id=input.value.trim().toUpperCase();if(!/^[A-Z0-9_-]{3,32}$/.test(id))return show('請輸入正確會員編號。');
  button.disabled=true;show('正在讀取 EPCMAIN 即時賽事資料…');
  try{
+  if(apiUrl){
+   const result=await queryPublicApi(id);
+   if(!result?.ok)return show(result?.error||'查詢暫時無法完成');
+   const summary=result.summary||{},activities=Array.isArray(result.activities)?result.activities:[];
+   status.innerHTML='<b>會員編號：'+safe(id)+'</b><div style="padding:12px 0">參賽場數：'+safe(summary.events??0)+'｜累計組數：'+safe(summary.entries??0)+'</div>'+activities.map(x=>'<div style="padding:10px 0;border-top:1px solid #454d59"><b>'+safe(x.label||x.key)+'</b>｜紀錄 '+safe(x.count??0)+' 筆｜'+safe(x.points??0)+' 分</div>').join('')+'<p class="hint">以上由 EPC 查詢服務提供，未包含會員帳務。</p>';
+   return;
+  }
   const leaderboardResponse=await fetch('./activity-ranking.json?ts='+Date.now(),{cache:'no-store'});
   if(leaderboardResponse.ok){
    const rankings=await leaderboardResponse.json();
