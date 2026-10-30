@@ -7,7 +7,7 @@ export function countdownCue(previous,current){
  return [10,5].find(n=>previous.seconds>n&&current.seconds<=n)??null;
 }
 export function levelChangeCue(previous,current){
- return !!(previous?.running&&current?.running&&previous.event===current.event&&previous.structure===current.structure&&current.index===previous.index+1&&current.at-previous.at<=2000);
+ return !!(previous&&current&&previous.event===current.event&&previous.structure===current.structure&&current.index!==previous.index&&current.at-previous.at<=2000);
 }
 export function startedCue(previous,current){
  return !!(previous&&!previous.running&&current?.running&&previous.key===current.key
@@ -82,5 +82,5 @@ export function countdownSound(){
  document.addEventListener?.('keydown',unlock,{capture:true});
  testButton.onclick=async()=>{enabled=true;await activate();if(context?.state==='running'&&samplesReady)bell('ten');};
  updateButton();void activate();
- return {test:async(kind='ten')=>{enabled=true;await activate();if(context?.state!=='running'||!samplesReady)return false;bell(kind);return true},observe(timer,seconds,eventId){const event=String(eventId||''),structure=timer?JSON.stringify(timer.levels):'',current=timer?{key:event+':'+timer.index+':'+structure,event,structure,index:timer.index,last:timer.index===timer.levels.length-1,at:Date.now(),duration:Number(timer.levels[timer.index]?.min||0)*60,seconds,running:!!timer.running,endsAt:timer.endsAt}:null;const cue=current?countdownCue(previous,current):null,changed=levelChangeCue(previous,current),finished=finishedCue(previous,current),started=startedCue(previous,current),paused=pausedCue(previous,current);previous=current;if(finished)bell('end');else if(paused)pauseBell();else if(started)bell('start');else if(changed)bell();else if(cue)bell(cue===5?'five':'ten');}};
+ return {test:async(kind='ten')=>{enabled=true;await activate();if(context?.state!=='running'||!samplesReady)return false;bell(kind);return true},observe(timer,seconds,eventId){const event=String(eventId||''),structure=timer?JSON.stringify(timer.levels):'',current=timer?{key:event+':'+timer.index+':'+structure,event,structure,index:timer.index,last:timer.index===timer.levels.length-1,at:Date.now(),duration:Number(timer.levels[timer.index]?.min||0)*60,seconds,running:!!timer.running,endsAt:timer.endsAt}:null;const cue=current?countdownCue(previous,current):null,changed=levelChangeCue(previous,current),finished=finishedCue(previous,current),started=startedCue(previous,current),paused=pausedCue(previous,current);previous=current;if(finished)bell('end');else if(paused)pauseBell();else if(started)bell('start');else if(changed)bell('level');else if(cue)bell(cue===5?'five':'ten');}};
 }
