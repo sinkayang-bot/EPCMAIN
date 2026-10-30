@@ -7,7 +7,25 @@ const el=id=>document.getElementById(id);let activities=[],selected=null;let rea
 const safe=v=>String(v??'');const put=(parent,tag,value,cls)=>{const n=document.createElement(tag);n.textContent=safe(value);if(cls)n.className=cls;parent.append(n);return n};
 const status=msg=>{el('result').classList.remove('hidden');el('result').textContent=msg};
 function drawActivity(a){selected=a;el('detail').classList.remove('hidden');el('activityName').textContent=a.title||a.name||a.id;el('activityInfo').replaceChildren();const info=el('activityInfo');for(const [label,key] of [['活動期間','period'],['活動獎勵','rewards'],['活動規則','rules']])if(a[key]){put(info,'h4',label,'gold');put(info,'pre',typeof a[key]==='string'?a[key]:JSON.stringify(a[key]))}const ranks=Array.isArray(a.leaderboard)?a.leaderboard:[];el('ranking').replaceChildren();if(!ranks.length)put(el('ranking'),'p','目前沒有已發布的排行榜資料');else{const table=put(el('ranking'),'table','');const head=put(table,'tr','');for(const t of ['名次','公開顯示名稱','點數／進度'])put(head,'th',t);ranks.forEach((r,i)=>{const row=put(table,'tr','');put(row,'td',r.rank??i+1);put(row,'td',r.displayName||r.name||r.memberId||'匿名');put(row,'td',r.points??r.progress??'—')})}el('result').classList.add('hidden');document.querySelectorAll('.tile').forEach(b=>b.classList.toggle('active',b.dataset.id===a.id));}
-function paint(){el('cards').replaceChildren();paint();startRealtime()}catch(e){el('catalogStatus').textContent=e.code==='permission-denied'?'活動列表尚未開放公開讀取；需新增僅供公開活動使用的 Firebase 規則。':'活動列表讀取失敗：'+safe(e.message)}}
+function paint(){
+ el('cards').replaceChildren();
+ el('catalogStatus').textContent=activities.length?'選擇活動查看詳細資訊：':'目前尚未發布活動列表';
+ for(const a of activities){const b=put(el('cards'),'button','','tile');b.type='button';b.dataset.id=a.id;put(b,'h3',a.title||a.name||a.id);put(b,'div',a.period||'活動期間未公告','muted');b.onclick=()=>drawActivity(a)}
+ if(activities.length)drawActivity(activities.find(a=>a.id===selected?.id)||activities[0]);else el('detail').classList.add('hidden');
+}
+function startRealtime(){
+ if(realtimeStarted)return;realtimeStarted=true;
+ onSnapshot(doc(db,'epc_public_activity_catalog','current'),snap=>{
+  if(snap.exists()&&Array.isArray(snap.data().activities)){activities=snap.data().activities.filter(a=>a&&a.id&&a.active!==false);paint()}
+ },err=>{console.warn('Public catalog realtime unavailable:',err.code||err.message);if(!activities.length)el('catalogStatus').textContent='公開活動即時資料尚未開放，請管理員檢查發布及讀取權限。'});
+}
+async function load(){
+ try{
+  const response=await fetch('./activity-ranking.json?t='+Date.now(),{cache:'no-store'});
+  if(response.ok){const published=await response.json();if(Array.isArray(published.activities))activities=published.activities.filter(a=>a&&a.id&&a.active!==false);}
+  paint();startRealtime();
+ }catch(e){el('catalogStatus').textContent='活動列表讀取失敗：'+safe(e.message);startRealtime()}
+}
 el('go').onclick=async()=>{if(!selected)return;const query=el('query').value.trim();if(!query)return status('請輸入會員編號或姓名');const ranks=Array.isArray(selected.leaderboard)?selected.leaderboard:[];const found=ranks.find(r=>[r.memberId,r.name,r.displayName].some(v=>v&&safe(v).toLowerCase()===query.toLowerCase()));if(found)return status('目前名次：'+safe(found.rank??ranks.indexOf(found)+1)+'｜點數／進度：'+safe(found.points??found.progress??'尚未公布'));if(!/^[A-Za-z0-9_-]{3,32}$/.test(query))return status('此姓名不在已公開排行榜中。姓名查詢需要後台另外發布可搜尋的活動資料。');el('go').disabled=true;status('正在查詢…');try{const snap=await getDoc(doc(db,'epc_public_activity',query.toUpperCase()));if(!snap.exists())return status('尚無此會員已發布的活動紀錄');const a=snap.data().activities?.[selected.id];if(!a)return status('此會員目前沒有此活動已發布的進度');status(['名次：'+safe(a.rank??'未公布'),'點數：'+safe(a.points??'未公布'),'次數：'+safe(a.count??'未公布'),'進度：'+safe(a.progress??a.status??'未公布')].join('｜'))}catch(e){status('查詢失敗：'+safe(e.message))}finally{el('go').disabled=false}};
 load();
 </script></body></html>
