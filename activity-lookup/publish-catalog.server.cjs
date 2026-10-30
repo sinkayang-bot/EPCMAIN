@@ -33,14 +33,16 @@ function rank(rows,scoreKey){rows.sort((a,b)=>numeric(b[scoreKey])-numeric(a[sco
  const ids=e=>[...new Set((e.players||[]).map(p=>String(p.memberId||'').trim()).filter(valid))];
  const weekly=new Map();
  for(const e of events){if(!eligible(e)||!inRange(e,'weekly'))continue;for(const id of ids(e)){if(!weekly.has(id))weekly.set(id,{memberId:id,games:0,dates:new Set()});const x=weekly.get(id);x.games++;x.dates.add(day(e))}}
- const weeklyRows=[...new Set([...weekly.keys(),...Object.keys(a.weeklyAdjust||{})])].filter(valid).map(id=>{
-  const x=weekly.get(id),adj=a.weeklyAdjust?.[id]||{},games=(x?.games||0)+numeric(adj.games),days=(x?.dates.size||0)+numeric(adj.days);
+ const weeklyRows=[...weekly.values()].map(x=>{
+  const id=x.memberId,adj=a.weeklyAdjust?.[id]||{};
+  const games=x.games+numeric(adj.games),days=x.dates.size+numeric(adj.days);
   const gameLevel=games>=15?3:games>=10?2:games>=5?1:0,dayLevel=days>=7?3:days>=5?2:days>=3?1:0;
+  const reward=level=>level>=3?{coupon:0,cash:1000}:level===2?{coupon:400,cash:0}:level===1?{coupon:200,cash:0}:{coupon:0,cash:0};
+  const gr=reward(gameLevel),dr=reward(dayLevel);
   const claimKey=[ranges.weekly?.from||'',ranges.weekly?.to||'',id].join('_');
-  return {memberId:id,games,days,gameLevel,dayLevel,claimed:!!a.weeklyClaims?.[claimKey],progress:days+' 天／'+games+' 場',points:gameLevel+dayLevel};
- }).sort((x,y)=>y.gameLevel-x.gameLevel||y.dayLevel-x.dayLevel||y.games-x.games||y.days-x.days);
- weeklyRows.forEach((x,i)=>x.rank=i+1);
- activities.push({id:'weekly',title:'每週任務卡',active:true,period:[ranges.weekly?.from,ranges.weekly?.to].filter(Boolean).join(' ～ '),rules:'簽到線 3／5／7 天；場次線 5／10／15 場，各線分三階。',leaderboard:weeklyRows});
+  return {memberId:id,games,days,gameLevel,dayLevel,coupon:gr.coupon+dr.coupon,cash:gr.cash+dr.cash,claimed:!!a.weeklyClaims?.[claimKey],qualified:gameLevel>0||dayLevel>0,progress:days+' 天／'+games+' 場'};
+ }).sort((x,y)=>Number(y.qualified)-Number(x.qualified)||y.gameLevel-x.gameLevel||y.dayLevel-x.dayLevel||y.games-x.games||y.days-x.days);
+ activities.push({id:'weekly',title:'每週任務卡',active:true,period:[ranges.weekly?.from,ranges.weekly?.to].filter(Boolean).join(' ～ '),rules:'簽到線：3／5／7 天；場次線：5／10／15 場。每條線第 1 階 $200 折價卡、第 2 階累計 $400 折價卡；第 3 階將前兩階 $400 折價卡轉現金，再加 $600 獎金，該線合計 $1,000 獎金。兩條線獨立計算。',leaderboard:weeklyRows});
  const rankEvents=events.filter(e=>eligible(e)&&inRange(e,'rank')&&(e.status==='已結算'||e.status==='settled'));
  const unique=new Map();for(const e of rankEvents)if(!unique.has(eventId(e)))unique.set(eventId(e),e);
  const byDay=new Map();for(const e of events.filter(e=>eligible(e))){const d=day(e);if(!byDay.has(d))byDay.set(d,[]);byDay.get(d).push(e)}
