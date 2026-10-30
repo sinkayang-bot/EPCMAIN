@@ -55,13 +55,18 @@ export function countdownSound(){
  }
  function pauseBell(){
   if(!enabled||context?.state!=='running')return;
-  const start=context.currentTime, gain=context.createGain(),osc=context.createOscillator();
-  osc.type='sine';osc.frequency.setValueAtTime(660,start);
-  osc.frequency.setValueAtTime(440,start+0.18);
-  gain.gain.setValueAtTime(0.0001,start);
-  gain.gain.exponentialRampToValueAtTime(Math.max(0.001,volume/100*0.20),start+0.015);
-  gain.gain.exponentialRampToValueAtTime(0.0001,start+0.42);
-  osc.connect(gain);gain.connect(context.destination);osc.start(start);osc.stop(start+0.44);
+  // Dedicated pause cue: two separate descending, mellow tones.
+  const base=context.currentTime+.02;
+  for(const [i,hz] of [660,440].entries()){
+   const at=base+i*.24,osc=context.createOscillator(),gain=context.createGain();
+   osc.type='sine';osc.frequency.setValueAtTime(hz,at);
+   gain.gain.setValueAtTime(.0001,at);
+   gain.gain.exponentialRampToValueAtTime(Math.max(.001,volume/100*.25),at+.012);
+   gain.gain.exponentialRampToValueAtTime(.0001,at+.20);
+   osc.connect(gain);gain.connect(context.destination);
+   osc.onended=()=>{osc.disconnect();gain.disconnect()};
+   osc.start(at);osc.stop(at+.21);
+  }
  }
  function updateButton(){
   const ready=enabled&&context?.state==='running'&&samplesReady;
