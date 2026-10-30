@@ -24,6 +24,10 @@ function render(){
  text($('screenEvent'),event.name||'EPC 限時錦標賽');text($('screenLevel'),'LEVEL '+level+' / '+levels.filter(l=>!l.break).length);
  text($('tournamentCountdown'),durationText(tournamentRemaining(state,now)));
  const finished=state.index===levels.length-1&&seconds===0;
+ const paused=!state.running&&!finished&&Number(state.startedAt||0)>0;
+ flag($('progressRing'),'isPaused',paused);
+ text($('pauseIndicator'),paused?'Ⅱ 已暫停 PAUSED':'');
+ $('pauseIndicator').hidden=!paused;
  text($('levelTitle'),l.break?'BREAK':'LEVEL '+level);text($('clock'),finished?'Finish':timeText(seconds));const digits=String($('clock').textContent.length);if($('clock').dataset.digits!==digits)$('clock').dataset.digits=digits;flag($('progressRing'),'isBreak',!!l.break);flag($('progressRing'),'isFinished',finished);
  for(const [p,row] of [['cur',l],['next',next]])for(const [suffix,key] of [['SB','sb'],['BB','bb'],['Ante','ante']])text($(p+suffix),!row?'—':row.break?(p==='next'&&suffix==='SB'?'休息':'—'):num(row[key]));
  for(const [field,key] of [['sPlayers','players'],['sRebuys','rebuyGroups'],['sGroups','groups'],['chipsInPlay','chips'],['avgStack','average']])text($(field),totals[key]===null?'—':num(totals[key]));
