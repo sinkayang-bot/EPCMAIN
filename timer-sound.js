@@ -20,7 +20,7 @@ export function finishedCue(previous,current){
   &&current.at-previous.at<=2000&&current.at>=previous.endsAt&&current.at-previous.endsAt<=2000);
 }
 export function pausedCue(previous,current){
- return !!(previous?.running&&current&&!current.running&&previous.key===current.key
+ return !!(previous?.running&&current&&!current.running&&previous.event===current.event&&previous.index===current.index
   &&current.seconds>0&&previous.seconds>0&&current.at-previous.at<=2000);
 }
 export function countdownSound(){
@@ -43,7 +43,15 @@ export function countdownSound(){
  details.ontoggle=()=>{panel.style.opacity=details.open?'.95':panelOpacity()};
  function bell(kind='level'){
   if(!enabled||context?.state!=='running')return;
-  if(samplesReady)playSelectedTimerSound(context,kind,volume/100);
+  if(samplesReady){playSelectedTimerSound(context,kind,volume/100);if(kind==='five'){
+   const delay=.34;const ctx=context;
+   // Two distinct short strikes for the five-second warning.
+   const osc=ctx.createOscillator(),gain=ctx.createGain(),at=ctx.currentTime+delay;
+   osc.type='sine';osc.frequency.value=880;gain.gain.setValueAtTime(.0001,at);
+   gain.gain.exponentialRampToValueAtTime(Math.max(.001,volume/100*.22),at+.01);
+   gain.gain.exponentialRampToValueAtTime(.0001,at+.19);
+   osc.connect(gain);gain.connect(ctx.destination);osc.start(at);osc.stop(at+.20);
+  }}
  }
  function pauseBell(){
   if(!enabled||context?.state!=='running')return;
