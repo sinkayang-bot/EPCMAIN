@@ -511,6 +511,7 @@ function applyActivitySnapshot_(data,revision){
  EPC_ACTIVITY_BASE=JSON.parse(JSON.stringify(data));
  ldb.activityManagement=JSON.parse(JSON.stringify(data));window.EPC_ACTIVITY_REVISION=incoming;window.EPC_ACTIVITY_LOADED=true;
  activityCache_();activitySyncState_('活動資料已同步｜版本 '+incoming);
+ window.dispatchEvent(new CustomEvent('epcActivityCloudSaved',{detail:{revision:incoming}}));
  if(typeof window.renderActivities==='function')window.renderActivities();
  return true;
 }

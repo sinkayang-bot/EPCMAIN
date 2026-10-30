@@ -11,9 +11,10 @@ function renderLookup(){
  if(!activeQuery||!selected)return;
  const ranks=Array.isArray(selected.leaderboard)?selected.leaderboard:[];
  const found=ranks.find(r=>[r.memberId,r.name,r.displayName].some(v=>v&&safe(v).toLowerCase()===activeQuery.toLowerCase()));
+ if(found)return status(selected.id==='weekly'?weeklyResult(found):'目前名次：'+safe(found.rank??ranks.indexOf(found)+1)+'｜點數／進度：'+safe(found.points??found.progress??'尚未公布'));
  const a=memberReady?memberData?.activities?.[selected.id]:null;
  if(a)return status(selected.id==='weekly'?weeklyResult(a):['名次：'+safe(a.rank??'未公布'),'點數：'+safe(a.points??'未公布'),'次數：'+safe(a.count??'未公布'),'進度：'+safe(a.progress??a.status??'未公布')].join('｜'));
- if(found)return status(selected.id==='weekly'?weeklyResult(found):'目前名次：'+safe(found.rank??ranks.indexOf(found)+1)+'｜點數／進度：'+safe(found.points??found.progress??'尚未公布'));
+
  if(memberError)return status('即時查詢失敗：'+memberError);
  if(stopMember&&!memberReady)return status('正在查詢…');
  status('此會員目前沒有此活動已發布的進度');

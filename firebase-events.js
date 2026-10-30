@@ -78,6 +78,8 @@
   for(const name of ['upsertEvent','createEvent','deleteEvent','upsertDailyAccounting','deleteDailyAccounting']){const original=window.EPCFirestore[name];window.EPCFirestore[name]=async function(...args){return window.EPCMode?EPCMode.runWrite(()=>original.apply(this,args)):original.apply(this,args);};}
   const paymentModule=await import('./player-payments-cloud.js?v=20261029-admin-correction');
   paymentModule.setupPlayerPayments({fs,db,col,accountingCol,bridge:window.EPCFirestore});
+  const publicPublisher=await import('./activity-lookup/live-publisher.js?v=20261031-live1');
+  publicPublisher.setupLivePublisher({fs,db,bridge:window.EPCFirestore});
   const eventIndex=new Map();
 
   fs.onSnapshot(col,snap=>{
