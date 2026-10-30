@@ -19,6 +19,10 @@ export function finishedCue(previous,current){
   &&previous.seconds>0&&previous.seconds<=2&&current.seconds===0
   &&current.at-previous.at<=2000&&current.at>=previous.endsAt&&current.at-previous.endsAt<=2000);
 }
+export function pausedCue(previous,current){
+ return !!(previous?.running&&current&&!current.running&&previous.key===current.key
+  &&current.seconds>0&&previous.seconds>0&&current.at-previous.at<=2000);
+}
 export function countdownSound(){
  let context,enabled=true,previous,volume=90,samplesReady=false,loadFailed=false;
  try{volume=Math.max(20,Math.min(100,Number(window.localStorage.getItem('epcTimerSoundVolumeV2'))||90))}catch(_){}
@@ -40,6 +44,16 @@ export function countdownSound(){
  function bell(kind='level'){
   if(!enabled||context?.state!=='running')return;
   if(samplesReady)playSelectedTimerSound(context,kind,volume/100);
+ }
+ function pauseBell(){
+  if(!enabled||context?.state!=='running')return;
+  const start=context.currentTime, gain=context.createGain(),osc=context.createOscillator();
+  osc.type='sine';osc.frequency.setValueAtTime(660,start);
+  osc.frequency.setValueAtTime(440,start+0.18);
+  gain.gain.setValueAtTime(0.0001,start);
+  gain.gain.exponentialRampToValueAtTime(Math.max(0.001,volume/100*0.20),start+0.015);
+  gain.gain.exponentialRampToValueAtTime(0.0001,start+0.42);
+  osc.connect(gain);gain.connect(context.destination);osc.start(start);osc.stop(start+0.44);
  }
  function updateButton(){
   const ready=enabled&&context?.state==='running'&&samplesReady;
@@ -68,5 +82,5 @@ export function countdownSound(){
  document.addEventListener?.('keydown',unlock,{capture:true});
  testButton.onclick=async()=>{enabled=true;await activate();if(context?.state==='running'&&samplesReady)bell('ten');};
  updateButton();void activate();
- return {test:async(kind='ten')=>{enabled=true;await activate();if(context?.state!=='running'||!samplesReady)return false;bell(kind);return true},observe(timer,seconds,eventId){const event=String(eventId||''),structure=timer?JSON.stringify(timer.levels):'',current=timer?{key:event+':'+timer.index+':'+structure,event,structure,index:timer.index,last:timer.index===timer.levels.length-1,at:Date.now(),duration:Number(timer.levels[timer.index]?.min||0)*60,seconds,running:!!timer.running,endsAt:timer.endsAt}:null;const cue=current?countdownCue(previous,current):null,changed=levelChangeCue(previous,current),finished=finishedCue(previous,current),started=startedCue(previous,current);previous=current;if(finished)bell('end');else if(started)bell('start');else if(changed)bell();else if(cue)bell(cue===5?'five':'ten');}};
+ return {test:async(kind='ten')=>{enabled=true;await activate();if(context?.state!=='running'||!samplesReady)return false;bell(kind);return true},observe(timer,seconds,eventId){const event=String(eventId||''),structure=timer?JSON.stringify(timer.levels):'',current=timer?{key:event+':'+timer.index+':'+structure,event,structure,index:timer.index,last:timer.index===timer.levels.length-1,at:Date.now(),duration:Number(timer.levels[timer.index]?.min||0)*60,seconds,running:!!timer.running,endsAt:timer.endsAt}:null;const cue=current?countdownCue(previous,current):null,changed=levelChangeCue(previous,current),finished=finishedCue(previous,current),started=startedCue(previous,current),paused=pausedCue(previous,current);previous=current;if(finished)bell('end');else if(paused)pauseBell();else if(started)bell('start');else if(changed)bell();else if(cue)bell(cue===5?'five':'ten');}};
 }
