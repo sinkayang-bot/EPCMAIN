@@ -38,6 +38,7 @@ export function setupLivePublisher({fs,db,bridge}){
  window.addEventListener('epcFirestoreEvents',schedule);
  window.addEventListener('epcFirestoreAccounting',schedule);
  document.addEventListener('visibilitychange',()=>{if(!document.hidden)schedule()});
+ document.addEventListener('change',event=>{if(event.target?.id==='epcTerminalMode')schedule()});
  window.retryPublicActivityPublish=schedule;
  schedule();return {schedule};
 }
