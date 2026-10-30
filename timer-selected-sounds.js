@@ -17,7 +17,7 @@ export function preloadSelectedTimerSounds(context){
  })).catch(error=>{prepared.delete(context);throw error});
  return state.ready;
 }
-export function playSelectedTimerSound(context,kind,volume){
+export function playSelectedTimerSound(context,kind,volume,delay=0,clipDuration=0){
  const name=kind==='ten'||kind==='five'?'countdown':kind==='level'?'start':kind;
  const buffer=prepared.get(context)?.buffers[name];
  // Never download or replay a late cue during the countdown itself.
@@ -26,6 +26,8 @@ export function playSelectedTimerSound(context,kind,volume){
  source.buffer=buffer;gain.gain.value=volume;
  source.connect(gain);gain.connect(context.destination);
  source.onended=()=>{source.disconnect();gain.disconnect()};
- source.start(context.currentTime+.025);
+ const at=context.currentTime+.025+Math.max(0,delay);
+ if(clipDuration>0){gain.gain.setValueAtTime(volume,at);gain.gain.setValueAtTime(volume,at+Math.max(.01,clipDuration-.045));gain.gain.linearRampToValueAtTime(0,at+clipDuration);source.start(at,0,Math.min(clipDuration,buffer.duration));}
+ else source.start(at);
  return source;
 }
