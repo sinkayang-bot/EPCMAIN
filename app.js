@@ -545,6 +545,9 @@ async function flushActivityCloudV3_(){
   if(EPC_ACTIVITY_PENDING?.sequence===job.sequence){EPC_ACTIVITY_PENDING=null;localStorage.removeItem(ACTIVITY_PENDING_KEY);activitySyncState_('活動資料已同步｜版本 '+r.revision)}
   else if(EPC_ACTIVITY_PENDING){EPC_ACTIVITY_PENDING.base=JSON.parse(JSON.stringify(EPC_ACTIVITY_BASE));EPC_ACTIVITY_PENDING.data=JSON.parse(JSON.stringify(legacyDb_().activityManagement));EPC_ACTIVITY_PENDING.revision=Number(r.revision||0);localStorage.setItem(ACTIVITY_PENDING_KEY,JSON.stringify(EPC_ACTIVITY_PENDING));EPC_ACTIVITY_SAVE_TIMER=setTimeout(flushActivityCloudV3_,250)}
   activityCache_();
+  // Publish bridge: fire only after the authoritative V3 cloud write succeeds.
+  // Listeners must use an authenticated, allowlisted public-data publisher.
+  window.dispatchEvent(new CustomEvent('epcActivityCloudSaved', {detail:{revision:Number(r.revision||0)}}));
  }catch(e){activitySyncState_((e.message==='STALE_WRITE'?'另一台裝置已更新活動，本機修改已保留，請先核對資料':'活動尚未同步：'+e.message+'；本機資料已保留，可按重試'),true);console.error('activity cloud save',e)}
  finally{EPC_ACTIVITY_SAVING=false;if(!EPC_ACTIVITY_PENDING)refreshActivityCloudV3_()}
 }
