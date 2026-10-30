@@ -7928,8 +7928,17 @@ function epcPublicRankPreview_(){
  const weekly=actPlayerStats_('weekly').map(x=>{const ad=A.weeklyAdjust[x.id]||{};return {id:x.id,games:x.games+(+ad.games||0),days:x.days+(+ad.days||0),claimed:!!A.weeklyClaims[(actActivityRange_('weekly').from||'')+'_'+(actActivityRange_('weekly').to||'')+'_'+x.id]};});
  const umbrella=umbrellaStats_();
  const data={version:2,generatedAt:new Date().toISOString(),ranges:A.activityRanges||{},leaderboards:{hunter,extreme,weeklyRank,umbrella:umbrella.periodRank.map((x,i)=>({id:x.id,score:x.score,rank:i+1}))},weekly};
- const blob=new Blob([JSON.stringify(data)],{type:'application/json'}),url=URL.createObjectURL(blob),link=document.createElement('a');link.href=url;link.download='activity-ranking.json';document.body.append(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);
- alert('活動排行榜已匯出。請上傳至 GitHub EPCMAIN/activity-lookup/activity-ranking.json。注意：這是公開資料，只包含會員編號、名次、分數及任務進度。');
+ const titles={hunter:'TOP HUNTER',extreme:'極限 10 秒',weeklyRank:'週排行榜',umbrella:'保護傘',weekly:'每週任務卡'};
+ const keys=['hunter','extreme','weeklyRank','umbrella','weekly'];
+ const activities=keys.map(key=>{
+   const raw=key==='weekly'?weekly:(data.leaderboards[key]||[]);
+   const period=A.activityRanges?.[key==='weeklyRank'?'rank':key==='extreme'?'extremeTen':key]||{};
+   const leaderboard=raw.map((x,i)=>({memberId:String(x.id||''),displayName:String(actMember_(x.id)?.nickname||actMember_(x.id)?.name||x.id||''),rank:x.rank||i+1,points:x.score??x.games??null,progress:key==='extreme'?x.seconds+' 秒':key==='weekly'?x.games+' 場／'+x.days+' 天':undefined,claimed:!!x.claimed}));
+   return {id:key,title:titles[key],active:true,period:[period.from,period.to].filter(Boolean).join(' ～ '),leaderboard};
+ });
+ const snapshot={version:3,generatedAt:new Date().toISOString(),activities};
+ const blob=new Blob([JSON.stringify(snapshot,null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),link=document.createElement('a');link.href=url;link.download='activity-ranking.json';document.body.append(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);
+ alert('活動公開看板資料已匯出。將 activity-ranking.json 上傳覆蓋 GitHub EPCMAIN/activity-lookup/activity-ranking.json 後，公開看板即可查詢。此檔含排行榜公開名稱，請先確認允許公開。');
 }
 window.epcPublicRankPreview_=epcPublicRankPreview_;
 </script>
