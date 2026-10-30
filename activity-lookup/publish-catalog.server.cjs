@@ -70,7 +70,10 @@ function rank(rows,scoreKey){rows.sort((a,b)=>numeric(b[scoreKey])-numeric(a[sco
  rankRows.forEach((x,i)=>x.rank=i+1);
  activities.push({id:'weeklyRank',title:'週排行榜',active:true,period:[ranges.rank?.from,ranges.rank?.to].filter(Boolean).join(' ～ '),rules:'每場前三名 3／2／1 分；依後台加倍規則及人工調整計算。',leaderboard:rankRows});
 
- const catalog={version:1,sourceRevision:numeric(body.revision),generatedAt:admin.firestore.FieldValue.serverTimestamp(),activities};
+ const visibility=a.publicActivityVisibility||{};
+ const activityKeys={umbrella:'umbrella',extreme:'extremeTen',weekly:'weekly',weeklyRank:'rank',hunter:'hunter',pioneer:'pioneer'};
+ const publicActivities=activities.filter(item=>visibility[activityKeys[item.id]]===true);
+ const catalog={version:1,sourceRevision:numeric(body.revision),generatedAt:admin.firestore.FieldValue.serverTimestamp(),activities:publicActivities};
  await db.collection('epc_public_activity_catalog').doc('current').set(catalog);
- console.log(JSON.stringify({published:true,revision:body.revision,activities:activities.map(x=>({id:x.id,players:x.leaderboard.length}))}));
+ console.log(JSON.stringify({published:true,revision:body.revision,activities:publicActivities.map(x=>({id:x.id,players:x.leaderboard.length}))}));
 })().catch(e=>{console.error(e.message);process.exitCode=1});
