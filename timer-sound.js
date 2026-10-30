@@ -27,7 +27,7 @@ export function countdownSound(){
  let context,enabled=true,previous,volume=90,samplesReady=false,loadFailed=false;
  try{volume=Math.max(20,Math.min(100,Number(window.localStorage.getItem('epcTimerSoundVolumeV2'))||90))}catch(_){}
  const button=document.createElement('button');button.type='button';button.textContent='啟用提示音';button.setAttribute('aria-pressed','false');button.title='開始及換級 1.5 秒；10 秒一聲；5 秒兩聲；暫停獨立雙音；結束三連音';
- const panel=document.createElement('aside');panel.setAttribute('aria-label','提示音設定');panel.style.cssText='position:fixed;right:8px;bottom:3px;z-index:50;max-width:240px;padding:0;display:flex;gap:8px;align-items:center;color:#e9c568;background:transparent;border:0;font:12px system-ui;opacity:.22;transition:opacity .15s';
+ const panel=document.createElement('aside');panel.setAttribute('aria-label','提示音設定');panel.style.cssText='position:fixed;right:8px;bottom:3px;z-index:50;max-width:none;padding:0;display:flex;flex-wrap:nowrap;white-space:nowrap;gap:8px;align-items:center;color:#e9c568;background:transparent;border:0;font:12px system-ui;opacity:.22;transition:opacity .15s';
  button.style.cssText='width:auto;margin:0;padding:3px 5px;font:12px system-ui;line-height:18px;color:#e9c568;background:transparent;border:0;cursor:pointer';
  const details=document.createElement('details'),summary=document.createElement('summary');summary.textContent='音量';summary.style.cssText='cursor:pointer;margin:0;font:12px/24px system-ui';details.style.position='relative';
  const slider=document.createElement('input');slider.type='range';slider.min='20';slider.max='100';slider.step='5';slider.value=String(volume);slider.setAttribute('aria-label','提示音音量');slider.style.cssText='width:180px;padding:6px 0;accent-color:#e9c568';
@@ -35,8 +35,7 @@ export function countdownSound(){
  slider.oninput=()=>{volume=Number(slider.value);output.textContent=volume+'%';try{window.localStorage.setItem('epcTimerSoundVolumeV2',String(volume))}catch(_){}};
  const options=document.createElement('div');options.style.cssText='position:absolute;right:0;bottom:30px;width:225px;padding:10px;background:#08080899;border:1px solid #66502b88;border-radius:7px';options.append(slider,output);details.append(summary,options);
  const testButton=document.createElement('button');testButton.type='button';testButton.textContent='測試音效';testButton.title='播放 0.8 秒倒數單音，確認這台設備的聲音';testButton.style.cssText=button.style.cssText;
- const pauseTest=document.createElement('button');pauseTest.type='button';pauseTest.textContent='試聽暫停';pauseTest.title='試聽獨立的暫停雙音';pauseTest.style.cssText=button.style.cssText;
- panel.append(button,testButton,pauseTest,details);document.body.append(panel);
+ panel.append(button,testButton,details);document.body.append(panel);
  panel.onmouseenter=panel.onfocusin=()=>{panel.style.opacity='.95'};
  const panelOpacity=()=>enabled&&(!samplesReady||context?.state!=='running')?'.95':'.22';
  panel.onmouseleave=()=>{if(!details.open)panel.style.opacity=panelOpacity()};
@@ -93,7 +92,6 @@ export function countdownSound(){
  document.addEventListener?.('pointerdown',unlock,{capture:true});
  document.addEventListener?.('keydown',unlock,{capture:true});
  testButton.onclick=async()=>{enabled=true;await activate();if(context?.state==='running'&&samplesReady)bell('ten');};
- pauseTest.onclick=async()=>{enabled=true;await activate();if(context?.state==='running')pauseBell();};
  updateButton();void activate();
  return {test:async(kind='ten')=>{enabled=true;await activate();if(context?.state!=='running'||!samplesReady)return false;bell(kind);return true},observe(timer,seconds,eventId){const event=String(eventId||''),structure=timer?JSON.stringify(timer.levels):'',current=timer?{key:event+':'+timer.index+':'+structure,event,structure,index:timer.index,last:timer.index===timer.levels.length-1,at:Date.now(),duration:Number(timer.levels[timer.index]?.min||0)*60,seconds,running:!!timer.running,endsAt:timer.endsAt}:null;const cue=current?countdownCue(previous,current):null,changed=levelChangeCue(previous,current),finished=finishedCue(previous,current),started=startedCue(previous,current),paused=pausedCue(previous,current);previous=current;if(finished)bell('end');else if(paused)pauseBell();else if(started)bell('start');else if(changed)bell('level');else if(cue)bell(cue===5?'five':'ten');}};
 }
