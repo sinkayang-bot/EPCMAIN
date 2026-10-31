@@ -5,7 +5,7 @@ const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&
 function config(){ensureActDb_();const a=db.activityManagement;return a.luckyMultiplier||(a.luckyMultiplier={from:'',to:'',claims:{},draws:[],excludedEventIds:[]});}
 function save(){if(!window.EPC_ACTIVITY_LOADED||typeof window.saveActivityCloudV3!=='function'){alert('活動資料未完成雲端載入，暫停寫入');return;}persist();window.saveActivityCloudV3();renderActivities();}
 function period(){const c=config();return {from:c.from,to:c.to};}
-function rows(){const c=config();if(!c.from||!c.to)return [];const events=(db.events||[]).map(e=>({...e,players:e.players||[]}));return EPCLuckyMultiplier.score(events,period(),c);}
+function rows(){const c=config();if(!c.from||!c.to)return [];const events=(db.events||[]).filter(e=>!(typeof isIndependentAccountingEvent==='function'&&isIndependentAccountingEvent(e))).map(e=>({...e,businessDate:typeof actBusinessDate_==='function'?actBusinessDate_(e):e.businessDate,players:e.players||[]}));return EPCLuckyMultiplier.score(events,period(),c);}
 window.luckySetDate_=(k,v)=>{config()[k]=v;save();};
 window.luckyHalf_=(half)=>{const d=new Date(),p=EPCLuckyMultiplier.periods(d.getFullYear(),d.getMonth()+1)[half];Object.assign(config(),p);save();};
 window.luckyClaim_=(member,tier,v)=>{const c=config(),key=c.from+'_'+c.to+'_'+member+'_'+tier;c.claims[key]=!!v;save();};
