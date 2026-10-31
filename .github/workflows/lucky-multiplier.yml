@@ -1,0 +1,23 @@
+name: Lucky Multiplier Tests
+on:
+  push:
+    branches: [feature/lucky-multiplier]
+  pull_request:
+    paths:
+      - 'lucky-multiplier-*.js'
+      - 'tests/lucky-multiplier.test.js'
+      - '.github/workflows/lucky-multiplier.yml'
+jobs:
+  score:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate JavaScript syntax
+        run: |
+          node --check lucky-multiplier-core.js
+          node --check lucky-multiplier-ui.js
+      - name: Test scoring
+        run: node tests/lucky-multiplier.test.js

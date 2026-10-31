@@ -2629,7 +2629,7 @@ window.addEventListener('error',function(e){
   <button class="secondary" onclick="setActTab_('rank')">3. 週排行榜</button>
   <button class="secondary" onclick="setActTab_('hunter')">4. TOP HUNTER</button>
   <button class="secondary" onclick="setActTab_('umbrella')">5. 保護傘</button>
-  <button class="secondary" onclick="setActTab_('extremeTen')">6. 極限 10 秒</button>
+  <button class="secondary" onclick="setActTab_('extremeTen')">6. 極限 10 秒</button><button class="secondary" onclick="setActTab_('luckyMultiplier')">7. 幸運加乘</button>
  </div>
  <div id="actWeekly" class="act-pane"></div>
  <div id="actPioneer" class="act-pane" style="display:none"></div>
@@ -2637,7 +2637,7 @@ window.addEventListener('error',function(e){
  <div id="actHunter" class="act-pane" style="display:none"></div>
  <div id="actUmbrella" class="act-pane" style="display:none"></div>
  
- <div id="actExtremeTen" class="act-pane" style="display:none"></div>
+ <div id="actExtremeTen" class="act-pane" style="display:none"></div><div id="actLuckyMultiplier" class="act-pane" style="display:none"></div>
 </section>
 
 <section id="dailysettle" class="page">
@@ -6148,8 +6148,8 @@ function actSetActivityRange_(kind,field,value){
  else{const R=db.activityManagement.activityRanges[kind]||(db.activityManagement.activityRanges[kind]={from:'',to:''});R[field]=String(value||'')}
  persist();if(window.saveActivityCloudV3)window.saveActivityCloudV3();renderActivities();
 }
-function actRangeEditor_(kind){
- const names={weekly:'每週任務卡',pioneer:'開桌先鋒',rank:'週排行榜',hunter:'TOP HUNTER',umbrella:'保護傘',boss:'雙十狩主',extremeTen:'極限 10 秒'},r=actActivityRange_(kind);
+function actRangeEditor_(kind){ if(kind==='luckyMultiplier')return '';
+ const names={weekly:'每週任務卡',pioneer:'開桌先鋒',rank:'週排行榜',hunter:'TOP HUNTER',umbrella:'保護傘',boss:'雙十狩主',extremeTen:'極限 10 秒',luckyMultiplier:'幸運加乘'},r=actActivityRange_(kind);
  return `<div class="card" style="margin-bottom:12px;border-color:#9b7a35"><h3>${names[kind]||'活動'}｜活動區間</h3><div class="small" style="margin-bottom:8px">此區間決定本活動實際計算資料；上方「查詢開始日／查詢結束日」只用於歷史查詢，不會改變活動計算。</div><div class="formgrid" style="grid-template-columns:1fr 1fr"><div><label>活動開始日</label><input type="date" value="${r.from}" onchange="actSetActivityRange_('${kind}','from',this.value)"></div><div><label>活動結束日</label><input type="date" value="${r.to}" onchange="actSetActivityRange_('${kind}','to',this.value)"></div></div></div>`;
 }
 function actPublicVisibilityPanel_(){
@@ -6828,7 +6828,7 @@ function renderActivities(){
  window.epcActivityIdentityMode_=mode;
  try{ 
  if($('actActivityRangeTop'))$('actActivityRangeTop').innerHTML=actPublicVisibilityPanel_()+actRangeEditor_(actTab_);
- const panes={weekly:'actWeekly',pioneer:'actPioneer',rank:'actRank',hunter:'actHunter',umbrella:'actUmbrella',extremeTen:'actExtremeTen'};
+ const panes={weekly:'actWeekly',pioneer:'actPioneer',rank:'actRank',hunter:'actHunter',umbrella:'actUmbrella',extremeTen:'actExtremeTen',luckyMultiplier:'actLuckyMultiplier'};
  document.querySelectorAll('.act-pane').forEach(x=>x.style.display='none');
  const id=panes[actTab_]||'actWeekly';if($(id))$(id).style.display='block';
  if($('actWeekly'))$('actWeekly').innerHTML=actWeekly_();
@@ -6837,7 +6837,7 @@ function renderActivities(){
  if($('actHunter'))$('actHunter').innerHTML=actHunter_();
  if($('actUmbrella'))$('actUmbrella').innerHTML=actUmbrella_();
  
- if($('actExtremeTen'))$('actExtremeTen').innerHTML=actExtremeTen_();
+ if($('actExtremeTen'))$('actExtremeTen').innerHTML=actExtremeTen_(); if(actTab_==='luckyMultiplier'&&$('actLuckyMultiplier')&&window.actLuckyMultiplier_)$('actLuckyMultiplier').innerHTML=actLuckyMultiplier_();
  }finally{window.epcActivityIdentityMode_=previous;}
 }
 function render(){
@@ -8188,6 +8188,7 @@ let timer;const schedule=()=>{clearTimeout(timer);timer=setTimeout(render,120)};
 })();
 
 </script>
+<script src="lucky-multiplier-core.js"></script><script src="lucky-multiplier-ui.js"></script>
 </body></html>
 
 
