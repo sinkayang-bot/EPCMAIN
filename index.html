@@ -6148,7 +6148,7 @@ function actSetActivityRange_(kind,field,value){
  else{const R=db.activityManagement.activityRanges[kind]||(db.activityManagement.activityRanges[kind]={from:'',to:''});R[field]=String(value||'')}
  persist();if(window.saveActivityCloudV3)window.saveActivityCloudV3();renderActivities();
 }
-function actRangeEditor_(kind){
+function actRangeEditor_(kind){ if(kind==='luckyMultiplier')return '';
  const names={weekly:'每週任務卡',pioneer:'開桌先鋒',rank:'週排行榜',hunter:'TOP HUNTER',umbrella:'保護傘',boss:'雙十狩主',extremeTen:'極限 10 秒',luckyMultiplier:'幸運加乘'},r=actActivityRange_(kind);
  return `<div class="card" style="margin-bottom:12px;border-color:#9b7a35"><h3>${names[kind]||'活動'}｜活動區間</h3><div class="small" style="margin-bottom:8px">此區間決定本活動實際計算資料；上方「查詢開始日／查詢結束日」只用於歷史查詢，不會改變活動計算。</div><div class="formgrid" style="grid-template-columns:1fr 1fr"><div><label>活動開始日</label><input type="date" value="${r.from}" onchange="actSetActivityRange_('${kind}','from',this.value)"></div><div><label>活動結束日</label><input type="date" value="${r.to}" onchange="actSetActivityRange_('${kind}','to',this.value)"></div></div></div>`;
 }
