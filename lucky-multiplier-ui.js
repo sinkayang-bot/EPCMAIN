@@ -12,8 +12,9 @@ window.luckyHalf_=(half)=>{if(!writable())return;const d=new Date(),p=EPCLuckyMu
 window.luckyClaim_=(member,tier,v)=>{if(!writable())return;const c=config(),key=c.from+'_'+c.to+'_'+member+'_'+tier;c.claims[key]=!!v;save();};
 window.luckyDraw_=()=>{if(!writable())return;const c=config();let r;try{r=rows()}catch(e){return alert('請先設定有效的活動日期')}if(!r.length)return alert('本期尚無參賽積分');if(!confirm('確認依積分權重抽出一位？每 1 分為 1 次抽獎機會。'))return;
 const used=new Map();for(const d of c.draws)if(d.from===c.from&&d.to===c.to)used.set(d.memberId,(used.get(d.memberId)||0)+1);
+if(c.draws.filter(x=>x.from===c.from&&x.to===c.to).length>=16)return alert('本期最多抽出 16 個獎項');
 const pool=r.filter(x=>(used.get(x.memberId)||0)<2),total=pool.reduce((n,x)=>n+x.points,0);if(!total)return alert('本期已無可抽選會員');
-let ticket=Math.random()*total,winner=pool[pool.length-1];for(const x of pool){ticket-=x.points;if(ticket<0){winner=x;break;}}
+const rand=(typeof crypto!=='undefined'&&crypto.getRandomValues)?crypto.getRandomValues(new Uint32Array(1))[0]/4294967296:Math.random();let ticket=rand*total,winner=pool[pool.length-1];for(const x of pool){ticket-=x.points;if(ticket<0){winner=x;break;}}
 c.draws.push({id:Date.now().toString(36),from:c.from,to:c.to,memberId:winner.memberId,points:winner.points,createdAt:new Date().toISOString(),prize:'待指定',claimed:false});save();};
 window.luckyPrize_=(id,value)=>{if(!writable())return;const d=config().draws.find(x=>x.id===id);if(d){d.prize=value;save();}};
 window.luckyDrawClaim_=(id,v)=>{if(!writable())return;const d=config().draws.find(x=>x.id===id);if(d){d.claimed=v;save();}};
