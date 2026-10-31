@@ -1,4 +1,5 @@
 'use strict';
+require('../lucky-multiplier-core.js');
 // Trusted server-side publisher. Never expose V3 raw activity data to public clients.
 const admin=require('firebase-admin');
 const credential=JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_JSON||'null');
@@ -73,9 +74,19 @@ function rank(rows,scoreKey){rows.sort((a,b)=>numeric(b[scoreKey])-numeric(a[sco
  rankRows.forEach((x,i)=>x.rank=i+1);
  activities.push({id:'weeklyRank',title:'週排行榜',active:true,period:[ranges.rank?.from,ranges.rank?.to].filter(Boolean).join(' ～ '),rules:'每場前三名 3／2／1 分；依後台加倍規則及人工調整計算。',leaderboard:rankRows});
 
+ const lucky=a.luckyMultiplier||{};
+ if(lucky.from&&lucky.to){
+  const luckyRows=globalThis.EPCLuckyMultiplier.score(events.filter(eligible),{from:lucky.from,to:lucky.to},lucky).filter(x=>valid(x.memberId)).map((x,i)=>{
+   const claimed=tier=>!!lucky.claims?.[[lucky.from,lucky.to,x.memberId,tier].join('_')];
+   const reward=tier=>x.points<tier?'未達標':claimed(tier)?'已領取':'可領取';
+   return {memberId:x.memberId,rank:i+1,points:x.points,games:x.games,progress:x.games+' 場／'+x.points+' 分｜40 分：'+reward(40)+'；60 分：'+reward(60)};
+  });
+  activities.push({id:'luckyMultiplier',title:'幸運加乘',active:true,period:lucky.from+' ～ '+lucky.to,rules:'當日店內首場額外 +2 分；各場基本分依當日場序 +1/+2/+3/+4；假日每場 +1。重買不計分。40 分：500 折價卡；60 分：1,000 折價卡。',leaderboard:luckyRows});
+ }
+
  if(!a.publicActivityVisibility||typeof a.publicActivityVisibility!=='object'||Array.isArray(a.publicActivityVisibility))throw Error('Public visibility settings missing from V3 cloud; refusing to overwrite existing public catalog');
  const visibility=a.publicActivityVisibility;
- const activityKeys={umbrella:'umbrella',extreme:'extremeTen',weekly:'weekly',weeklyRank:'rank',hunter:'hunter',pioneer:'pioneer'};
+ const activityKeys={umbrella:'umbrella',extreme:'extremeTen',weekly:'weekly',weeklyRank:'rank',hunter:'hunter',pioneer:'pioneer',luckyMultiplier:'luckyMultiplier'};
  const publicActivities=activities.filter(item=>visibility[activityKeys[item.id]]===true);
  const catalog={version:1,sourceRevision:numeric(body.revision),generatedAt:admin.firestore.FieldValue.serverTimestamp(),activities:publicActivities};
  await db.collection('epc_public_activity_catalog').doc('current').set(catalog);

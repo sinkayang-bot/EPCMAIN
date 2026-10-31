@@ -6152,14 +6152,20 @@ function actRangeEditor_(kind){ if(kind==='luckyMultiplier')return '';
  const names={weekly:'每週任務卡',pioneer:'開桌先鋒',rank:'週排行榜',hunter:'TOP HUNTER',umbrella:'保護傘',boss:'雙十狩主',extremeTen:'極限 10 秒',luckyMultiplier:'幸運加乘'},r=actActivityRange_(kind);
  return `<div class="card" style="margin-bottom:12px;border-color:#9b7a35"><h3>${names[kind]||'活動'}｜活動區間</h3><div class="small" style="margin-bottom:8px">此區間決定本活動實際計算資料；上方「查詢開始日／查詢結束日」只用於歷史查詢，不會改變活動計算。</div><div class="formgrid" style="grid-template-columns:1fr 1fr"><div><label>活動開始日</label><input type="date" value="${r.from}" onchange="actSetActivityRange_('${kind}','from',this.value)"></div><div><label>活動結束日</label><input type="date" value="${r.to}" onchange="actSetActivityRange_('${kind}','to',this.value)"></div></div></div>`;
 }
+function actActivityNames_(){
+ return Object.fromEntries(Array.from(document.querySelectorAll('button[onclick^="setActTab_("]')).map(button=>{
+  const key=button.getAttribute('onclick').match(/setActTab_\('([^']+)'\)/)?.[1];
+  return [key,button.textContent.replace(/^\d+\.\s*/, '').trim()];
+ }).filter(([key])=>key));
+}
 function actPublicVisibilityPanel_(){
- const names={weekly:'每週任務卡',pioneer:'開桌先鋒',rank:'週排行榜',hunter:'TOP HUNTER',umbrella:'保護傘',extremeTen:'極限 10 秒'};
+ const names=actActivityNames_();
  const flags=db.activityManagement.publicActivityVisibility||{};
  return '<div class="card" style="margin-bottom:14px;border:1px solid #a98745"><h3>公開活動看板設定</h3><div class="small" style="margin-bottom:10px">勾選後將於下次公開資料發布時顯示；取消勾選不刪除後台資料。新活動預設不公開。</div><div class="formgrid" style="grid-template-columns:repeat(auto-fit,minmax(190px,1fr))">'+Object.entries(names).map(([key,name])=>'<label style="display:flex;align-items:center;gap:8px"><input type="checkbox" '+(flags[key]?'checked':'')+' onchange="actSetPublicVisibility_(\''+key+'\',this.checked)"> '+name+'</label>').join('')+'</div><div class="small" style="margin-top:10px">公開看板：<a href="activity-lookup/index.html" target="_blank" rel="noopener">開啟玩家查詢頁</a></div></div>';
 }
 function actSetPublicVisibility_(key,enabled){
  ensureActDb_();
- if(!['weekly','pioneer','rank','hunter','umbrella','extremeTen'].includes(key))return;
+ if(!Object.hasOwn(actActivityNames_(),key))return;
  if(window.EPCMode?.assertWrite)try{window.EPCMode.assertWrite()}catch(e){alert('目前為檢視模式，無法修改公開設定');renderActivities();return}
  if(!window.EPC_ACTIVITY_LOADED||typeof window.saveActivityCloudV3!=='function'){
   alert('活動雲端資料尚未載入完成，請稍後再試');renderActivities();return;

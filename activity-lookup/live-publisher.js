@@ -1,3 +1,4 @@
+import '../lucky-multiplier-core.js';
 import {buildCatalog} from './catalog-core.js';
 const SOURCE='https://script.google.com/macros/s/AKfycbwZi5bXuFJdtXiE6oxPmn4NZti-wZyOwEfTKZ8VPo5nXP5GK1mPOYrfkxz714AN4UQx9w/exec';
 export function setupLivePublisher({fs,db,bridge}){

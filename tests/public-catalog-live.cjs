@@ -1,4 +1,5 @@
 const assert=require('node:assert/strict'),fs=require('node:fs');
+require('../lucky-multiplier-core.js');
 (async()=>{
  const source=fs.readFileSync('activity-lookup/catalog-core.js','utf8');
  const {buildCatalog}=await import('data:text/javascript;base64,'+Buffer.from(source).toString('base64'));
@@ -14,5 +15,17 @@ const assert=require('node:assert/strict'),fs=require('node:fs');
  A.publicActivityVisibility.umbrella=false;
  assert(!buildCatalog(A,[event]).some(a=>a.id==='umbrella'));
  assert.throws(()=>buildCatalog({},[]),/visibility/);
+ A.luckyMultiplier={from:'2026-10-30',to:'2026-10-30',claims:{'2026-10-30_2026-10-30_ABC_40':true}};
+ A.publicActivityVisibility.luckyMultiplier=true;
+ const lucky=buildCatalog(A,[event,{...event,id:'E2',startTime:'22:00'}]).find(x=>x.id==='luckyMultiplier');
+ assert.equal(lucky.period,'2026-10-30 ～ 2026-10-30');
+ assert.equal(lucky.leaderboard[0].points,5);
+ assert.equal(lucky.leaderboard[0].games,2);
+ assert(!('details' in lucky.leaderboard[0]));
+ A.luckyMultiplier.to='2026-10-29';
+ assert.throws(()=>buildCatalog(A,[event]),/INVALID_PERIOD/);
+ A.luckyMultiplier.to='2026-10-30';
+ A.publicActivityVisibility.luckyMultiplier=false;
+ assert(!buildCatalog(A,[event]).some(x=>x.id==='luckyMultiplier'));
  console.log('PASS: event progress, activity edit, visibility, missing settings guard');
 })();
