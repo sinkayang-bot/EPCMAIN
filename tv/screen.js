@@ -47,6 +47,7 @@ function render(p,target=host){
   target.innerHTML=header+`<table class="leaderboard" style="font-size:clamp(20px,${2*(Number(ui.rankFontScale)||100)/100}vw,55px)"><colgroup>${ui.showRank!==false?'<col class="col-rank">':''}${showName?'<col class="col-player">':''}${showId?'<col class="col-member">':''}${weekly?'<col class="col-count"><col class="col-count">':ui.showScore!==false?'<col class="col-score">':''}</colgroup><thead><tr>${ui.showRank!==false?'<th>排名</th>':''}${showName?'<th>玩家</th>':''}${showId?'<th>會員編號</th>':''}${weekly?'<th>場次</th><th>出席天數</th>':ui.showScore!==false?'<th>積分</th>':''}</tr></thead><tbody>${(p.rows||[]).slice(0,ui.limit||10).map((r,i)=>`<tr>${ui.showRank!==false?`<td>${i+1}</td>`:''}${showName?`<td class="player-identity">${esc(r.name||r.member||'')}</td>`:''}${showId?`<td class="member-number">${esc(r.memberId||r.id||'')}</td>`:''}${weekly?`<td>${Number(r.games||0)}</td><td>${Number(r.days||0)}</td>`:ui.showScore!==false?`<td>${Number(r.score||0)}</td>`:''}</tr>`).join('')||`<tr><td colspan="${Math.max(1,columns)}">目前尚無資料</td></tr>`}</tbody></table>`;
 
  }
+ if(p.type==='luckyMultiplier'&&p.rules){const foot=document.createElement('footer');foot.textContent=p.rules;target.appendChild(foot);}
 }
 function parallelLayout(panels){
  const boss=panels.find(p=>p.type==='boss'),ordered=boss?[...panels.filter(p=>p!==boss),boss]:panels;
@@ -56,7 +57,8 @@ function parallelLayout(panels){
   return {columns,rows:n<=2?1:2,items:ordered.map(p=>({panel:p,span:p===boss?(n<=2?columns-(n-1):2*columns-n+1):1}))};
  }
  const top=Math.ceil(n/2),bottom=n-top;
- return {columns:n<=2?n:6,rows:n<=2?1:2,items:ordered.map((p,i)=>({panel:p,span:n<=2?1:6/(i<top?top:bottom)}))};
+ const gcd=(a,b)=>b?gcd(b,a%b):a,columns=n<=2?Math.max(1,n):top*bottom/gcd(top,bottom);
+ return {columns,rows:n<=2?1:2,items:ordered.map((p,i)=>({panel:p,span:n<=2?1:columns/(i<top?top:bottom)}))};
 }
 function fitBossPanel(section){
  const content=section.querySelector('.boss-panel-content');if(!content)return;
@@ -71,7 +73,7 @@ function show(data){
  if(!data?.paired){host.innerHTML=/^\d{6}$/.test(data?.code||'')?pairingMarkup(data.code,location.href):'<div class="center"><h1>正在產生配對碼…</h1></div>';return}
  const p=data.payload;if(!p){host.innerHTML='<div class="center"><h1>配對完成</h1><p>請在後台選擇活動，再按「套用到螢幕」。</p></div>';return}
  const renderParallel=(p)=>{
-  const panels=(p.panels||[]).slice(0,6);
+  const panels=(p.panels||[]);
   if(!panels.length){host.innerHTML='<div class="center"><h1>請在後台勾選並排活動</h1></div>';return}
   const layout=parallelLayout(panels);
   host.className='parallel-screen';host.innerHTML='';
