@@ -4,19 +4,19 @@
  const n=v=>Number.isFinite(Number(v))?Number(v):0;
  const date=e=>String(e.businessDate||e.date||'').slice(0,10);
  const id=e=>String(e.eventId||e.id||'');
- const member=p=>String(p.memberId||p.memberKey||p.id||'').trim();
+ const member=p=>String(p.memberId||p.id||p.memberKey||'').trim();
  const weekend=d=>{const x=new Date(d+'T12:00:00Z').getUTCDay();return x===0||x===6};
  const validDate=d=>/^\d{4}-\d{2}-\d{2}$/.test(d)&&!Number.isNaN(Date.parse(d+'T12:00:00Z'));
  function score(events,period,opts={}){
   const from=period?.from||'',to=period?.to||'';
   if(!validDate(from)||!validDate(to)||from>to)throw Error('INVALID_PERIOD');
   const excluded=new Set((opts.excludedEventIds||[]).map(String));
-  const all=(events||[]).filter(e=>e&&!e.deleted&&e.status!=='deleted'&&date(e)>=from&&date(e)<=to&&!excluded.has(id(e)));
+  const uniqueEvents=new Map();for(const e of (events||[])){if(!e||e.deleted||e.status==='deleted'||date(e)<from||date(e)>to||excluded.has(id(e))||!id(e))continue;if(!uniqueEvents.has(id(e)))uniqueEvents.set(id(e),e);}const all=[...uniqueEvents.values()];
   const byDate=new Map();
   for(const e of all){const d=date(e);if(!byDate.has(d))byDate.set(d,[]);byDate.get(d).push(e)}
   const result=new Map(),seen=new Set();
   for(const [d,dayEvents] of byDate){
-   dayEvents.sort((a,b)=>String(a.startTime||'').localeCompare(String(b.startTime||''))||id(a).localeCompare(id(b)));
+   dayEvents.sort((a,b)=>(Number(a.seq||0)&&Number(b.seq||0)?Number(a.seq)-Number(b.seq):0)||String(a.startTime||'').localeCompare(String(b.startTime||''))||id(a).localeCompare(id(b)));
    dayEvents.forEach((e,i)=>{
     const sequence=i+1;
     const players=e.players||[];
