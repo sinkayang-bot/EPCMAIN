@@ -3,7 +3,7 @@
 const $=id=>document.getElementById(id);
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 function config(){ensureActDb_();const a=db.activityManagement;return a.luckyMultiplier||(a.luckyMultiplier={from:'',to:'',claims:{},draws:[],excludedEventIds:[]});}
-function save(){persist();if(window.saveActivityCloudV3)window.saveActivityCloudV3();renderActivities();}
+function save(){if(!window.EPC_ACTIVITY_LOADED||typeof window.saveActivityCloudV3!=='function'){alert('活動資料未完成雲端載入，暫停寫入');return;}persist();window.saveActivityCloudV3();renderActivities();}
 function period(){const c=config();return {from:c.from,to:c.to};}
 function rows(){const c=config();if(!c.from||!c.to)return [];const events=(db.events||[]).map(e=>({...e,players:e.players||[]}));return EPCLuckyMultiplier.score(events,period(),c);}
 window.luckySetDate_=(k,v)=>{config()[k]=v;save();};
