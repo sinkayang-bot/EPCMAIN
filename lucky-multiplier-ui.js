@@ -6,16 +6,16 @@ function config(){ensureActDb_();const a=db.activityManagement;return a.luckyMul
 function save(){if(!window.EPC_ACTIVITY_LOADED||typeof window.saveActivityCloudV3!=='function'){alert('活動資料未完成雲端載入，暫停寫入');return;}persist();window.saveActivityCloudV3();renderActivities();}
 function period(){const c=config();return {from:c.from,to:c.to};}
 function rows(){const c=config();if(!c.from||!c.to)return [];const events=(db.events||[]).filter(e=>!(typeof isIndependentAccountingEvent==='function'&&isIndependentAccountingEvent(e))).map(e=>({...e,businessDate:typeof actBusinessDate_==='function'?actBusinessDate_(e):e.businessDate,players:e.players||[]}));return EPCLuckyMultiplier.score(events,period(),c);}
-window.luckySetDate_=(k,v)=>{config()[k]=v;save();};
-window.luckyHalf_=(half)=>{const d=new Date(),p=EPCLuckyMultiplier.periods(d.getFullYear(),d.getMonth()+1)[half];Object.assign(config(),p);save();};
-window.luckyClaim_=(member,tier,v)=>{const c=config(),key=c.from+'_'+c.to+'_'+member+'_'+tier;c.claims[key]=!!v;save();};
-window.luckyDraw_=()=>{const c=config(),r=rows();if(!r.length)return alert('本期尚無參賽積分');if(!confirm('確認依積分權重抽出一位？每 1 分為 1 次抽獎機會。'))return;
+window.luckySetDate_=(k,v)=>{if(!window.EPC_ACTIVITY_LOADED)return alert('請先等待活動資料載入');config()[k]=v;save();};
+window.luckyHalf_=(half)=>{if(!window.EPC_ACTIVITY_LOADED)return alert('請先等待活動資料載入');const d=new Date(),p=EPCLuckyMultiplier.periods(d.getFullYear(),d.getMonth()+1)[half];Object.assign(config(),p);save();};
+window.luckyClaim_=(member,tier,v)=>{if(!window.EPC_ACTIVITY_LOADED)return alert('請先等待活動資料載入');const c=config(),key=c.from+'_'+c.to+'_'+member+'_'+tier;c.claims[key]=!!v;save();};
+window.luckyDraw_=()=>{if(!window.EPC_ACTIVITY_LOADED)return alert('請先等待活動資料載入');const c=config(),r=rows();if(!r.length)return alert('本期尚無參賽積分');if(!confirm('確認依積分權重抽出一位？每 1 分為 1 次抽獎機會。'))return;
 const used=new Map();for(const d of c.draws)if(d.from===c.from&&d.to===c.to)used.set(d.memberId,(used.get(d.memberId)||0)+1);
 const pool=r.filter(x=>(used.get(x.memberId)||0)<2),total=pool.reduce((n,x)=>n+x.points,0);if(!total)return alert('本期已無可抽選會員');
 let ticket=Math.random()*total,winner=pool[pool.length-1];for(const x of pool){ticket-=x.points;if(ticket<0){winner=x;break;}}
 c.draws.push({id:Date.now().toString(36),from:c.from,to:c.to,memberId:winner.memberId,points:winner.points,createdAt:new Date().toISOString(),prize:'待指定',claimed:false});save();};
-window.luckyPrize_=(id,value)=>{const d=config().draws.find(x=>x.id===id);if(d){d.prize=value;save();}};
-window.luckyDrawClaim_=(id,v)=>{const d=config().draws.find(x=>x.id===id);if(d){d.claimed=v;save();}};
+window.luckyPrize_=(id,value)=>{if(!window.EPC_ACTIVITY_LOADED)return alert('請先等待活動資料載入');const d=config().draws.find(x=>x.id===id);if(d){d.prize=value;save();}};
+window.luckyDrawClaim_=(id,v)=>{if(!window.EPC_ACTIVITY_LOADED)return alert('請先等待活動資料載入');const d=config().draws.find(x=>x.id===id);if(d){d.claimed=v;save();}};
 window.actLuckyMultiplier_=function(){
  const c=config(),p=period(),all=rows(),q=String($('actSearch')?.value||'').trim().toLowerCase(),r=all.filter(x=>!q||[x.memberId,typeof actMember_==='function'?actMember_(x.memberId)?.name:''].some(s=>String(s||'').toLowerCase().includes(q)));
  const drawn=c.draws.filter(x=>x.from===p.from&&x.to===p.to);
