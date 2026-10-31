@@ -9,7 +9,7 @@ function rows(){const c=config();if(!c.from||!c.to)return [];const events=(db.ev
 window.luckySetDate_=(k,v)=>{if(!window.EPC_ACTIVITY_LOADED)return alert('請先等待活動資料載入');config()[k]=v;save();};
 window.luckyHalf_=(half)=>{if(!window.EPC_ACTIVITY_LOADED)return alert('請先等待活動資料載入');const d=new Date(),p=EPCLuckyMultiplier.periods(d.getFullYear(),d.getMonth()+1)[half];Object.assign(config(),p);save();};
 window.luckyClaim_=(member,tier,v)=>{if(!window.EPC_ACTIVITY_LOADED)return alert('請先等待活動資料載入');const c=config(),key=c.from+'_'+c.to+'_'+member+'_'+tier;c.claims[key]=!!v;save();};
-window.luckyDraw_=()=>{if(!window.EPC_ACTIVITY_LOADED)return alert('請先等待活動資料載入');const c=config(),r=rows();if(!r.length)return alert('本期尚無參賽積分');if(!confirm('確認依積分權重抽出一位？每 1 分為 1 次抽獎機會。'))return;
+window.luckyDraw_=()=>{if(!window.EPC_ACTIVITY_LOADED)return alert('請先等待活動資料載入');const c=config();let r;try{r=rows()}catch(e){return alert('請先設定有效的活動日期')}if(!r.length)return alert('本期尚無參賽積分');if(!confirm('確認依積分權重抽出一位？每 1 分為 1 次抽獎機會。'))return;
 const used=new Map();for(const d of c.draws)if(d.from===c.from&&d.to===c.to)used.set(d.memberId,(used.get(d.memberId)||0)+1);
 const pool=r.filter(x=>(used.get(x.memberId)||0)<2),total=pool.reduce((n,x)=>n+x.points,0);if(!total)return alert('本期已無可抽選會員');
 let ticket=Math.random()*total,winner=pool[pool.length-1];for(const x of pool){ticket-=x.points;if(ticket<0){winner=x;break;}}
@@ -25,7 +25,7 @@ window.actLuckyMultiplier_=function(){
  '<div class="toolbar"><button onclick="luckyHalf_(0)">本月上半期</button><button onclick="luckyHalf_(1)">本月下半期</button><button class="primary" onclick="luckyDraw_()">按積分權重抽獎</button></div>'+
  '<div class="small">本期 '+r.length+' 位會員，累計 '+all.reduce((n,x)=>n+x.points,0)+' 分。40 分：500 折價卡；60 分：1,000 折價卡。領取紀錄獨立保存。</div>'+
  '<div class="tablewrap"><table><thead><tr><th>名次</th><th>會員</th><th>場數</th><th>積分</th><th>40 分獎勵</th><th>60 分獎勵</th></tr></thead><tbody>'+
- r.map((x,i)=>'<tr><td>'+(i+1)+'</td><td>'+esc(typeof epcPlayerDisplayHtml_==='function'?x.memberId:x.memberId)+'</td><td>'+x.games+'</td><td><b>'+x.points+'</b></td>'+
+ r.map((x,i)=>'<tr><td>'+(i+1)+'</td><td>'+(typeof epcPlayerDisplayHtml_==='function'?epcPlayerDisplayHtml_(x.memberId):esc(x.memberId))+'</td><td>'+x.games+'</td><td><b>'+x.points+'</b></td>'+
  [40,60].map(t=>'<td>'+(x.points>=t?'<label><input type="checkbox" '+checked(x.memberId,t)+' onchange="luckyClaim_(\''+esc(x.memberId)+'\','+t+',this.checked)"> 已領取</label>':'未達標')+'</td>').join('')+'</tr>').join('')+
  '</tbody></table></div><h3>本期抽獎紀錄</h3><div class="tablewrap"><table><thead><tr><th>時間</th><th>會員</th><th>積分</th><th>獎項</th><th>領取</th></tr></thead><tbody>'+
  drawn.map(x=>'<tr><td>'+esc(x.createdAt.slice(0,16))+'</td><td>'+esc(x.memberId)+'</td><td>'+x.points+'</td><td><select onchange="luckyPrize_(\''+x.id+'\',this.value)">'+['待指定','6000 現金','3000 現金','1000 現金','500 現金','1000 折價卡','500 折價卡'].map(v=>'<option '+(x.prize===v?'selected':'')+'>'+v+'</option>').join('')+'</select></td><td><input type="checkbox" '+(x.claimed?'checked':'')+' onchange="luckyDrawClaim_(\''+x.id+'\',this.checked)"></td></tr>').join('')+
