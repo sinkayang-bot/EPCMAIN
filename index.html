@@ -6837,7 +6837,7 @@ function renderActivities(){
  if($('actHunter'))$('actHunter').innerHTML=actHunter_();
  if($('actUmbrella'))$('actUmbrella').innerHTML=actUmbrella_();
  
- if($('actExtremeTen'))$('actExtremeTen').innerHTML=actExtremeTen_(); if($('actLuckyMultiplier')&&window.actLuckyMultiplier_)$('actLuckyMultiplier').innerHTML=actLuckyMultiplier_();
+ if($('actExtremeTen'))$('actExtremeTen').innerHTML=actExtremeTen_(); if(actTab_==='luckyMultiplier'&&$('actLuckyMultiplier')&&window.actLuckyMultiplier_)$('actLuckyMultiplier').innerHTML=actLuckyMultiplier_();
  }finally{window.epcActivityIdentityMode_=previous;}
 }
 function render(){
