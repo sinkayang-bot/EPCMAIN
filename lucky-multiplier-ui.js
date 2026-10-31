@@ -17,7 +17,7 @@ c.draws.push({id:Date.now().toString(36),from:c.from,to:c.to,memberId:winner.mem
 window.luckyPrize_=(id,value)=>{if(!window.EPC_ACTIVITY_LOADED)return alert('請先等待活動資料載入');const d=config().draws.find(x=>x.id===id);if(d){d.prize=value;save();}};
 window.luckyDrawClaim_=(id,v)=>{if(!window.EPC_ACTIVITY_LOADED)return alert('請先等待活動資料載入');const d=config().draws.find(x=>x.id===id);if(d){d.claimed=v;save();}};
 window.actLuckyMultiplier_=function(){
- const c=config(),p=period(),all=rows(),q=String($('actSearch')?.value||'').trim().toLowerCase(),r=all.filter(x=>!q||[x.memberId,typeof actMember_==='function'?actMember_(x.memberId)?.name:''].some(s=>String(s||'').toLowerCase().includes(q)));
+ const c=config(),p=period();let all=[];try{all=rows()}catch(e){console.error('Lucky multiplier',e)}const q=String($('actSearch')?.value||'').trim().toLowerCase(),r=all.filter(x=>!q||[x.memberId,typeof actMember_==='function'?actMember_(x.memberId)?.name:''].some(s=>String(s||'').toLowerCase().includes(q)));
  const drawn=c.draws.filter(x=>x.from===p.from&&x.to===p.to);
  const checked=(id,tier)=>c.claims[p.from+'_'+p.to+'_'+id+'_'+tier]?'checked':'';
  return '<div class="card"><h3>幸運加乘｜半月積分抽獎</h3><div class="small">僅參加店裡當日第一場賽事，額外 +2 分。各場基本分依當日場序 +1/+2/+3/+4；假日每場 +1。重買不計分。每 1 分等於 1 次抽獎機會，每人每期最多中獎 2 次。</div>'+
