@@ -2094,7 +2094,7 @@ window.addEventListener('error',function(e){
  <div class="grid" style="grid-template-columns:repeat(4,1fr)">
   <div class="card kpi"><div class="l">總會員數</div><div class="v" id="kMembers">0</div></div>
   <div class="card kpi"><div class="l">區間新增會員數</div><div class="v" id="kNewMembers">0</div></div>
-  <div class="card kpi"><div class="l">當日營收</div><div class="v" id="kDailyRevenue">$0</div><div class="small">依下方營業日｜折扣前行政費＋入會費＋其他收入</div></div>
+  <div class="card kpi"><div class="l">當日營收</div><div class="v" id="kDailyRevenue">$0</div><div class="small">依下方營業日｜已扣除優惠與一般支出</div></div>
   <div class="card kpi"><div class="l">區間總營利</div><div class="v" id="kMonthProfit">$0</div></div>
   <div class="card kpi"><div class="l">總 JP 累計</div><div class="v" id="kJP">$0</div></div>
   <div class="card kpi"><div class="l">區間 JP</div><div class="v" id="kRangeJP">$0</div></div>
@@ -5763,7 +5763,7 @@ function renderDashboardDailyReport(){
    el.value=candidates[candidates.length-1]||def.first;
  }
  const d=reportingDayInfo(el.value);
- if($('kDailyRevenue'))$('kDailyRevenue').textContent=money(d.revenue);
+ if($('kDailyRevenue')){$('kDailyRevenue').textContent=money(d.net);$('kDailyRevenue').className='v '+epcPnlClass_(d.net);}
  $('drEvents').textContent=`${d.events.length} 場`;
  $('drAdmin').textContent=money(d.gross);
  $('drMembership').textContent=money(d.membership);
