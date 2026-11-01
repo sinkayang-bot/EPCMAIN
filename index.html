@@ -2094,7 +2094,7 @@ window.addEventListener('error',function(e){
  <div class="grid" style="grid-template-columns:repeat(4,1fr)">
   <div class="card kpi"><div class="l">總會員數</div><div class="v" id="kMembers">0</div></div>
   <div class="card kpi"><div class="l">區間新增會員數</div><div class="v" id="kNewMembers">0</div></div>
-  <div class="card kpi"><div class="l">總營利</div><div class="v" id="kProfit">$0</div></div>
+  <div class="card kpi"><div class="l">當日營收</div><div class="v" id="kDailyRevenue">$0</div><div class="small">依下方營業日｜折扣前行政費＋入會費＋其他收入</div></div>
   <div class="card kpi"><div class="l">區間總營利</div><div class="v" id="kMonthProfit">$0</div></div>
   <div class="card kpi"><div class="l">總 JP 累計</div><div class="v" id="kJP">$0</div></div>
   <div class="card kpi"><div class="l">區間 JP</div><div class="v" id="kRangeJP">$0</div></div>
@@ -5763,6 +5763,7 @@ function renderDashboardDailyReport(){
    el.value=candidates[candidates.length-1]||def.first;
  }
  const d=reportingDayInfo(el.value);
+ if($('kDailyRevenue'))$('kDailyRevenue').textContent=money(d.revenue);
  $('drEvents').textContent=`${d.events.length} 場`;
  $('drAdmin').textContent=money(d.gross);
  $('drMembership').textContent=money(d.membership);
@@ -5932,7 +5933,6 @@ function renderDashboardSummary(){
 
  if($('kMembers'))$('kMembers').textContent=(db.members||[]).length;
  if($('kNewMembers'))$('kNewMembers').textContent=newMembers;
- if($('kProfit')){$('kProfit').textContent=money(allLedger.net);$('kProfit').className='v '+(epcPnlClass_(allLedger.net));}
  if($('kMonthProfit')){$('kMonthProfit').textContent=money(rangeLedger.net);$('kMonthProfit').className='v '+(epcPnlClass_(rangeLedger.net));}
  if($('kJP'))$('kJP').textContent=money(allLedger.jp);
  if($('kRangeJP'))$('kRangeJP').textContent=money(rangeLedger.jp);
