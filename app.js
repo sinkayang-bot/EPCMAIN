@@ -114,8 +114,9 @@ function renderMembers(rows=MEMBER_ROWS){
  const q=memberSearchText(document.querySelector('#memberSearch')?.value||''),filtered=q?rows.filter(m=>([m.memberId,m.name,m.nickname,m.group].some(v=>memberSearchText(v).includes(q))||window.memberPhoneMatches_?.(m,q))):rows;
  tb.innerHTML=filtered.map(m=>'<tr data-key="'+esc(m.memberKey)+'"><td>'+esc(m.memberId)+'</td><td>'+esc(window.epcMemberDisplayName_(m))+'</td><td>'+esc(window.epcNickname_(m))+'</td><td>'+esc(m.group)+'</td><td>'+money(m.eventCount)+'</td><td>'+money(m.totalEntries)+'</td><td class="'+pnlClass(m.pnl)+'">'+money(m.pnl)+'</td><td>'+esc(m.spendShare||'—')+'</td><td>'+esc(m.lastVisit||'—')+'</td></tr>').join('')||'<tr><td colspan="10" class="empty">目前沒有符合的會員資料</td></tr>';
 }
-function nextMemberId(){
+function nextMemberId(excludeId=''){
  const used=new Set([...MEMBER_ROWS,...(legacyDb_()?.members||[])].map(m=>String(m.memberId||m.id||'').trim().toUpperCase()));
+ used.add(String(excludeId||'').trim().toUpperCase());
  const start=Math.floor(Math.random()*1000000);
  for(let offset=0;offset<1000000;offset++){
   const id='A'+String((start+offset)%1000000).padStart(6,'0');
@@ -123,13 +124,19 @@ function nextMemberId(){
  }
  throw new Error('A 開頭的六位數會員編號已用完');
 }
+function memberIdEditing_(){
+ return !!((typeof editingMemberId!=='undefined'&&editingMemberId)||window.editingMemberId);
+}
 function fillNewMemberId_(){
  const field=document.querySelector('#mId');
- if(field&&!field.disabled&&!field.value.trim())field.value=nextMemberId();
+ if(field&&!memberIdEditing_()&&!field.value.trim())field.value=nextMemberId();
 }
 window.epcGenerateNewMemberId_=function(){
  const field=document.querySelector('#mId');
- if(field&&!field.disabled)field.value=nextMemberId();
+ if(!field)return;
+ if(memberIdEditing_()){alert('編輯既有會員時不能重新產生編號，請先取消編輯。');return;}
+ field.value=nextMemberId(field.value);
+ return field.value;
 };
 function openMemberModal(member=null){if(member){window.epcModeMemberBases=window.epcModeMemberBases||{};window.epcModeMemberBases[String(member.memberKey)]=JSON.parse(JSON.stringify(member));}document.querySelector('#memberForm').reset();document.querySelector('#memberKey').value=member?.memberKey||'';document.querySelector('#memberId').value=member?.memberId||nextMemberId();document.querySelector('#memberName').value=member?.name||'';document.querySelector('#memberNickname').value=member?.nickname||'';document.querySelector('#memberGroup').value=member?.group||'';document.querySelector('#memberBirth').value=member?.birth||'';document.querySelector('#memberPhone').value=member?.phone||'';document.querySelector('#memberAddress').value=member?.address||'';document.querySelector('#memberModalTitle').textContent=member?'編輯會員':'新增會員';document.querySelector('#memberFormState').textContent='';document.querySelector('#memberFormState').className='form-state';document.querySelector('#memberModal').hidden=false}
 function closeMemberModal(){document.querySelector('#memberModal').hidden=true}
