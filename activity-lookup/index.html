@@ -97,7 +97,7 @@ el('go').onclick=()=>{
  if(!selected)return status('請先選擇活動');
  const ranks=Array.isArray(selected.leaderboard)?selected.leaderboard:[];
  const found=ranks.find(r=>[r.memberId,r.name,r.displayName].some(v=>v&&safe(v).toLowerCase()===activeQuery.toLowerCase()));
- const memberId=found?.memberId||(/^[A-Za-z0-9_-]{3,32}$/.test(activeQuery)?activeQuery.toUpperCase():null);
+ const memberId=found?.recordId||found?.memberId||(/^[A-Za-z0-9_-]{3,32}$/.test(activeQuery)?activeQuery.toUpperCase():null);
  if(memberId){
   const lookupKey=activeQuery;
   stopMember=onSnapshot(doc(db,'epc_public_activity',String(memberId)),snap=>{

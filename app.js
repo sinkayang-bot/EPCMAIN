@@ -111,12 +111,13 @@ function renderMembers(rows=MEMBER_ROWS){
   if(typeof window.renderMemberRows==='function'){window.renderMemberRows();return}
  }
  const tb=document.querySelector('#members tbody');if(!tb)return;
- const q=memberSearchText(document.querySelector('#memberSearch')?.value||''),filtered=q?rows.filter(m=>([m.memberId,m.name,m.nickname,m.group].some(v=>memberSearchText(v).includes(q))||window.memberPhoneMatches_?.(m,q))):rows;
- tb.innerHTML=filtered.map(m=>'<tr data-key="'+esc(m.memberKey)+'"><td>'+esc(m.memberId)+'</td><td>'+esc(window.epcMemberDisplayName_(m))+'</td><td>'+esc(window.epcNickname_(m))+'</td><td>'+esc(m.group)+'</td><td>'+money(m.eventCount)+'</td><td>'+money(m.totalEntries)+'</td><td class="'+pnlClass(m.pnl)+'">'+money(m.pnl)+'</td><td>'+esc(m.spendShare||'—')+'</td><td>'+esc(m.lastVisit||'—')+'</td></tr>').join('')||'<tr><td colspan="10" class="empty">目前沒有符合的會員資料</td></tr>';
+ const q=memberSearchText(document.querySelector('#memberSearch')?.value||''),filtered=q?rows.filter(m=>([m.memberId,window.memberNumber_?.(m)||m.memberId,m.name,m.nickname,m.group].some(v=>memberSearchText(v).includes(q))||window.memberPhoneMatches_?.(m,q))):rows;
+ tb.innerHTML=filtered.map(m=>'<tr data-key="'+esc(m.memberKey)+'"><td>'+esc(window.memberNumber_?.(m)||m.memberId)+'</td><td>'+esc(window.epcMemberDisplayName_(m))+'</td><td>'+esc(window.epcNickname_(m))+'</td><td>'+esc(m.group)+'</td><td>'+money(m.eventCount)+'</td><td>'+money(m.totalEntries)+'</td><td class="'+pnlClass(m.pnl)+'">'+money(m.pnl)+'</td><td>'+esc(m.spendShare||'—')+'</td><td>'+esc(m.lastVisit||'—')+'</td></tr>').join('')||'<tr><td colspan="10" class="empty">目前沒有符合的會員資料</td></tr>';
 }
 function nextMemberId(excludeId=''){
  const used=new Set([...MEMBER_ROWS,...(legacyDb_()?.members||[])].map(m=>String(m.memberId||m.id||'').trim().toUpperCase()));
  used.add(String(excludeId||'').trim().toUpperCase());
+ Object.values(legacyDb_()?.activityManagement?.memberNumbers||{}).forEach(x=>used.add(String(x.number||'').toUpperCase()));
  const start=Math.floor(Math.random()*1000000);
  for(let offset=0;offset<1000000;offset++){
   const id='A'+String((start+offset)%1000000).padStart(6,'0');
@@ -318,8 +319,8 @@ async function openEventWorkspace(id){
 async function loadWorkspacePlayers(force=false){if(!ACTIVE_EVENT)return;const id=ACTIVE_EVENT;if(!force&&WORKSPACE_PLAYERS.length)return;try{const r=await api('player.list',{eventId:id});if(ACTIVE_EVENT!==id)return;WORKSPACE_PLAYERS=r.players||[];bridgeV3Activities_([WORKSPACE_EVENT],{[id]:WORKSPACE_PLAYERS});WS_PLAYER_SYNC.set(id,Date.now());try{localStorage.setItem('eightEventPlayers:'+id,JSON.stringify(WORKSPACE_PLAYERS))}catch(_){}renderWorkspace();filterWorkspaceMembers(document.querySelector('#workspaceMemberSearch').value)}catch(err){if(ACTIVE_EVENT===id&&!WORKSPACE_PLAYERS.length)alert('載入玩家失敗：'+err.message)}}
 function filterWorkspaceMembers(q){
  q=memberSearchText(q);const joined=new Set(WORKSPACE_PLAYERS.map(x=>x.memberKey));
- const list=MEMBER_ROWS.filter(m=>!joined.has(m.memberKey)&&(!q||([m.memberId,m.name,m.nickname,m.group].some(v=>memberSearchText(v).includes(q))||window.memberPhoneMatches_?.(m,q))));
- const sel=document.querySelector('#workspaceMemberSelect');sel.innerHTML=list.length?list.map(m=>'<option value="'+esc(m.memberKey)+'">'+esc(playerDisplayName(m))+' ('+esc(m.memberId)+')'+'</option>').join(''):'<option value="">找不到會員</option>';
+ const list=MEMBER_ROWS.filter(m=>!joined.has(m.memberKey)&&(!q||([m.memberId,window.memberNumber_?.(m)||m.memberId,m.name,m.nickname,m.group].some(v=>memberSearchText(v).includes(q))||window.memberPhoneMatches_?.(m,q))));
+ const sel=document.querySelector('#workspaceMemberSelect');sel.innerHTML=list.length?list.map(m=>'<option value="'+esc(m.memberKey)+'">'+esc(playerDisplayName(m))+' ('+esc(window.memberNumber_?.(m)||m.memberId)+')'+'</option>').join(''):'<option value="">找不到會員</option>';
  if(list.length===1)sel.value=list[0].memberKey;
 }
 function renderWorkspace(){
@@ -485,7 +486,7 @@ async function renderSettlementManagerV3(){
 async function openSettlementDayV3(date){
  const r=await api('settlement.report',{businessDate:date}),z=r.report||{};document.querySelector('#settlementListView').style.display='none';document.querySelector('#settlementDetailView').style.display='block';document.querySelector('#settlementDetailDate').textContent=date;document.querySelector('#dailyDate').value=date;
  const set=(id,v)=>{const e=document.querySelector(id);if(e)e.textContent=v};set('#dEvents',z.eventCount||0);set('#dMembers',z.memberCount||0);set('#dPaid',money(z.totalPaid||0));set('#dPrize',money(z.totalPrize||0));
- const host=document.querySelector('#dailyGroupDetail');if(host)host.innerHTML=(z.groups||[]).map(g=>'<div class="card tablewrap"><h3>'+esc(g.group)+'</h3><div class="grid"><div class="kpi"><div class="l">群組實付</div><div class="v">'+money(g.totalPaid)+'</div></div><div class="kpi"><div class="l">群組領回</div><div class="v">'+money(g.totalPrize)+'</div></div><div class="kpi"><div class="l">群組輸贏</div><div class="v '+pnlClass(g.net)+'">'+money(g.net)+'</div></div></div><table><thead><tr><th>玩家</th><th>實付</th><th>領回</th><th>輸贏</th></tr></thead><tbody>'+g.members.map(m=>'<tr><td>'+esc(playerDisplayName(m))+' <span class="small">'+esc(m.memberId)+'</span></td><td>'+money(m.paid)+'</td><td>'+money(m.prize)+'</td><td class="'+pnlClass(m.net)+'">'+money(m.net)+'</td></tr>').join('')+'</tbody></table></div>').join('')||'<div class="card small">本日尚無分帳資料</div>';
+ const host=document.querySelector('#dailyGroupDetail');if(host)host.innerHTML=(z.groups||[]).map(g=>'<div class="card tablewrap"><h3>'+esc(g.group)+'</h3><div class="grid"><div class="kpi"><div class="l">群組實付</div><div class="v">'+money(g.totalPaid)+'</div></div><div class="kpi"><div class="l">群組領回</div><div class="v">'+money(g.totalPrize)+'</div></div><div class="kpi"><div class="l">群組輸贏</div><div class="v '+pnlClass(g.net)+'">'+money(g.net)+'</div></div></div><table><thead><tr><th>玩家</th><th>實付</th><th>領回</th><th>輸贏</th></tr></thead><tbody>'+g.members.map(m=>'<tr><td>'+esc(playerDisplayName(m))+' <span class="small">'+esc(window.memberNumber_?.(m)||m.memberId)+'</span></td><td>'+money(m.paid)+'</td><td>'+money(m.prize)+'</td><td class="'+pnlClass(m.net)+'">'+money(m.net)+'</td></tr>').join('')+'</tbody></table></div>').join('')||'<div class="card small">本日尚無分帳資料</div>';
 }
 window.renderSettlementManager=renderSettlementManagerV3;
 window.openSettlementDayV3=openSettlementDayV3;
@@ -520,6 +521,7 @@ function applyActivitySnapshot_(data,revision){
  activityCache_();activitySyncState_('活動資料已同步｜版本 '+incoming);
  window.dispatchEvent(new CustomEvent('epcActivityCloudSaved',{detail:{revision:incoming}}));
  if(typeof window.renderActivities==='function')window.renderActivities();
+ if(typeof window.renderMemberRows==='function')window.renderMemberRows();
  return true;
 }
 async function refreshActivityCloudV3_(){
@@ -624,6 +626,7 @@ window.addMember=async function(){
  if(btn){btn.disabled=true;btn.textContent='新增中…'}
  try{
   const referrerId=window.epcReadSignupReferrer_?.()||'';
+  await saveMemberNumber_(id,id,true);
   const r=await api('member.create',{member:{memberId:id,name,nickname,group}});
   syncLegacyMemberFromV3_(r.member,note);
   if(referrerId)await window.epcSaveSignupReferrer_(String(r.member.memberId),referrerId);
@@ -638,8 +641,26 @@ window.addMember=async function(){
   alert('新增會員失敗：'+msg);
  }finally{if(btn){btn.disabled=false;btn.textContent='新增會員'}}
 };
+async function saveMemberNumber_(id,value,reserveNew=false){
+ window.EPCMode?.assertWrite();
+ if(EPC_ACTIVITY_PENDING||EPC_ACTIVITY_SAVING||EPC_ACTIVITY_SAVE_TIMER)throw Error('活動設定正在同步，請稍後再儲存會員編號');
+ const current=await api('member.list');
+ if(reserveNew&&(current.members||[]).some(m=>String(m.memberId||'').trim().toUpperCase()===String(id).toUpperCase()))throw Error('此會員編號已存在，請使用編輯會員');
+ for(let attempt=0;attempt<4;attempt++){
+  const latest=await api('activity.get');
+  const data=latest.data||{},map=data.memberNumbers||{};
+  const memberNumbers=window.EPCMemberNumbers.assign(map,id,value,current.members||[]);
+  if(map[id]?.number===memberNumbers[id].number){applyActivitySnapshot_(data,latest.revision);renderMembers();return;}
+  try{
+   const next={...data,memberNumbers};
+   const r=await api('activity.update',{data:next,expectedRevision:Number(latest.revision||0)});
+   applyActivitySnapshot_(next,r.revision);renderMembers();return;
+  }catch(e){if(e.message!=='STALE_WRITE'||attempt===3)throw e;}
+ }
+}
 window.epcV3SaveMemberEdit=async function(memberId){
- const id=String(memberId||document.querySelector('#mId')?.value||'').trim().toUpperCase();
+ const original=typeof editingMemberId!=='undefined'&&editingMemberId;
+ const id=String(original||memberId||document.querySelector('#mId')?.value||'').trim().toUpperCase();
  const legacy=window.db&&Array.isArray(window.db.members)?window.db.members.find(x=>String(x.id||'').trim().toUpperCase()===id):null;
  const row=MEMBER_ROWS.find(x=>String(x.memberKey||'')===String(legacy?.memberKey||'')||String(x.memberId||'').trim().toUpperCase()===id);
  if(!row)return alert('找不到此會員的 V3 資料，請先重新讀取會員');
@@ -651,8 +672,12 @@ window.epcV3SaveMemberEdit=async function(memberId){
  const btn=document.querySelector('#memberSaveBtn');
  if(btn){btn.disabled=true;btn.textContent='儲存中…'}
  try{
+  window.EPCMode?.assertWrite();
+  const proposed=document.querySelector('#mId')?.value||'';
+  window.EPCMemberNumbers.assign(legacyDb_()?.activityManagement?.memberNumbers||{},id,proposed,MEMBER_ROWS);
   const r=await api('member.update',{memberKey:row.memberKey,patch:{name,nickname,group},expectedRevision:row.revision});
   syncLegacyMemberFromV3_(r.member,note);
+  await saveMemberNumber_(id,proposed);
   if(typeof window.cancelMemberEdit==='function')window.cancelMemberEdit();
   if(typeof window.actionMsg==='function')window.actionMsg('會員「'+name+'」修改已同步至 V3');
  }catch(err){
@@ -660,7 +685,7 @@ window.epcV3SaveMemberEdit=async function(memberId){
   alert('修改會員失敗：'+err.message);
  }finally{if(btn)btn.disabled=false}
 };
-window.saveMemberEdit=function(){return window.epcV3SaveMemberEdit(document.querySelector('#mId')?.value||'')};
+window.saveMemberEdit=function(){return window.epcV3SaveMemberEdit(typeof editingMemberId!=='undefined'&&editingMemberId||document.querySelector('#mId')?.value||'')};
 
 
 window.performDelMember=async function(id){

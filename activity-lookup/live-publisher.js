@@ -1,5 +1,5 @@
 import '../lucky-multiplier-core.js';
-import {buildCatalog} from './catalog-core.js';
+import {buildCatalog} from './catalog-core.js?v=20261101-member-numbers1';
 const SOURCE='https://script.google.com/macros/s/AKfycbwZi5bXuFJdtXiE6oxPmn4NZti-wZyOwEfTKZ8VPo5nXP5GK1mPOYrfkxz714AN4UQx9w/exec';
 export function setupLivePublisher({fs,db,bridge}){
  let timer,running=false,pending=false;

@@ -4,7 +4,7 @@ const source=fs.readFileSync('index.html','utf8');
 for(const m of source.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/g))if(!/src=|type="module"/.test(m[1]))new vm.Script(m[2]);
 const dom=new JSDOM(source),doc=dom.window.document;
 let writes=[];
-const ctx={document:doc,console,crypto:require('node:crypto').webcrypto,window:{EPCMode:{isView:()=>false}},
+const ctx={memberNumber_:v=>String(v||''),document:doc,console,crypto:require('node:crypto').webcrypto,window:{EPCMode:{isView:()=>false}},
  db:{activityManagement:{luckyMultiplier:{from:'2026-10-30',to:'2026-10-30'}},events:[{id:'E1',date:'2026-10-30',seq:1,players:[{memberId:'ABC'}]},{id:'E2',date:'2026-10-30',seq:2,players:[{memberId:'ABC',rebuy:20}]}]},
  $:id=>doc.getElementById(id),ensureActDb_:()=>{},actActivityRange_:()=>({}),actBusinessDate_:e=>e.date,isIndependentAccountingEvent:e=>!!e.independentAccounting,
  epcPlayerDisplayName_:id=>'玩家'+id,displayDevicesCache:[],saveDisplayPref_:()=>{},loadDisplays_:async()=>{},actionMsg:msg=>{throw Error(msg)},displayFetch_:async r=>writes.push(r)};
