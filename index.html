@@ -2038,7 +2038,27 @@ body #dailyOperationsSplit .daily-hint{font-size:15px}
  body #dashboard>.grid{grid-template-columns:repeat(6,minmax(0,1fr))!important}
 }
 </style>
-<style>#ppCorrectionDialog{width:min(600px,94vw);max-height:90vh;overflow:auto;padding:24px;background:var(--card);color:var(--text);border:1px solid var(--line);border-radius:12px}#ppCorrectionDialog::backdrop{background:#0009}#ppCorrectionDialog label{margin-top:12px}</style><script defer src="activity-lookup/export.js?v=1"></script></head>
+<style>#ppCorrectionDialog{width:min(600px,94vw);max-height:90vh;overflow:auto;padding:24px;background:var(--card);color:var(--text);border:1px solid var(--line);border-radius:12px}#ppCorrectionDialog::backdrop{background:#0009}#ppCorrectionDialog label{margin-top:12px}</style><script defer src="activity-lookup/export.js?v=1"></script>
+<style id="umbrellaReadableRanks20261102">
+/* These compact three-column boards must not inherit wide desktop table minimums. */
+#umbrellaRankBoards{min-width:0}
+#umbrellaRankBoards>.card{min-width:0}
+#umbrellaRankBoards table,
+html.epc-tablet .page #umbrellaRankBoards table{
+ width:100%!important;min-width:0!important;table-layout:fixed!important;font-size:16px;
+}
+#umbrellaRankBoards table th,#umbrellaRankBoards table td{
+ white-space:normal!important;overflow-wrap:anywhere;text-align:left;vertical-align:middle;
+}
+#umbrellaRankBoards table th:first-child,#umbrellaRankBoards table td:first-child{width:64px}
+#umbrellaRankBoards table th:last-child,#umbrellaRankBoards table td:last-child{width:72px;text-align:right}
+@media screen and (max-width:1100px){
+ #umbrellaRankBoards,
+ html.epc-tablet .page #umbrellaRankBoards{grid-template-columns:minmax(0,1fr)!important}
+ #umbrellaRankBoards>.card{margin-bottom:0}
+}
+</style>
+</head>
 <script>
 (function(){
  try{
@@ -6623,7 +6643,7 @@ function actUmbrella_(){
  return `<div class="card"><h3>保護傘｜牌型券數設定</h3><div class="formgrid" style="grid-template-columns:repeat(${rules.length},1fr)">${rules.map(([k,v])=>`<div><label>${k}</label><input type="number" value="${v}" onchange="umbrellaRule_('${k}',this.value)"></div>`).join('')}</div>
  <h3 style="margin-top:14px">登記保護傘</h3><div class="formgrid" style="grid-template-columns:.9fr 1.2fr 1.2fr .6fr 1.2fr auto"><div><label>日期</label><input type="date" id="umbrellaDate" value="${new Date().toISOString().slice(0,10)}"></div><div><label>會員</label><input id="umbrellaMember" list="umbrellaMemberList" autocomplete="off" placeholder="輸入姓名 / 會員ID"><datalist id="umbrellaMemberList">${actMemberSearchOptions_()}</datalist></div><div><label>被超車牌型</label><select id="umbrellaType" onchange="umbrellaTypeChanged_()">${rules.map(([k])=>`<option>${k}</option>`).join('')}</select></div><div><label>券數</label><input type="number" id="umbrellaCoupons" value="${rules[0]?.[1]||0}"></div><div><label>備註</label><input id="umbrellaNote"></div><div style="align-self:end"><button onclick="addUmbrella_()">登記</button></div></div>
  <h3 style="margin-top:14px">排行榜</h3><div style="max-width:280px;margin-bottom:12px"><label>整月排行月份</label><input type="month" id="umbrellaMonthFilter" value="${S.month.month}" onchange="umbrellaSetMonthFilter_(this.value)"></div><div class="small">整月排行包含該月所有有效登記，不受活動區間裁切；活動期間排行依上方設定的開始日、結束日計算。</div>
- <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px;margin-top:12px">${[{title:'整月排行榜',range:S.month,rank:S.monthRank},{title:'活動期間排行榜',range:S.period,rank:S.periodRank}].map(board=>`<div class="card"><h3>${board.title}</h3><div class="small">${epcDisplayEscape_(board.range.from||'不限開始日')} ～ ${epcDisplayEscape_(board.range.to||'不限結束日')}</div><table><thead><tr><th>排名</th><th>玩家</th><th>券數</th></tr></thead><tbody>${board.rank.map((x,i)=>`<tr><td>${i+1}</td><td>${epcPlayerDisplayHtml_(x.id)}</td><td>${x.score}</td></tr>`).join('')||'<tr><td colspan="3">尚無資料</td></tr>'}</tbody></table></div>`).join('')}</div>
+ <div class="grid" id="umbrellaRankBoards" style="grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px;margin-top:12px">${[{title:'整月排行榜',range:S.month,rank:S.monthRank},{title:'活動期間排行榜',range:S.period,rank:S.periodRank}].map(board=>`<div class="card"><h3>${board.title}</h3><div class="small">${epcDisplayEscape_(board.range.from||'不限開始日')} ～ ${epcDisplayEscape_(board.range.to||'不限結束日')}</div><table><thead><tr><th>排名</th><th>玩家</th><th>券數</th></tr></thead><tbody>${board.rank.map((x,i)=>`<tr><td>${i+1}</td><td>${epcPlayerDisplayHtml_(x.id)}</td><td>${x.score}</td></tr>`).join('')||'<tr><td colspan="3">尚無資料</td></tr>'}</tbody></table></div>`).join('')}</div>
  <h3 style="margin-top:14px">明細</h3><table><thead><tr><th>日期</th><th>玩家</th><th>牌型</th><th>券數（可改）</th><th>備註</th><th></th></tr></thead><tbody>${rows.map(x=>`<tr><td>${x.date}</td><td>${epcPlayerDisplayHtml_(x.memberId)}</td><td>${x.type}</td><td><input type="number" style="width:90px" value="${x.coupons}" onchange="umbrellaEdit_('${x.id}',this.value)"></td><td>${x.note||''}</td><td><button class="danger" onclick="umbrellaDel_('${x.id}')">刪除</button></td></tr>`).join('')||'<tr><td colspan="6">尚無資料</td></tr>'}</tbody></table></div>`;
 }
 function bossSet_(k,v,type='num'){const B=db.activityManagement.boss;B[k]=type==='bool'?!!v:Number(v)||0;persist();if(window.saveActivityCloudV3)window.saveActivityCloudV3();renderActivities()}
