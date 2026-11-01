@@ -87,7 +87,7 @@ function rank(rows,scoreKey){rows.sort((a,b)=>numeric(b[scoreKey])-numeric(a[sco
  if(!a.publicActivityVisibility||typeof a.publicActivityVisibility!=='object'||Array.isArray(a.publicActivityVisibility))throw Error('Public visibility settings missing from V3 cloud; refusing to overwrite existing public catalog');
  const visibility=a.publicActivityVisibility;
  const activityKeys={umbrella:'umbrella',extreme:'extremeTen',weekly:'weekly',weeklyRank:'rank',hunter:'hunter',pioneer:'pioneer',luckyMultiplier:'luckyMultiplier'};
- const publicActivities=activities.filter(item=>visibility[activityKeys[item.id]]===true);
+ const publicActivities=activities.filter(item=>visibility[activityKeys[item.id]]===true).map(item=>({...item,leaderboard:item.leaderboard.map(row=>({...row,recordId:row.memberId,memberId:a.memberNumbers?.[row.memberId]?.number||row.memberId}))}));
  const catalog={version:1,sourceRevision:numeric(body.revision),generatedAt:admin.firestore.FieldValue.serverTimestamp(),activities:publicActivities};
  await db.collection('epc_public_activity_catalog').doc('current').set(catalog);
  console.log(JSON.stringify({published:true,revision:body.revision,activities:publicActivities.map(x=>({id:x.id,players:x.leaderboard.length}))}));

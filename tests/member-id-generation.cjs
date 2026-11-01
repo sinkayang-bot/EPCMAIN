@@ -13,7 +13,7 @@ ctx.editingMemberId='CUSTOM';ctx.epcGenerateNewMemberId_();assert.equal(field.va
 field.value='';ctx.fillNewMemberId_();assert.equal(field.value,'','never fill an existing member ID during editing');
 ctx.editingMemberId=null;ctx.fillNewMemberId_();assert.match(field.value,/^A\d{6}$/);
 // The actual HTML button remains a local preview in view mode, while creates stay protected.
-const page=new JSDOM(html);const button=page.window.document.querySelector('[onclick="window.epcGenerateNewMemberId_()"]');assert(button.hasAttribute('data-mode-control'));assert(html.includes('app.js?v=20261101-member-id2'));
+const page=new JSDOM(html);const button=page.window.document.querySelector('[onclick="window.epcGenerateNewMemberId_()"]');assert(button.hasAttribute('data-mode-control'));assert(html.includes('app.js?v=20261101-member-numbers1'));
 vm.runInContext(fs.readFileSync('terminal-mode.js','utf8'),vm.createContext({window:w,document:w.document,CustomEvent:w.CustomEvent,MutationObserver:w.MutationObserver,console,WeakMap,Set,Promise}));
 const realButton=w.document.importNode(button,true);w.document.body.append(realButton);realButton.onclick=ctx.epcGenerateNewMemberId_;field.disabled=true;const before=field.value;realButton.click();assert.notEqual(field.value,before,'actual button changes the preview under the view-mode click guard');
 assert(w.EPCMode.isView());assert.throws(()=>w.EPCMode.assertAction('member.create'),/檢視模式/);

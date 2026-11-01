@@ -14,7 +14,7 @@ check({...data,type:'legacy'});
 check({...data,rows:[{memberId:'42',name:'甲',seconds:'9.80',difference:'0.20',rank:3},{memberId:'42',name:'甲',seconds:'9.98',difference:'0.02',rank:1},{memberId:'43',name:'乙',seconds:'10.02',difference:'0.02',rank:1}]});assert.equal(host.querySelectorAll('tbody tr').length,2);assert(!host.textContent.includes('9.80 秒'));assert(host.textContent.includes('每人限領一次'));
 
 const html=fs.readFileSync(require.resolve('../index.html'),'utf8');
-ctx.actActivityNames_=()=>({extremeTen:"極限 10 秒"});ctx.ensureActDb_=()=>{};ctx.db={activityManagement:{}};ctx.actActivityRange_=()=>({from:'2026-10-15',to:'2026-10-31'});ctx.extremeTenStats_=()=>({awarded:[],remaining:8,leaderboard:[{id:'1',memberId:'42',cents:998,difference:2},{id:'2',memberId:'43',cents:1002,difference:2}]});ctx.epcPlayerDisplayName_=id=>id;
+ctx.memberNumber_=v=>String(v||'');ctx.actActivityNames_=()=>({extremeTen:"極限 10 秒"});ctx.ensureActDb_=()=>{};ctx.db={activityManagement:{}};ctx.actActivityRange_=()=>({from:'2026-10-15',to:'2026-10-31'});ctx.extremeTenStats_=()=>({awarded:[],remaining:8,leaderboard:[{id:'1',memberId:'42',cents:998,difference:2},{id:'2',memberId:'43',cents:1002,difference:2}]});ctx.epcPlayerDisplayName_=id=>id;
 vm.runInContext(html.slice(html.indexOf('function displayPayload_('),html.indexOf('async function publishDisplay_(')),ctx);
 const p=vm.runInContext("displayPayload_('extremeTen')",ctx);assert.equal(p.metric,'seconds');assert.equal(p.rows[0].seconds,'9.98');assert.equal(p.rows[1].seconds,'10.02');assert.equal(p.rows[1].rank,1);assert(!('score' in p.rows[0]));
 dom.window.close();console.log('PASS: Extreme10 seconds-only payload, tie ranks, single/parallel/rotation rendering and legacy identity fallback.');

@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="zh-Hant">
-<head><script defer src="tablet/layout.js?v=46"></script><script src="terminal-mode.js?v=20261016-modes1"></script><script src="event-patch-core.js?v=20261016-modes1"></script>
+<head><meta charset="utf-8"><script src="member-number-core.js?v=20261101-numbers1"></script><script defer src="tablet/layout.js?v=46"></script><script src="terminal-mode.js?v=20261016-modes1"></script><script src="event-patch-core.js?v=20261016-modes1"></script>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
 <link rel="icon" type="image/png" sizes="32x32" href="assets/epc-icon-32.png?v=20261024-brand46"><link rel="apple-touch-icon" sizes="180x180" href="assets/epc-icon-180.png?v=20261024-brand46"><meta name="apple-mobile-web-app-title" content="EPC"><link rel="stylesheet" href="brand.css?v=20261024-brand46"><link rel="manifest" href="manifest.webmanifest?v=20261024-brand46"><title>EPC POKER MANAGEMENT V3.0</title>
@@ -2170,7 +2170,7 @@ window.addEventListener('error',function(e){
 
    <div><label>會員（本名）</label><input id="mName"></div>
    <div><label>綽號</label><input id="mNickname" placeholder="可留白"></div>
-   <div><label for="mId">會員 ID（自動產生，可自行修改）</label><div style="display:flex;gap:6px"><input id="mId" placeholder="例如 A123456" style="min-width:0;flex:1"><button type="button" data-mode-control onclick="window.epcGenerateNewMemberId_()" title="新增會員時重新產生編號">重新產生</button></div></div>
+   <div><label for="mId">會員編號（可修改，歷史紀錄保留）</label><div style="display:flex;gap:6px"><input id="mId" placeholder="例如 A123456" style="min-width:0;flex:1"><button type="button" data-mode-control onclick="window.epcGenerateNewMemberId_()" title="新增會員時重新產生編號">重新產生</button></div></div>
    <div><label>預設結帳群組</label><input id="mGroup" placeholder="例如 A組"></div>
    <div><label style="font-size:16px;font-weight:700">備註</label><input id="mNote"></div>
   </div>
@@ -2755,12 +2755,14 @@ const money=n=>'$'+Math.round(Number(n||0)).toLocaleString('zh-TW');
 const uid=()=>String(Date.now()).slice(-8)+Math.floor(Math.random()*90+10);
 // A display label never replaces the stored name, member ID or settlement group.
 function epcPnlClass_(value){const n=Number(value)||0;return n>0?'pos':n<0?'neg':'pnl-zero';}
+function memberNumber_(value){const map=db.activityManagement?.memberNumbers||{};return window.EPCMemberNumbers?.number(value,map)||String(typeof value==='object'?(value.id||value.memberId||''):value||'')}
+function memberNumberResolve_(value){return window.EPCMemberNumbers?.resolve(value,db.activityManagement?.memberNumbers||{},db.members||[])||String(value||'')}
 function epcPlayerDisplayName_(playerOrId,member){
  const p=playerOrId&&typeof playerOrId==='object'?playerOrId:{};
  const id=String(p.memberId||p.id||(typeof playerOrId==='string'||typeof playerOrId==='number'?playerOrId:''));
  const members=Array.isArray(db.members)?db.members:[];
  const m=member||members.find(x=>p.memberKey&&String(x.memberKey||'')===String(p.memberKey))||members.find(x=>id&&String(x.id||x.memberId||'')===id)||{};
- if(typeof window!=='undefined'&&window.epcActivityIdentityMode_==='id')return id||'未知';
+ if(typeof window!=='undefined'&&window.epcActivityIdentityMode_==='id')return memberNumber_(id)||'未知';
  const text=v=>String(v??'').trim();
  return text(p.nickname)||text(m.nickname)||text(m.name)||text(p.name)||text(p.member)||id||'未知';
 }
@@ -4077,8 +4079,8 @@ function editMember(id){
  editingMemberId=id;
  $('mName').value=m.name||'';
  $('mNickname').value=m.nickname||'';
- $('mId').value=m.id||'';
- $('mId').disabled=true;
+ $('mId').value=memberNumber_(m);
+ $('mId').disabled=false;
  $('mGroup').value=m.group||'';
  $('mNote').value=m.note||'';
  $('memberSaveBtn').textContent='儲存修改';
@@ -4163,7 +4165,7 @@ function filterAddPlayerMembers(keyword){
  const list=db.members.filter(m=>{
    const name=String(m.name||'').toLowerCase();
    const nickname=String(m.nickname||'').toLowerCase();
-   const id=String(m.id||'').toLowerCase();
+   const id=(String(m.id||'')+' '+memberNumber_(m)).toLowerCase();
    const group=String(m.group||m.settleGroup||m.settlementGroup||m.accountGroup||'').toLowerCase();
    return !((currentEvent()?.players||[]).some(p=>String(p.memberId)===String(m.id))) && (!q || name.includes(q) || nickname.includes(q) || id.includes(q) || group.includes(q) || memberPhoneMatches_(m,q) || memberSearchLabel_(m).toLowerCase().includes(q));
  });
@@ -5617,7 +5619,7 @@ function openMemberProfile_(id){
 
  const panel=$('memberProfilePanel');if(!panel)return;
  panel.innerHTML='<div class="toolbar" style="justify-content:space-between"><h2>'+esc(epcMemberDisplayName_(m))+'｜會員資料</h2><button onclick="closeMemberProfile_()">關閉</button></div>'+
- '<p class="small">會員編號：'+esc(String(m.id||''))+'　綽號：'+esc(epcNickname_(m)||'—')+'　分帳群組：'+esc(m.group||'—')+'　最後來店：'+esc(memberLastVisit_(m))+'</p>'+
+ '<p class="small">會員編號：'+esc(memberNumber_(m))+'　綽號：'+esc(epcNickname_(m)||'—')+'　分帳群組：'+esc(m.group||'—')+'　最後來店：'+esc(memberLastVisit_(m))+'</p>'+
  memberFormProfileHtml_(m)+
  '<p class="small">營業日：'+esc(from||'全部')+' ～ '+esc(to||'全部')+'；未結算不計入盈虧</p>'+
  '<div class="grid">'+box('參賽場次',String(ev.length))+box('已結算場次',String(new Set(h.map(x=>x.eventId||x.date)).size))+box('實付金額',money(paid))+box('領回金額',money(prize))+box('淨盈虧',money(net),epcPnlClass_(net))+'</div>'+
@@ -5668,7 +5670,7 @@ function renderMemberRows(){
  const stats=(db.members||[]).map(m=>{const h=memberHistoryInRange(m,from,to);const settledEvents=new Set(h.map(x=>x.eventId||`${x.date}|${x.eventSeq||''}|${x.level||''}`)).size;const events=memberParticipationInRange_(m,from,to).length;const paid=h.reduce((s,x)=>s+(+x.paid||0),0),prize=h.reduce((s,x)=>s+(+x.prize||0),0);return {m,events,settledEvents,paid,prize,net:prize-paid};});
  const totalPaid=stats.reduce((s,x)=>s+x.paid,0),totalPrize=stats.reduce((s,x)=>s+x.prize,0),totalNet=totalPrize-totalPaid,totalEntries=stats.reduce((s,x)=>s+x.events,0);
  const sortBy=$('memberSortBy')?.value||'eventsDesc',filterBy=$('memberFilterBy')?.value||'all';
- const searched=stats.filter(({m})=>!q||String(m.name||'').toLowerCase().includes(q)||String(m.nickname||'').toLowerCase().includes(q)||String(m.id||'').toLowerCase().includes(q)||String(m.group||'').toLowerCase().includes(q)||memberPhoneMatches_(m,q));
+ const searched=stats.filter(({m})=>!q||String(m.name||'').toLowerCase().includes(q)||String(m.nickname||'').toLowerCase().includes(q)||String(m.id||'').toLowerCase().includes(q)||memberNumber_(m).toLowerCase().includes(q)||String(m.group||'').toLowerCase().includes(q)||memberPhoneMatches_(m,q));
  const filtered=searched.filter(x=>{
    if(filterBy==='profit')return x.net>0;
    if(filterBy==='loss')return x.net<0;
@@ -5693,11 +5695,11 @@ function renderMemberRows(){
    if(sortBy==='netDesc')return b.net-a.net||b.events-a.events;
    if(sortBy==='netAsc')return a.net-b.net||b.events-a.events;
    if(sortBy==='nameAsc')return epcPlayerDisplayName_(a.m).localeCompare(epcPlayerDisplayName_(b.m),'zh-Hant');
-   if(sortBy==='idAsc')return String(a.m.id||'').localeCompare(String(b.m.id||''),undefined,{numeric:true});
+   if(sortBy==='idAsc')return memberNumber_(a.m).localeCompare(memberNumber_(b.m),undefined,{numeric:true});
    return b.events-a.events||share(b)-share(a)||epcPlayerDisplayName_(a.m).localeCompare(epcPlayerDisplayName_(b.m),'zh-Hant');
  };
  const list=filtered.sort(cmp);
- tbody.innerHTML=list.map(({m,events,settledEvents,paid,prize,net})=>{const pct=totalPaid>0?paid/totalPaid*100:0;return `<tr><td>${`<button type="button" data-member-profile="${epcDisplayEscape_(m.id||"")}" onclick="openMemberProfile_(this.dataset.memberProfile)" style="border:0;background:none;color:#d6b35a;text-decoration:underline;font-weight:800;padding:0">${epcDisplayEscape_(epcMemberDisplayName_(m))}</button>`}</td><td>${epcPlayerDisplayHtml_(m)}</td><td>${epcDisplayEscape_(epcNickname_(m)||'—')}</td><td>${epcDisplayEscape_(m.id||'')}</td><td>${epcDisplayEscape_(memberCreatedBusinessDate(m)||'未記錄')}</td><td>${m.group||'-'}</td><td>${events}</td><td>${settledEvents}</td><td>${pct.toFixed(1)}%</td><td>${money(paid)}</td><td>${money(prize)}</td><td class="${epcPnlClass_(net)}">${money(net)}</td><td>${epcDisplayEscape_(memberLastVisit_(m))}</td><td><button onclick="editMember('${m.id}')">編輯</button> <button class="danger" onclick="delMember('${m.id}')">刪除</button></td></tr>`;}).join('')||'<tr><td colspan="14" class="small">找不到符合條件的會員</td></tr>';
+ tbody.innerHTML=list.map(({m,events,settledEvents,paid,prize,net})=>{const pct=totalPaid>0?paid/totalPaid*100:0;return `<tr><td>${`<button type="button" data-member-profile="${epcDisplayEscape_(m.id||"")}" onclick="openMemberProfile_(this.dataset.memberProfile)" style="border:0;background:none;color:#d6b35a;text-decoration:underline;font-weight:800;padding:0">${epcDisplayEscape_(epcMemberDisplayName_(m))}</button>`}</td><td>${epcPlayerDisplayHtml_(m)}</td><td>${epcDisplayEscape_(epcNickname_(m)||'—')}</td><td>${epcDisplayEscape_(memberNumber_(m))}</td><td>${epcDisplayEscape_(memberCreatedBusinessDate(m)||'未記錄')}</td><td>${m.group||'-'}</td><td>${events}</td><td>${settledEvents}</td><td>${pct.toFixed(1)}%</td><td>${money(paid)}</td><td>${money(prize)}</td><td class="${epcPnlClass_(net)}">${money(net)}</td><td>${epcDisplayEscape_(memberLastVisit_(m))}</td><td><button onclick="editMember('${m.id}')">編輯</button> <button class="danger" onclick="delMember('${m.id}')">刪除</button></td></tr>`;}).join('')||'<tr><td colspan="14" class="small">找不到符合條件的會員</td></tr>';
  const foot=$('memberTotals');if(foot)foot.innerHTML=`<tr style="font-weight:800;border-top:2px solid #52677b"><td>區間總計</td><td colspan="5">${from||'全部'} ～ ${to||'全部'}</td><td>${totalEntries}</td><td>${stats.reduce((sum,x)=>sum+x.settledEvents,0)}</td><td>${totalPaid>0?'100.0%':'0.0%'}</td><td>${money(totalPaid)}</td><td>${money(totalPrize)}</td><td class="${epcPnlClass_(totalNet)}">${money(totalNet)}</td><td></td><td></td></tr>`;
 }
 function setMemberRangeThisMonth(){const now=new Date(),y=now.getFullYear(),m=String(now.getMonth()+1).padStart(2,'0'),last=new Date(y,now.getMonth()+1,0).getDate();$('memberDateFrom').value=`${y}-${m}-01`;$('memberDateTo').value=`${y}-${m}-${String(last).padStart(2,'0')}`;renderMemberRows();}
@@ -6133,7 +6135,7 @@ function ensureActDb_(){
  if(B.initialHp==null)B.initialHp=250;if(+B.initialHp===200)B.initialHp=250;const _ab=(B.bosses||[]).find(x=>x.id===B.activeBossId);if(_ab&&+_ab.initialHp===200&&(_ab.attacks||[]).length<=1){const dealt=(_ab.attacks||[]).reduce((n,x)=>n+(+x.damage||0),0);_ab.initialHp=250;}
  B.attacks=Array.isArray(B.attacks)?B.attacks:[];
 }
-function actRange_(){return {from:$('actFrom')?.value||'',to:$('actTo')?.value||'',q:String($('actSearch')?.value||'').trim().toLowerCase()}}
+function actRange_(){return {from:$('actFrom')?.value||'',to:$('actTo')?.value||'',q:memberNumberResolve_(String($('actSearch')?.value||'').trim()).toLowerCase()}}
 function actThisMonth_(){const n=new Date(),y=n.getFullYear(),m=String(n.getMonth()+1).padStart(2,'0');$('actFrom').value=`${y}-${m}-01`;$('actTo').value=`${y}-${m}-${String(new Date(y,n.getMonth()+1,0).getDate()).padStart(2,'0')}`;renderActivities()}
 function setActTab_(x){actTab_=x;renderActivities()}
 function actActivityRange_(kind=actTab_){
@@ -6248,14 +6250,14 @@ function memberSearchLabel_(m,profile){
  const member=profile||(m.id?m:(db.members||[]).find(x=>String(x.id)===id))||m;
  const name=String(member.name||m.name||'').trim();
  const nickname=String(m.nickname||member.nickname||'').trim();
- return [name,nickname&&nickname!==name?'綽號：'+nickname:''].filter(Boolean).join(' / ')+' ('+id+')';
+ return [name,nickname&&nickname!==name?'綽號：'+nickname:''].filter(Boolean).join(' / ')+' ('+memberNumber_(id)+')';
 }
 function actMemberSearchOptions_(members){
  return (members||db.members||[]).map(m=>{
   const id=String(m.id||m.memberId||'');
   const mm=m.id?m:actMember_(id);
   const name=activityIdentityMode_()==='id'?epcDisplayEscape_(id):epcPlayerDisplayHtml_(m,mm);
-  const value=name===epcDisplayEscape_(id)?name:name+' ('+epcDisplayEscape_(id)+')';
+  const shown=memberNumber_(id),value=name===epcDisplayEscape_(id)?epcDisplayEscape_(shown):name+' ('+epcDisplayEscape_(shown)+')';
   return '<option value="'+value+'" data-label="'+epcDisplayEscape_(memberSearchLabel_(m,mm))+'"></option>';
  }).join('');
 }
@@ -6263,8 +6265,8 @@ function actResolveMember_(inputId){
  const raw=String($(inputId)?.value||'').trim();
  if(!raw)return '';
  const mt=raw.match(/\(([^()]+)\)\s*$/);
- if(mt)return mt[1].trim();
- const exact=(db.members||[]).find(x=>String(x.id)===raw);
+ if(mt)return memberNumberResolve_(mt[1].trim());
+ const exact=(db.members||[]).find(x=>String(x.id)===raw||memberNumber_(x).toUpperCase()===raw.toUpperCase());
  if(exact)return String(exact.id);
  const matches=(db.members||[]).filter(x=>String(x.name||'').trim()===raw||String(x.nickname||'').trim()===raw);
  return matches.length===1?String(matches[0].id):'';
@@ -6280,7 +6282,7 @@ function actPlayerStats_(kind=actTab_){
   if(!map[id])map[id]={id,name:epcPlayerDisplayName_(id,m),games:0,dates:new Set(),groups:0};
   map[id].games++;map[id].dates.add(actBusinessDate_(e));map[id].groups+=actGroups_(p,e);
  }); });
- return Object.values(map).map(x=>({...x,days:x.dates.size})).filter(x=>!q||[x.name,x.id,actMember_(x.id).name,actMember_(x.id).nickname].some(v=>String(v||'').toLowerCase().includes(q)));
+ return Object.values(map).map(x=>({...x,days:x.dates.size})).filter(x=>!q||[x.name,x.id,memberNumber_(x.id),actMember_(x.id).name,actMember_(x.id).nickname].some(v=>String(v||'').toLowerCase().includes(q)));
 }
 function actSave_(){persist();if(window.saveActivityCloudV3)window.saveActivityCloudV3();renderActivities()}
 function actAdj_(kind,id,field,v){
@@ -6797,7 +6799,7 @@ function extremeTenClaim_(id,checked){
 }
 function actExtremeTen_(){
  const S=extremeTenStats_(),r=actRange_(),q=r.q;
- const matches=x=>(!r.from||x.date>=r.from)&&(!r.to||x.date<=r.to)&&(!q||[x.memberId,epcPlayerDisplayName_(x.memberId),x.note].join(' ').toLowerCase().includes(q));
+ const matches=x=>(!r.from||x.date>=r.from)&&(!r.to||x.date<=r.to)&&(!q||[x.memberId,memberNumber_(x.memberId),epcPlayerDisplayName_(x.memberId),x.note].join(' ').toLowerCase().includes(q));
  const rows=S.leaderboard.filter(matches),records=S.rows.filter(matches).slice().sort((a,b)=>Number(b.createdAt||0)-Number(a.createdAt||0)||String(b.id).localeCompare(String(a.id)));
  const candidateIds=new Set(S.candidates.map(x=>x.id)),bestIds=new Set(S.leaderboard.map(x=>x.id));let lastDifference=null,place=0;
  const rankById=new Map();S.leaderboard.forEach((x,i)=>{if(x.difference!==lastDifference)place=i+1;lastDifference=x.difference;rankById.set(x.id,place)});
@@ -6922,7 +6924,7 @@ function render(){
    return {p,i,m,c,vals:{
     seat:`<input value="${p.seat??''}" placeholder="座位" inputmode="numeric" style="width:100%;min-width:0" onchange="setP(${i},'seat',this.value)">`,
     name:`<span style="white-space:nowrap">${window.PP?PP.nameCell(ev,p,epcPlayerDisplayHtml_(p,m)):epcPlayerDisplayHtml_(p,m)}</span>`,
-    memberId:`<span style="white-space:nowrap">${m.id||p.memberId||''}</span>`,
+    memberId:`<span style="white-space:nowrap">${memberNumber_(m.id||p.memberId)}</span>`,
     nickname:`<input value="${p.nickname??m.nickname??''}" placeholder="綽號" style="width:100%;min-width:0" onchange="setP(${i},'nickname',this.value);syncPlayerNickname_('${p.memberId}',this.value)">`,
     buyin:`<input type="number" min="0" value="${p.buyin}" style="width:100%;min-width:0" onchange="setP(${i},'buyin',this.value)">`,
     rebuy:window.PP?PP.rebuyCell(ev,p,i):`<input type="number" min="0" value="${p.rebuy}" style="width:100%;min-width:0" onchange="setP(${i},'rebuy',this.value)">`,
@@ -6986,7 +6988,7 @@ function render(){
   let cells={
    seat:`<td>${p.seat||''}</td>`,
    player:`<td>${epcPlayerDisplayHtml_(p,m)}</td>`,
-   memberId:`<td>${m.id||p.memberId||''}</td>`,
+   memberId:`<td>${memberNumber_(m.id||p.memberId)}</td>`,
    nickname:`<td>${epcDisplayEscape_(epcNickname_(p,m))}</td>`,
    groups:`<td>${c.groups}</td>`,
    paid:`<td>${money(c.paid)}</td>`,
@@ -7736,6 +7738,7 @@ function displayLeaderboard_(kind){
 }
 function displayPayload_(type){
  const payload=displayActivityPayload_(type);
+ for(const key of ['rows','monthRows','attacks'])if(Array.isArray(payload[key]))payload[key]=payload[key].map(r=>({...r,memberNumber:memberNumber_(r.memberId||r.id)}));
  const title=actActivityNames_()[type];if(title)payload.title=title;
  return payload;
 }
@@ -8007,10 +8010,10 @@ async function epcShowRecoveryAudit_(){
 </script>
 <script src="firebase-config.js?v=20261007-0780"></script>
 <script src="phone/stack-core.js?v=20261009-settlement-confirmed"></script>
-<script src="firebase-events.js?v=20261031-public-live1"></script>
+<script src="firebase-events.js?v=20261101-member-numbers1"></script>
 <script src="sync-v3.js?v=20261007-0780"></script>
-<script src="app.js?v=20261101-member-id2"></script><script type="module" src="player-free/backoffice-relay.js?v=9"></script><dialog id="ppDialog"><div class="toolbar" style="justify-content:space-between"><h2 id="ppDialogTitle">玩家帳務</h2><button onclick="document.getElementById('ppDialog').close()">關閉</button></div><div id="ppDialogBody"></div></dialog>
-<dialog id="ppRegistrationDialog"><div class="toolbar" style="justify-content:space-between"><h2 id="ppRegistrationTitle">加入本場</h2><button data-pp-action onclick="PP.cancelRegistration()">取消</button></div><div id="ppRegistrationBody"></div></dialog><script src="player-payments-core.js?v=20261029-admin-correction"></script><script src="player-payments.js?v=20261029-admin-correction"></script><script src="ui-layout.js?v=20261028-cloud-layout2"></script><dialog id="epcTimerDialog" style="width:98vw;max-width:none;height:96vh;max-height:none;padding:0;background:#050505;border:1px solid #b7933b;border-radius:12px;color:white"><div style="height:44px;display:flex;justify-content:space-between;align-items:center;padding:4px 16px"><b>賽事計時器</b><button type="button" onclick="document.getElementById('epcTimerDialog').close()">關閉</button></div><iframe id="epcTimerFrame" title="賽事計時器後臺" style="width:100%;height:calc(100% - 48px);border:0"></iframe></dialog><dialog id="newEventDialog" style="width:min(580px,94vw);padding:24px;border:1px solid #b89340;border-radius:12px;background:var(--bg,#111);color:var(--text,#eee)"><h2>建立賽事</h2><label for="newEventName">賽事名稱</label><input id="newEventName"><label for="newEventTimerTemplate">計時器範本</label><select id="newEventTimerTemplate" onchange="epcNewEventTimerHint_()"><option value="">不啟用計時器</option><option value="standard">20 分鐘標準賽（內建）</option></select><p class="small" id="newEventTimerHint"></p><p class="small">範本請在獨立「計時器」管理。按建立後，賽事與該場計時器會一同產生。</p><div class="toolbar"><button id="newEventConfirm" class="primary" onclick="epcConfirmNewEvent_()">建立賽事與計時器</button><button onclick="document.getElementById('newEventDialog').close()">取消</button></div></dialog><dialog id="epcTimerProjectionDialog" style="width:96vw;max-width:1920px;height:94vh;max-height:none;padding:0;background:#000;border:1px solid #b89340;border-radius:12px;color:white"><div style="height:48px;display:flex;justify-content:space-between;align-items:center;gap:12px;padding:6px 16px"><b id="epcTimerProjectionTitle">投影預覽</b><button type="button" onclick="document.getElementById('epcTimerProjectionDialog').close()">關閉</button></div><iframe id="epcTimerProjectionFrame" title="設備計時器投影預覽" style="width:100%;height:calc(100% - 90px);border:0;background:#000"></iframe><div class="small" style="padding:8px 16px">此為設備投影預覽。確認畫面後，回到此設備按「套用到螢幕」。</div></dialog><script id="epcManagementView20261026">
+<script src="app.js?v=20261101-member-numbers1"></script><script type="module" src="player-free/backoffice-relay.js?v=9"></script><dialog id="ppDialog"><div class="toolbar" style="justify-content:space-between"><h2 id="ppDialogTitle">玩家帳務</h2><button onclick="document.getElementById('ppDialog').close()">關閉</button></div><div id="ppDialogBody"></div></dialog>
+<dialog id="ppRegistrationDialog"><div class="toolbar" style="justify-content:space-between"><h2 id="ppRegistrationTitle">加入本場</h2><button data-pp-action onclick="PP.cancelRegistration()">取消</button></div><div id="ppRegistrationBody"></div></dialog><script src="player-payments-core.js?v=20261029-admin-correction"></script><script src="player-payments.js?v=20261101-member-numbers1"></script><script src="ui-layout.js?v=20261028-cloud-layout2"></script><dialog id="epcTimerDialog" style="width:98vw;max-width:none;height:96vh;max-height:none;padding:0;background:#050505;border:1px solid #b7933b;border-radius:12px;color:white"><div style="height:44px;display:flex;justify-content:space-between;align-items:center;padding:4px 16px"><b>賽事計時器</b><button type="button" onclick="document.getElementById('epcTimerDialog').close()">關閉</button></div><iframe id="epcTimerFrame" title="賽事計時器後臺" style="width:100%;height:calc(100% - 48px);border:0"></iframe></dialog><dialog id="newEventDialog" style="width:min(580px,94vw);padding:24px;border:1px solid #b89340;border-radius:12px;background:var(--bg,#111);color:var(--text,#eee)"><h2>建立賽事</h2><label for="newEventName">賽事名稱</label><input id="newEventName"><label for="newEventTimerTemplate">計時器範本</label><select id="newEventTimerTemplate" onchange="epcNewEventTimerHint_()"><option value="">不啟用計時器</option><option value="standard">20 分鐘標準賽（內建）</option></select><p class="small" id="newEventTimerHint"></p><p class="small">範本請在獨立「計時器」管理。按建立後，賽事與該場計時器會一同產生。</p><div class="toolbar"><button id="newEventConfirm" class="primary" onclick="epcConfirmNewEvent_()">建立賽事與計時器</button><button onclick="document.getElementById('newEventDialog').close()">取消</button></div></dialog><dialog id="epcTimerProjectionDialog" style="width:96vw;max-width:1920px;height:94vh;max-height:none;padding:0;background:#000;border:1px solid #b89340;border-radius:12px;color:white"><div style="height:48px;display:flex;justify-content:space-between;align-items:center;gap:12px;padding:6px 16px"><b id="epcTimerProjectionTitle">投影預覽</b><button type="button" onclick="document.getElementById('epcTimerProjectionDialog').close()">關閉</button></div><iframe id="epcTimerProjectionFrame" title="設備計時器投影預覽" style="width:100%;height:calc(100% - 90px);border:0;background:#000"></iframe><div class="small" style="padding:8px 16px">此為設備投影預覽。確認畫面後，回到此設備按「套用到螢幕」。</div></dialog><script id="epcManagementView20261026">
 /* EPC management view: derived, read-only; no database writes. */
 (()=>{
 'use strict';
@@ -8215,7 +8218,7 @@ let timer;const schedule=()=>{clearTimeout(timer);timer=setTimeout(render,120)};
 })();
 
 </script>
-<script src="lucky-multiplier-core.js"></script><script src="lucky-multiplier-ui.js"></script>
+<script src="lucky-multiplier-core.js"></script><script src="lucky-multiplier-ui.js?v=20261101-member-numbers1"></script>
 </body></html>
 
 

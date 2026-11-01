@@ -1,3 +1,4 @@
+import '../member-number-core.js?v=20261101-numbers1';
 import {initializeApp} from 'https://www.gstatic.com/firebasejs/12.4.0/firebase-app.js';
 import {getFirestore,collection,doc,onSnapshot,runTransaction,serverTimestamp} from 'https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js';
 import * as fs from 'https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js';
@@ -7,6 +8,8 @@ import {setupPlayerPayments} from '../player-payments-cloud.js?v=20261026-arriva
 import {pricePlayer,registrationPrice,rebuyPrice} from '../player-pricing.js?v=20261023-rebuy-no-ladies30';
 const $=id=>document.getElementById(id),esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const app=initializeApp(window.EPC_FIREBASE_CONFIG,'epc-phone'),store=getFirestore(app),col=collection(store,'epc_events');
+let memberNumbers={};
+const memberNumber=m=>window.EPCMemberNumbers.number(m,memberNumbers);
 let events=[],selected='',unsubscribe,members=new Map(),memberRows=[];const drafts=new Map(),busy=new Set();
 // Share the desktop transaction ledger; every money write requires verified admin access.
 const paymentBridge={accountingReady:false,requireAccountingAccess(){throw Error('請先完成 Google 管理員登入')}};
@@ -182,7 +185,7 @@ function render(){
  const reb=(e.players||[]).reduce((a,p)=>a+(+p.rebuy||0),0);
  if($('entrySummary'))$('entrySummary').textContent='報名 '+(e.players||[]).length+' 人｜重買 '+reb+' 組｜總買入 '+total+' 組';
  const focus=document.activeElement?.dataset.member,focusField=document.activeElement?.dataset.field,start=document.activeElement?.selectionStart;
- $('players').innerHTML=players.map(p=>{const id=String(p.memberId),d=drafts.get(key(selected,id)),m=members.get(id);return `<div class="card"><div class="name ${playerDue(e,p)?'unpaid-player':''}">${esc([p.nickname,m?.nickname,m?.name,p.name,id].map(v=>String(v??'').trim()).find(Boolean))}</div>${paymentBadge(e,p)}<div class="meta">會員編號 ${esc(id)}｜${num((+p.buyin||0)+(+p.rebuy||0)+(+p.addon||0))} 組｜已儲存籌碼：${p.stack==null?'未輸入':num(p.stack)}｜人頭：${num(p.hunterHeads)}</div>${Object.entries(fieldLabels).map(([field,label])=>`<label>${label}</label><input type="text" ${field==='seat'?'maxlength="20"':'inputmode="numeric" pattern="[0-9]*"'} data-member="${esc(id)}" data-field="${field}" value="${esc(d?.patch&&field in d.patch?d.patch[field]:(p[field]??(field==='hunterHeads'?0:'')))}" ${busy.has(key(selected,id))?'disabled':''}>`).join('')}<div class="toolbar"><button data-save="${esc(id)}" ${busy.has(key(selected,id))?'disabled':''}>${busy.has(key(selected,id))?'儲存中':'儲存'}</button></div><div class="message ${d?.error?'error':d?.saved?'good':''}">${esc(d?.message||'')}</div></div>`}).join('');
+ $('players').innerHTML=players.map(p=>{const id=String(p.memberId),d=drafts.get(key(selected,id)),m=members.get(id);return `<div class="card"><div class="name ${playerDue(e,p)?'unpaid-player':''}">${esc([p.nickname,m?.nickname,m?.name,p.name,id].map(v=>String(v??'').trim()).find(Boolean))}</div>${paymentBadge(e,p)}<div class="meta">會員編號 ${esc(memberNumber(id))}｜${num((+p.buyin||0)+(+p.rebuy||0)+(+p.addon||0))} 組｜已儲存籌碼：${p.stack==null?'未輸入':num(p.stack)}｜人頭：${num(p.hunterHeads)}</div>${Object.entries(fieldLabels).map(([field,label])=>`<label>${label}</label><input type="text" ${field==='seat'?'maxlength="20"':'inputmode="numeric" pattern="[0-9]*"'} data-member="${esc(id)}" data-field="${field}" value="${esc(d?.patch&&field in d.patch?d.patch[field]:(p[field]??(field==='hunterHeads'?0:'')))}" ${busy.has(key(selected,id))?'disabled':''}>`).join('')}<div class="toolbar"><button data-save="${esc(id)}" ${busy.has(key(selected,id))?'disabled':''}>${busy.has(key(selected,id))?'儲存中':'儲存'}</button></div><div class="message ${d?.error?'error':d?.saved?'good':''}">${esc(d?.message||'')}</div></div>`}).join('');
  if(focus){const input=Array.from($('players').querySelectorAll('input')).find(x=>x.dataset.member===focus&&x.dataset.field===focusField);if(input&&!input.disabled){input.focus();if(start!=null)input.setSelectionRange(start,start)}}
 
 }
@@ -230,8 +233,8 @@ async function api(action,data={}){
 function memberKeyOf(m){return String(m.memberKey||m.memberId||'')}
 function renderMemberOptions(){
  const q=($('memberSearch').value||'').trim().toLowerCase();
- const list=memberRows.filter(m=>!q||[m.name,m.nickname,m.memberId,m.pokerfansId,m.POKERFANSID].some(x=>String(x||'').toLowerCase().includes(q))).slice(0,50);
- $('memberResults').innerHTML=list.map(m=>'<button type="button" class="member-result" data-memberkey="'+esc(memberKeyOf(m))+'">'+esc([m.name,m.nickname,m.memberId].filter(Boolean).join(' / '))+'</button>').join('');
+ const list=memberRows.filter(m=>!q||[m.name,m.nickname,memberNumber(m),m.memberId,m.pokerfansId,m.POKERFANSID].some(x=>String(x||'').toLowerCase().includes(q))).slice(0,50);
+ $('memberResults').innerHTML=list.map(m=>'<button type="button" class="member-result" data-memberkey="'+esc(memberKeyOf(m))+'">'+esc([m.name,m.nickname,memberNumber(m)].filter(Boolean).join(' / '))+'</button>').join('');
  if(!memberRows.length)$('memberResults').innerHTML='<div class="meta">會員資料尚未載入，請稍候或重新整理</div>';
  else if(q&&!list.length)$('memberResults').innerHTML='<div class="meta">找不到符合的會員（目前已載入 '+memberRows.length+' 筆）</div>';
 }
@@ -243,7 +246,7 @@ $('memberResults').addEventListener('click',e=>{
  const k=memberKeyOf(m);
  $('memberSelect').innerHTML='<option value="'+esc(k)+'">'+esc(m.name||m.memberId)+'</option>';
  $('memberSelect').value=k;
- $('memberSearch').value=[m.name,m.nickname,m.memberId].filter(Boolean).join(' / ');
+ $('memberSearch').value=[m.name,m.nickname,memberNumber(m)].filter(Boolean).join(' / ');
  $('memberChosen').textContent='已選擇：'+$('memberSearch').value;
  $('memberResults').innerHTML='';calculateRegistrationPrice();
 });
@@ -278,3 +281,6 @@ api('member.list').then(r=>{memberRows=Array.isArray(r.members)?r.members:[];mem
 
 $('openTimerControl').addEventListener('click',()=>{const e=selectedEvent();if(!e?.timerId)return alert('請先在電腦的賽事設定選擇計時器範本並儲存。');location.href='../timer-mobile.html?eventId='+encodeURIComponent(e.eventId);});
 
+
+async function refreshMemberNumbers(){try{const r=await api('activity.get');memberNumbers=r.data?.memberNumbers||{};renderMemberOptions();render();}catch(e){console.warn('會員編號同步',e.message)}}
+refreshMemberNumbers();setInterval(()=>{if(!document.hidden)refreshMemberNumbers()},15000);

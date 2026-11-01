@@ -77,5 +77,5 @@ export function buildCatalog(a,sourceEvents){
  const activityKeys={umbrella:'umbrella',extreme:'extremeTen',weekly:'weekly',weeklyRank:'rank',hunter:'hunter',pioneer:'pioneer',luckyMultiplier:'luckyMultiplier'};
  const publicActivities=activities.filter(item=>visibility[activityKeys[item.id]]===true);
 
- return publicActivities;
+ return publicActivities.map(item=>({...item,leaderboard:item.leaderboard.map(row=>({...row,recordId:row.memberId,memberId:a.memberNumbers?.[row.memberId]?.number||row.memberId}))}));
 }
