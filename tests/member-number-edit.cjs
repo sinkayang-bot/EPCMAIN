@@ -21,8 +21,8 @@ const ctx={console:{error:()=>{}},document:dom.window.document,editingMemberId:'
  ctx.editMember('OLD123');assert.equal(ctx.document.querySelector('#mId').value,'NEW999','reopening without saving discards generated preview');
  const savedNumber=ctx.epcGenerateNewMemberId_();await ctx.saveMemberEdit();assert.equal(settings.memberNumbers.OLD123.number,savedNumber,'save applies generated number to the original member');
  assert.deepEqual(ctx.db.events,original.events);assert.deepEqual(ctx.db.ledger,original.ledger);assert.deepEqual(settings.hunter,original.activityManagement.hunter);assert.deepEqual(settings.weeklyClaims,original.activityManagement.weeklyClaims);
- assert(!('memberId' in calls.find(x=>x.action==='member.update').p.patch),'profile ID and all historical keys remain stable');
- ctx.document.querySelector('#mId').value='OTHER';calls=[];ctx.lastError='';await ctx.saveMemberEdit();assert.match(ctx.lastError,/使用/);assert.equal(calls.length,0,'duplicate blocked before profile writes');
+ assert(!calls.some(x=>x.action==='member.update'),'number-only edits must not call the profile update endpoint');
+ ctx.document.querySelector('#mId').value='OTHER';calls=[];ctx.lastError='';await ctx.saveMemberEdit();assert.match(ctx.lastError,/使用/);assert(!calls.some(x=>['member.update','activity.update'].includes(x.action)),'duplicate blocked before profile writes');
  ctx.document.querySelector('#mId').value='NEXT999';fail=true;canceled=false;await ctx.saveMemberEdit();assert.match(ctx.lastError,/offline/);assert(!canceled);assert.equal(settings.memberNumbers.OLD123.number,savedNumber,'failed cloud write leaves old mapping authoritative');
  fail=false;const prior=JSON.stringify(settings);await assert.rejects(ctx.saveMemberNumber_('OLD123','OLD123',true),/已存在/);assert.equal(JSON.stringify(settings),prior,'failed duplicate signup cannot reset an existing custom number');
  view=true;calls=[];await ctx.saveMemberEdit();assert.equal(calls.length,0,'view mode blocks every write');

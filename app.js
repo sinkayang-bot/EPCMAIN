@@ -645,6 +645,7 @@ async function saveMemberNumber_(id,value,reserveNew=false){
  window.EPCMode?.assertWrite();
  if(EPC_ACTIVITY_PENDING||EPC_ACTIVITY_SAVING||EPC_ACTIVITY_SAVE_TIMER)throw Error('活動設定正在同步，請稍後再儲存會員編號');
  const current=await api('member.list');
+ if(!reserveNew&&!(current.members||[]).some(m=>String(m.memberId||'').trim().toUpperCase()===String(id).toUpperCase()))throw Error('雲端已找不到原會員，未修改編號；請重新讀取會員資料');
  if(reserveNew&&(current.members||[]).some(m=>String(m.memberId||'').trim().toUpperCase()===String(id).toUpperCase()))throw Error('此會員編號已存在，請使用編輯會員');
  for(let attempt=0;attempt<4;attempt++){
   const latest=await api('activity.get');
@@ -658,26 +659,51 @@ async function saveMemberNumber_(id,value,reserveNew=false){
   }catch(e){if(e.message!=='STALE_WRITE'||attempt===3)throw e;}
  }
 }
+function memberEditTarget_(rows,id,key){
+ const clean=v=>String(v||'').trim().toUpperCase();
+ const matches=(rows||[]).filter(x=>clean(x.memberId)===clean(id));
+ const byKey=key&&matches.find(x=>x.memberKey&&String(x.memberKey)===String(key));
+ if(byKey)return byKey;
+ if(matches.length===1)return matches[0];
+ throw Error(matches.length?'原會員有多筆對應資料，已停止儲存，請先核對會員資料':'雲端已找不到原會員，未修改編號；請重新讀取會員資料');
+}
 window.epcV3SaveMemberEdit=async function(memberId){
- const original=typeof editingMemberId!=='undefined'&&editingMemberId;
- const id=String(original||memberId||document.querySelector('#mId')?.value||'').trim().toUpperCase();
- const legacy=window.db&&Array.isArray(window.db.members)?window.db.members.find(x=>String(x.id||'').trim().toUpperCase()===id):null;
- const row=MEMBER_ROWS.find(x=>String(x.memberKey||'')===String(legacy?.memberKey||'')||String(x.memberId||'').trim().toUpperCase()===id);
- if(!row)return alert('找不到此會員的 V3 資料，請先重新讀取會員');
+ const field=document.querySelector('#mId');
+ const original=field?.dataset.originalMemberId||(typeof editingMemberId!=='undefined'&&editingMemberId)||memberId;
+ const id=String(original||'').trim();
+ if(!id)return alert('請先選擇要編輯的會員');
+ const legacy=(legacyDb_()?.members||[]).find(x=>String(x.id||'').trim().toUpperCase()===id.toUpperCase());
+ const key=field?.dataset.originalMemberKey||legacy?.memberKey||'';
  const name=document.querySelector('#mName')?.value.trim()||'';
  if(!name)return alert('請輸入會員名稱');
  const nickname=document.querySelector('#mNickname')?.value.trim()||'';
  const group=document.querySelector('#mGroup')?.value.trim()||'';
  const note=document.querySelector('#mNote')?.value.trim()||'';
+ const proposed=field?.value||'';
+ let base=legacy||{};
+ try{if(field?.dataset.profileBase)base=JSON.parse(field.dataset.profileBase);}catch(_){}
+ const patch=Object.fromEntries(Object.entries({name,nickname,group}).filter(([k,v])=>v!==String(base[k]??'').trim()));
  const btn=document.querySelector('#memberSaveBtn');
  if(btn){btn.disabled=true;btn.textContent='儲存中…'}
  try{
   window.EPCMode?.assertWrite();
-  const proposed=document.querySelector('#mId')?.value||'';
-  window.EPCMemberNumbers.assign(legacyDb_()?.activityManagement?.memberNumbers||{},id,proposed,MEMBER_ROWS);
-  const r=await api('member.update',{memberKey:row.memberKey,patch:{name,nickname,group},expectedRevision:row.revision});
-  syncLegacyMemberFromV3_(r.member,note);
+  const latest=await api('member.list');
+  let row=memberEditTarget_(latest.members,id,key);
+  window.EPCMemberNumbers.assign(legacyDb_()?.activityManagement?.memberNumbers||{},id,proposed,latest.members||[]);
+  if(Object.keys(patch).length){
+   if(!row.memberKey)throw Error('原會員缺少內部識別，已停止更新基本資料');
+   try{
+    const r=await api('member.update',{memberKey:row.memberKey,patch,expectedRevision:row.revision});row=r.member||row;
+   }catch(e){
+    if(e.message!=='MEMBER_NOT_FOUND')throw e;
+    const refreshed=await api('member.list');
+    const recovered=memberEditTarget_(refreshed.members,id,'');
+    if(!recovered.memberKey||String(recovered.memberKey)===String(row.memberKey))throw Error('會員基本資料的雲端對應仍有異常，未變更編號；請保留畫面並聯絡管理員');
+    const r=await api('member.update',{memberKey:recovered.memberKey,patch,expectedRevision:recovered.revision});row=r.member||recovered;
+   }
+  }
   await saveMemberNumber_(id,proposed);
+  syncLegacyMemberFromV3_(row,note);
   if(typeof window.cancelMemberEdit==='function')window.cancelMemberEdit();
   if(typeof window.actionMsg==='function')window.actionMsg('會員「'+name+'」修改已同步至 V3');
  }catch(err){
@@ -685,7 +711,8 @@ window.epcV3SaveMemberEdit=async function(memberId){
   alert('修改會員失敗：'+err.message);
  }finally{if(btn)btn.disabled=false}
 };
-window.saveMemberEdit=function(){return window.epcV3SaveMemberEdit(typeof editingMemberId!=='undefined'&&editingMemberId||document.querySelector('#mId')?.value||'')};
+window.saveMemberEdit=function(){return window.epcV3SaveMemberEdit(document.querySelector('#mId')?.dataset.originalMemberId||(typeof editingMemberId!=='undefined'&&editingMemberId)||'')};
+
 
 
 window.performDelMember=async function(id){
