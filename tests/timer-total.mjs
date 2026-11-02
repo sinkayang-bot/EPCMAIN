@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 const read=n=>readFileSync(new URL('../'+n,import.meta.url),'utf8'),data=s=>'data:text/javascript;base64,'+Buffer.from(s).toString('base64');
-const {newTimer,command,tournamentRemaining,durationText}=await import(data(read('timer-core.js').replace("'./player-pricing.js'",JSON.stringify(data(read('player-pricing.js').replace("'./tournament-core.js?v=20261103-modes1'",JSON.stringify(data(read('tournament-core.js')))))))));
+const {newTimer,command,tournamentRemaining,durationText}=await import(data(read('timer-core.js').replace("'./player-pricing.js'",JSON.stringify(data(read('player-pricing.js').replace("'./tournament-core.js?v=20261103-modes2'",JSON.stringify(data(read('tournament-core.js')))))))));
 let t=newTimer([{sb:100,bb:200,ante:0,min:10},{break:true,min:5},{sb:200,bb:400,ante:0,min:20}]);assert.equal(tournamentRemaining(t,0),2100);assert.equal(durationText(tournamentRemaining(t,0)),'00:35:00');
 t=command(t,'toggle',null,1000);assert.equal(tournamentRemaining(t,301000),1800);assert.equal(tournamentRemaining(t,601000),1500);assert.equal(tournamentRemaining(t,721000),1380);assert.equal(tournamentRemaining(t,901000),1200);
 let restored=JSON.parse(JSON.stringify(t));assert.equal(tournamentRemaining(restored,1001000),1100);

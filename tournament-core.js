@@ -5,12 +5,17 @@ function mode(e){return ['normal','guaranteed','tournament'].includes(e?.tournam
 function pool(e,gross){
  gross=n(gross);const m=mode(e),rate=m==='tournament'?0:n(e.jp??e.jpRate),unit=Math.max(1,n(e.jpRound)||1);
  const jp=rate?Math.ceil(gross*rate/100/unit)*unit:0;
- const earned=Math.max(0,gross-jp),guarantee=m==='guaranteed'?n(e.guaranteedPool):0;
+ const earned=Math.max(0,gross-jp),guarantee=m!=='normal'?n(e.guaranteedPool):0;
  const avail=Math.max(earned,guarantee),overlay=Math.max(0,guarantee-earned);
  return {pool:gross+overlay,gross,jp,avail,overlay,earned};
 }
+function itm(e){
+ const entries=(e.players||[]).reduce((s,p)=>s+n(p.buyin)+n(p.rebuy)+n(p.addon),0);
+ if(e.itmPercent!=null){const percent=Number(e.itmPercent);if(!Number.isFinite(percent)||percent<=0||percent>100)throw Error('ITM 比例須大於 0 且不超過 100%');return {entries,percent,count:Math.ceil(entries*percent/100)}}
+ return {entries,percent:null,count:Math.floor(n(e.itmCount))};
+}
 function schedule(e,amount){
- const count=Math.floor(n(e.itmCount));if(count<1||count>500)throw Error('ITM 人數須為 1–500 人');
+ const count=itm(e).count;if(count===0&&e.itmPercent!=null)return {rows:[],total:0,remainder:n(amount)};if(count<1||count>500)throw Error('ITM 人數須為 1–500 人');
  const custom=String(e.payoutPercentages||'').trim();
  const weights=custom?custom.split(/[,，\s]+/).map(Number):Array.from({length:count},(_,i)=>1/Math.pow(i+1,1.15));
  if(weights.length!==count||weights.some(x=>!Number.isFinite(x)||x<=0))throw Error('獎金比例筆數須等於 ITM 人數，每個比例須大於 0');
@@ -28,5 +33,5 @@ function pricing(p,e){
  const manual=n(p.manualDiscount)+earlyDiscount+lateDiscount+ladiesDiscount,original=buy*bt+re*rt,grossAdmin=buy*ba+re*ra;
  return {groups,original,paid:Math.max(0,original-manual),pool:buy*Math.max(0,bt-ba)+re*Math.max(0,rt-ra),grossAdmin,netAdmin:Math.max(0,grossAdmin-manual),manual,auto:0,totalDiscount:manual,earlyDiscount,lateDiscount,ladiesDiscount,birdDiscount:earlyDiscount+lateDiscount,rebuyDiscount:0,overbuyDiscount:0,accountingRebuyDiscount:0,accountingGroupDiscount:0};
 }
-root.EPCTournament={mode,pool,schedule,pricing};
+root.EPCTournament={mode,pool,schedule,pricing,itm};
 })(globalThis);

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 const read=n=>readFileSync(new URL('../'+n,import.meta.url),'utf8'),url=s=>'data:text/javascript;base64,'+Buffer.from(s).toString('base64');
-const core=read('timer-core.js').replace("'./player-pricing.js'",JSON.stringify(url(read('player-pricing.js').replace("'./tournament-core.js?v=20261103-modes1'",JSON.stringify(url(read('tournament-core.js')))))));
+const core=read('timer-core.js').replace("'./player-pricing.js'",JSON.stringify(url(read('player-pricing.js').replace("'./tournament-core.js?v=20261103-modes2'",JSON.stringify(url(read('tournament-core.js')))))));
 const {newTimer,command,timerAt,remaining}=await import(url(core));
 const levels=[{min:.1,sb:100,bb:200,ante:200},{break:true,min:.1},{min:.2,sb:200,bb:400,ante:400}];
 const t=command(newTimer(levels),'toggle',null,1000),original=structuredClone(t);

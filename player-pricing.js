@@ -1,4 +1,4 @@
-import './tournament-core.js?v=20261103-modes1';
+import './tournament-core.js?v=20261103-modes2';
 export function calcPlayerForEvent(p,e){
  if(globalThis.EPCTournament.mode(e)==='tournament')return globalThis.EPCTournament.pricing(p,e);
  let buyin=(+p.buyin||0), rebuy=(+p.rebuy||0), addon=(+p.addon||0);

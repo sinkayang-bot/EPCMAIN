@@ -16,3 +16,16 @@ const ctx={EPCTournament:T,money:String,currentEvent:()=>event};vm.createContext
 assert.equal(ctx.epcRankValidation_(event).ok,false);event.players.forEach((p,i)=>p.prize=[1200,700,400][i]);assert.equal(ctx.epcRankValidation_(event).ok,true);event.players[1].finishRank=1;assert.equal(ctx.epcRankValidation_(event).ok,false);
 for(const match of html.matchAll(/<script(\s[^>]*)?>([\s\S]*?)<\/script>/g)){if(!/src=|type="module"|application\//.test(match[1]||''))new vm.Script(match[2])}
 console.log('Tournament modes: guarantee below/above threshold, no phantom chips, separate fees, rebuy pricing, JP exclusion, payouts, rounding remainder, zero-chip winners, duplicate ranks, inline script syntax passed.');
+
+const ratioEvent={tournamentMode:'tournament',itmPercent:15,guaranteedPool:18000,players:[{buyin:1,rebuy:20},{buyin:1,rebuy:0}]};
+assert.equal(T.itm(ratioEvent).count,4);assert.equal(T.schedule(ratioEvent,18000).rows.length,4);assert.equal(T.pool(ratioEvent,12000).avail,18000);assert.equal(T.pool(ratioEvent,12000).overlay,6000);assert.equal(T.pool(ratioEvent,22000).avail,22000);assert.equal(T.pool(ratioEvent,22000).jp,0);
+assert.equal(T.itm({...ratioEvent,players:[{buyin:1,rebuy:19}]}).count,3);assert.equal(T.itm({...ratioEvent,players:[]}).count,0);assert.throws(()=>T.itm({...ratioEvent,itmPercent:0}));
+console.log('ITM percentage: exact boundary, upward rounding, rebuys, zero entries, invalid percentage; tournament guaranteed pool passed.');
+const fields=new Map(),groups={'.newTournamentFields':[{},{}],'.newTimedFields':[{},{}],'.tournamentFields':[{},{}],'.standardPricing,.customPricing':[{},{}]};
+const node=id=>{if(!fields.has(id))fields.set(id,{value:'',hidden:false,dataset:{},parentElement:{}});return fields.get(id)};
+ctx.$=node;ctx.document={querySelectorAll:s=>groups[s]||[]};ctx.blankEvent=()=>({});ctx.eventDisplayName_=()=> 'EPC 一般限時';
+ctx.epcResetNewMode_();assert.equal(node('newTournamentMode').value,'normal');assert.equal(node('newGuaranteeFields').hidden,true);assert.equal(groups['.newTournamentFields'][0].hidden,true);
+node('newTournamentMode').value='tournament';ctx.epcNewModeFields_();assert.equal(node('newGuaranteeFields').hidden,false);assert.equal(groups['.newTimedFields'][0].hidden,true);const settings=ctx.epcNewModeSettings_();assert.equal(settings.buyinTotal,1200);assert.equal(settings.buyinAdmin,200);assert.equal(settings.itmPercent,15);assert.equal(settings.jp,0);
+node('eTournamentMode').value='tournament';ctx.epcTournamentFields_();assert.equal(node('ePricingMode').parentElement.hidden,true);assert.equal(groups['.standardPricing,.customPricing'][0].hidden,true);
+node('eTournamentMode').value='normal';ctx.epcTournamentFields_();assert.equal(node('guaranteedFields').hidden,true);assert.equal(groups['.tournamentFields'][0].hidden,true);assert.equal(groups['.standardPricing,.customPricing'][0].hidden,false);
+console.log('Mode UI: creation defaults, conditional buy-in fields, separate components, JP exclusion and switching visibility passed.');

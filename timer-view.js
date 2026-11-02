@@ -1,6 +1,6 @@
 import {applyAppearance} from './timer-appearance-view.js?v=20261023-tablet-rgb41';
 import {countdownSound} from './timer-sound.js?v=20261031-single-row';
-import {remaining,timeText,eventTotals,newTimer,timerAt,tournamentRemaining,durationText} from './timer-core.js?v=20261103-modes1';
+import {remaining,timeText,eventTotals,newTimer,timerAt,tournamentRemaining,durationText} from './timer-core.js?v=20261103-modes2';
 const $=id=>document.getElementById(id),params=new URLSearchParams(location.search),demo=params.has('demo'),id=params.get('eventId');
 let event,timer,service;
 const sound=countdownSound();
