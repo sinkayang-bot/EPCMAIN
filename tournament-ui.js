@@ -5,6 +5,10 @@ function epcTournamentFields_(){
  document.querySelectorAll('.tournamentFields').forEach(el=>el.hidden=!tour);
  for(const id of ['ePricingMode','eLevel','eJP','eJPRound','ePayout'])if($(id))$(id).parentElement.hidden=tour;
  document.querySelectorAll('.standardPricing,.customPricing').forEach(el=>el.hidden=tour);
+ if($('eventTimedPricing'))$('eventTimedPricing').hidden=tour;
+ if($('eventTourPricing'))$('eventTourPricing').hidden=!tour;
+ if($('ePayout'))$('ePayout').parentElement.hidden=true;
+ if($('eventModeDescription'))$('eventModeDescription').textContent=tour?'按名次發放獎金｜買入與重買分開設定｜不抽 JP':m==='guaranteed'?'依籌碼比例分獎｜不足保底自動補足，超過則按實際獎池':'依籌碼比例分獎｜沿用一般限時買入、折扣與 JP 規則';
 }
 function epcNewModeFields_(){
  const mode=$('newTournamentMode').value,tour=mode==='tournament';

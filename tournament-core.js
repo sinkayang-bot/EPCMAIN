@@ -41,5 +41,7 @@ function pricing(p,e){
  const manual=n(p.manualDiscount)+earlyDiscount+lateDiscount+ladiesDiscount,original=buy*bt+re*rt,grossAdmin=buy*ba+re*ra;
  return {groups,original,paid:Math.max(0,original-manual),pool:buy*Math.max(0,bt-ba)+re*Math.max(0,rt-ra),grossAdmin,netAdmin:Math.max(0,grossAdmin-manual),manual,auto:0,totalDiscount:manual,earlyDiscount,lateDiscount,ladiesDiscount,birdDiscount:earlyDiscount+lateDiscount,rebuyDiscount:0,overbuyDiscount:0,accountingRebuyDiscount:0,accountingGroupDiscount:0};
 }
-root.EPCTournament={mode,pool,schedule,pricing,itm,adminRemainder};
+const api={version:6,mode,pool,schedule,pricing,itm,adminRemainder};
+ const old=root.EPCTournament;let active=Number(old?.version)>api.version?old:api;
+ Object.defineProperty(root,'EPCTournament',{configurable:true,enumerable:true,get(){return active},set(value){if(Number(value?.version)>=Number(active.version))active=value}});
 })(globalThis);

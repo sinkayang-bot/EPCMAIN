@@ -1,9 +1,9 @@
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 const read=n=>readFileSync(new URL('../'+n,import.meta.url),'utf8'),data=s=>'data:text/javascript;base64,'+Buffer.from(s).toString('base64');
-const core=data(read('timer-core.js').replace("'./player-pricing.js'",JSON.stringify(data(read('player-pricing.js').replace("'./tournament-core.js?v=20261103-admin5'",JSON.stringify(data(read('tournament-core.js'))))))));
+const core=data(read('timer-core.js').replace("'./player-pricing.js?v=20261103-layout6'",JSON.stringify(data(read('player-pricing.js').replace("'./tournament-core.js?v=20261103-layout6'",JSON.stringify(data(read('tournament-core.js'))))))));
 const {command,newTimer,remaining}=await import(core);
-const {STANDARD_TEMPLATE,templateData,buildEventTimer}=await import(data(read('timer-store.js').replace("'./timer-core.js?v=20261103-admin5'",JSON.stringify(core))));
+const {STANDARD_TEMPLATE,templateData,buildEventTimer}=await import(data(read('timer-store.js').replace("'./timer-core.js?v=20261103-layout6'",JSON.stringify(core))));
 for(const background of ['classic','black-gold','light','emerald','velvet']){
  const template=templateData({...STANDARD_TEMPLATE,background});
  const built=buildEventTimer({eventId:'test'},template,'test');assert.equal(built.timer.background,background);

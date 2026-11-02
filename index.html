@@ -1,10 +1,33 @@
 <!doctype html>
 <html lang="zh-Hant">
-<head><script src="tournament-ui.js?v=20261103-admin5"></script><script src="tournament-core.js?v=20261103-admin5"></script><meta charset="utf-8"><script src="member-number-core.js?v=20261101-numbers1"></script><script defer src="tablet/layout.js?v=46"></script><script src="terminal-mode.js?v=20261016-modes1"></script><script src="event-patch-core.js?v=20261016-modes1"></script>
+<head><script src="tournament-ui.js?v=20261103-layout6"></script><script src="tournament-core.js?v=20261103-layout6"></script><meta charset="utf-8"><script src="member-number-core.js?v=20261101-numbers1"></script><script defer src="tablet/layout.js?v=46"></script><script src="terminal-mode.js?v=20261016-modes1"></script><script src="event-patch-core.js?v=20261016-modes1"></script>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
 <link rel="icon" type="image/png" sizes="32x32" href="assets/epc-icon-32.png?v=20261024-brand46"><link rel="apple-touch-icon" sizes="180x180" href="assets/epc-icon-180.png?v=20261024-brand46"><meta name="apple-mobile-web-app-title" content="EPC"><link rel="stylesheet" href="brand.css?v=20261024-brand46"><link rel="manifest" href="manifest.webmanifest?v=20261024-brand46"><title>EPC POKER MANAGEMENT V3.0</title>
 <style>
+#eventConfigLayout{display:flex;flex-direction:column;gap:14px}
+#eventConfigLayout .event-mode-bar{display:grid;grid-template-columns:minmax(240px,360px) 1fr;gap:20px;align-items:end;padding:0 0 16px;border-bottom:1px solid var(--line)}
+#eventConfigLayout .event-mode-bar>div{grid-column:auto!important}
+#eventConfigLayout .event-mode-bar p{margin:0 0 8px;line-height:1.6}
+#eventConfigLayout .event-config-group{border:1px solid var(--line);border-radius:10px;padding:16px;background:var(--card2)}
+#eventConfigLayout h3,#eventConfigLayout summary{font-size:16px;margin:0 0 14px;font-weight:800}
+#eventConfigLayout summary{cursor:pointer;margin:0}
+#eventConfigLayout details[open]>summary{margin-bottom:14px}
+#eventConfigLayout .event-config-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;align-items:start}
+#eventConfigLayout .event-config-grid>div{min-width:0}
+#eventConfigLayout .event-config-span{grid-column:1/-1}
+#eventConfigLayout label{display:block;margin:0 0 6px;line-height:1.4}
+#eventConfigLayout input,#eventConfigLayout select{width:100%;height:42px;margin:0}
+#eventConfigLayout .small{line-height:1.55;margin-top:6px}
+#eventConfigLayout #eTimerTemplateHint{max-width:850px}
+#eventConfigLayout #eTimerTemplate{min-width:250px}
+#eventConfigLayout #eTimerTemplateHint{font-size:12px}
+#eventConfigLayout #eTimerTemplate{width:100%}
+#eventConfigLayout .event-config-group:last-child .event-config-grid{grid-template-columns:1fr}
+#event .event-config-save{justify-content:flex-end;align-items:center;gap:16px;margin:16px 0 0}
+@media(max-width:1100px){#eventConfigLayout .event-config-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:650px){#eventConfigLayout .event-config-grid,#eventConfigLayout .event-mode-bar{grid-template-columns:1fr}#eventConfigLayout .event-mode-bar{gap:8px}#eventConfigLayout .event-config-group{padding:12px}#eventConfigLayout #eTimerTemplate{min-width:0}}
+
 [hidden]{display:none!important}
 
 :root{--bg:#0b0f14;--card:#121922;--card2:#17212c;--text:#eef3f8;--muted:#91a0b2;--line:#263443;--accent:#d6b35a;--good:#49c27d;--bad:#ff6b6b}
@@ -2259,36 +2282,8 @@ window.addEventListener('error',function(e){
  <h2>賽事帳務 <span class="pill" id="currentEventLabel"></span></h2>
  <div class="toolbar no-print"><button onclick="goEvents()">← 返回賽事管理</button><button class="primary" onclick="goICM()">ICM / 結算 →</button><button type="button" id="btnUnlockEvent" onclick="unlockSettledEvent(currentEvent()?.id)" style="display:none">解鎖編輯</button></div>
  <div class="card">
-  <div class="formgrid"><div style="grid-column:1/-1"><label>賽事模式</label><select id="eTournamentMode" onchange="epcTournamentFields_()"><option value="normal">一般限時錦標賽（預設）</option><option value="tournament">一般賽事模式</option><option value="guaranteed">保底限時</option></select></div>
-   <div><label>日期</label><input type="date" id="eDate"></div>
-   <div><label>場次名稱</label><input id="eName" placeholder="預設：EPC#1 3400限時錦標賽；可手動修改"></div>
- <div><label>開賽時間</label><input id="eStartTime" inputmode="numeric" placeholder="例如 16:00"></div>
- <div><label>預計截止買入時間</label><input id="eRegCloseTime" inputmode="numeric" placeholder="例如 18:30"></div>
-   <div><label>級別</label><input id="eLevel" type="number" min="0" step="100" inputmode="numeric" placeholder="例如 1200、3400、6600、11000"></div>
-   <div><label>計價方式</label><select id="ePricingMode" onchange="togglePricingMode()"><option value="standard">標準行政費折扣</option><option value="custom">自訂首購 / 重買</option></select></div>
-   <div class="standardPricing"><label>每組進獎池</label><input type="number" id="ePoolUnit"></div>
-   <div class="standardPricing"><label>每組行政費</label><input type="number" id="eAdmin"></div>
-   <div class="customPricing" style="display:none"><label>首購總額</label><input type="number" id="eBuyinTotal" placeholder="例如 6900"></div>
-   <div class="customPricing" style="display:none"><label>首購行政費</label><input type="number" id="eBuyinAdmin" placeholder="例如 900"></div>
-   <div class="customPricing" style="display:none"><label>重買總額</label><input type="number" id="eRebuyTotal" placeholder="例如 6500"></div>
-   <div class="customPricing" style="display:none"><label>重買行政費</label><input type="number" id="eRebuyAdmin" placeholder="例如 500"></div>
-   <div class="customPricing" style="display:none"><label>超買組數</label><input type="number" id="eOverbuyThreshold" min="1" step="1" value="10" placeholder="例如 10"><div class="small">填 10 代表第 11 組起免重買行政費</div></div>
-   <div id="guaranteedFields"><label>保底獎金（一般賽事不抽 JP）</label><input id="eGuaranteedPool" type="number" min="0" step="100" value="18000"></div>
-   <div class="tournamentFields"><label>ITM %</label><input id="eItmPercent" type="number" min="0.01" max="100" step="0.01" value="15"><div class="small">總買入組數（含重買）× ITM %，無條件進位。</div></div>
-   <div class="tournamentFields"><label>買入｜進獎池</label><input id="eTourBuyPool" type="number" min="0" value="1000"></div>
-   <div class="tournamentFields"><label>買入｜行政費</label><input id="eTourBuyFee" type="number" min="0" value="200"></div>
-   <div class="tournamentFields"><label>重買｜進獎池</label><input id="eTourRePool" type="number" min="0" value="1000"></div>
-   <div class="tournamentFields"><label>重買｜行政費</label><input id="eTourReFee" type="number" min="0" value="200"></div>
-   <div class="tournamentFields"><label>各名次比例 %（留空自動分配）</label><input id="ePayoutPercentages" placeholder="例如 50,30,20"><div class="small">合計 100%；獎金向下取整至百位，餘額轉入行政費。買入進獎池 1000＋行政費 200，實付 1200。重買依設定收費，不自動半價。</div></div>
-   <div><label>起始籌碼 / 組</label><input type="number" id="eChips" value="300000"></div>
-   <div><label>JP %</label><input type="number" step=".1" id="eJP" value="3"></div>
-   <div><label>JP 取整單位</label><input type="number" id="eJPRound" value="100"></div>
-   <div><label>早鳥折扣金額</label><input id="eEarlyBirdDiscount" type="number" min="0" step="1" value="0"></div>
-   <div><label>晚鳥折扣金額</label><input id="eLateBirdDiscount" type="number" min="0" step="1" value="0"></div><div><label>女士折扣金額（每場一次）</label><input id="eLadiesDiscount" type="number" min="0" step="1" value="200"></div>
-   <div><label for="eTimerTemplate">計時器範本</label><select id="eTimerTemplate" onchange="epcEventTimerTemplateChanged_()"><option value="">不啟用計時器</option></select><div class="small" id="eTimerTemplateHint">選擇範本並儲存賽事，即會自動產生本場計時器。範本請到左側「計時器」管理。</div></div>
-   <div><label>ICM 獎金梯度 %</label><input id="ePayout" value="50,30,20" placeholder="例如 50,30,20"></div>
-  </div>
-  <div class="toolbar"><button class="primary" onclick="saveEvent()">儲存賽事設定</button></div>
+  <div id="eventConfigLayout"><div class="event-mode-bar"><div style="grid-column:1/-1"><label>賽事模式</label><select id="eTournamentMode" onchange="epcTournamentFields_()"><option value="normal">一般限時錦標賽（預設）</option><option value="tournament">一般賽事模式</option><option value="guaranteed">保底限時</option></select></div><p id="eventModeDescription" class="small"></p></div><div class="event-config-group" ><h3>基本資料</h3><div class="event-config-grid"><div><label>日期</label><input type="date" id="eDate"></div><div><label>場次名稱</label><input id="eName" placeholder="預設：EPC#1 3400限時錦標賽；可手動修改"></div><div><label>開賽時間</label><input id="eStartTime" inputmode="numeric" placeholder="例如 16:00"></div><div><label>預計截止買入時間</label><input id="eRegCloseTime" inputmode="numeric" placeholder="例如 18:30"></div></div></div><div class="event-config-group" ><h3>買入與獎池</h3><div class="event-config-grid"><div id="eventTimedPricing" class="event-config-span"><div class="event-config-grid"><div><label>級別</label><input id="eLevel" type="number" min="0" step="100" inputmode="numeric" placeholder="例如 1200、3400、6600、11000"></div><div><label>計價方式</label><select id="ePricingMode" onchange="togglePricingMode()"><option value="standard">標準行政費折扣</option><option value="custom">自訂首購 / 重買</option></select></div><div class="standardPricing"><label>每組進獎池</label><input type="number" id="ePoolUnit"></div><div class="standardPricing"><label>每組行政費</label><input type="number" id="eAdmin"></div><div class="customPricing" style="display:none"><label>首購總額</label><input type="number" id="eBuyinTotal" placeholder="例如 6900"></div><div class="customPricing" style="display:none"><label>首購行政費</label><input type="number" id="eBuyinAdmin" placeholder="例如 900"></div><div class="customPricing" style="display:none"><label>重買總額</label><input type="number" id="eRebuyTotal" placeholder="例如 6500"></div><div class="customPricing" style="display:none"><label>重買行政費</label><input type="number" id="eRebuyAdmin" placeholder="例如 500"></div></div></div><div id="eventTourPricing" class="event-config-span"><div class="event-config-grid"><div class="tournamentFields"><label>買入｜進獎池</label><input id="eTourBuyPool" type="number" min="0" value="1000"></div><div class="tournamentFields"><label>買入｜行政費</label><input id="eTourBuyFee" type="number" min="0" value="200"></div><div class="tournamentFields"><label>重買｜進獎池</label><input id="eTourRePool" type="number" min="0" value="1000"></div><div class="tournamentFields"><label>重買｜行政費</label><input id="eTourReFee" type="number" min="0" value="200"></div></div></div><div id="guaranteedFields"><label>保底獎金（一般賽事不抽 JP）</label><input id="eGuaranteedPool" type="number" min="0" step="100" value="18000"></div><div class="tournamentFields"><label>ITM %</label><input id="eItmPercent" type="number" min="0.01" max="100" step="0.01" value="15"><div class="small">總買入組數（含重買）× ITM %，無條件進位。</div></div><div><label>起始籌碼 / 組</label><input type="number" id="eChips" value="300000"></div><div><label>JP %</label><input type="number" step=".1" id="eJP" value="3"></div></div></div><details class="event-config-group" ><summary>優惠設定</summary><div class="event-config-grid"><div><label>早鳥折扣金額</label><input id="eEarlyBirdDiscount" type="number" min="0" step="1" value="0"></div><div><label>晚鳥折扣金額</label><input id="eLateBirdDiscount" type="number" min="0" step="1" value="0"></div><div><label>女士折扣金額（每場一次）</label><input id="eLadiesDiscount" type="number" min="0" step="1" value="200"></div><div class="customPricing" style="display:none"><label>超買組數</label><input type="number" id="eOverbuyThreshold" min="1" step="1" value="10" placeholder="例如 10"><div class="small">填 10 代表第 11 組起免重買行政費</div></div></div></details><details class="event-config-group" id="eventPayoutAdvanced"><summary>獎金進階設定</summary><div class="event-config-grid"><div class="tournamentFields"><label>各名次比例 %（留空自動分配）</label><input id="ePayoutPercentages" placeholder="例如 50,30,20"><div class="small">合計 100%；獎金向下取整至百位，餘額轉入行政費。買入進獎池 1000＋行政費 200，實付 1200。重買依設定收費，不自動半價。</div></div><div><label>JP 取整單位</label><input type="number" id="eJPRound" value="100"></div><div><label>ICM 獎金梯度 %</label><input id="ePayout" value="50,30,20" placeholder="例如 50,30,20"></div></div></details><div class="event-config-group" ><h3>計時器</h3><div class="event-config-grid"><div><label for="eTimerTemplate">計時器範本</label><select id="eTimerTemplate" onchange="epcEventTimerTemplateChanged_()"><option value="">不啟用計時器</option></select><div class="small" id="eTimerTemplateHint">選擇範本並儲存賽事，即會自動產生本場計時器。範本請到左側「計時器」管理。</div></div></div></div></div>
+  <div class="toolbar event-config-save"><span class="small">修改後請儲存設定</span><button class="primary" onclick="saveEvent()">儲存賽事設定</button></div>
  </div>
  <div class="card pp-add-card">
   <div class="pp-add-row"><label for="addPlayerSearch">加入玩家</label><div class="pp-search-box"><input id="addPlayerSearch" autocomplete="off" placeholder="搜尋姓名、綽號、會員編號或手機末三碼" oninput="filterAddPlayerMembers(this.value)" onfocus="filterAddPlayerMembers(this.value)" onkeydown="handleAddPlayerSearchKey(event)"><select id="addPlayerMember" size="5" hidden onchange="syncAddPlayerSearch()"></select></div><button class="primary" data-pp-action onclick="addPlayer()">加入本場</button></div>

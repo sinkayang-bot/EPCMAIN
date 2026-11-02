@@ -52,3 +52,7 @@ vm.runInContext(['calcPlayerForEvent','poolInfoForEvent','eventRoundingAdmin_','
 assert.equal(ac.eventRoundingAdmin_(acctEvent),40);const first=ac.accountingTotalsForEvents([acctEvent]),second=ac.accountingTotalsForEvents([acctEvent]);assert.equal(first.gross,1600);assert.equal(first.netAdmin,1600);assert.equal(second.netAdmin,1600);assert.equal(ac.accountingInfo(acctEvent).netAdmin,1600);
 assert.equal(T.adminRemainder({...acctEvent,tournamentMode:'normal'},6240),0);
 console.log('Accounting: 40 remainder returned once, gross/net admin 1600, repeated reads unchanged, normal timed fees unchanged passed.');
+const activeApi=global.EPCTournament;global.EPCTournament={mode:()=> 'normal'};assert.equal(global.EPCTournament,activeApi);assert.equal(typeof global.EPCTournament.adminRemainder,'function');
+const configHtml=html.slice(html.indexOf('id="eventConfigLayout"'),html.indexOf('class="card pp-add-card"'));
+for(const id of ['eTournamentMode','eDate','eName','eStartTime','eRegCloseTime','eLevel','ePricingMode','ePoolUnit','eAdmin','eBuyinTotal','eBuyinAdmin','eRebuyTotal','eRebuyAdmin','eOverbuyThreshold','eGuaranteedPool','eItmPercent','eTourBuyPool','eTourBuyFee','eTourRePool','eTourReFee','ePayoutPercentages','eChips','eJP','eJPRound','eEarlyBirdDiscount','eLateBirdDiscount','eLadiesDiscount','eTimerTemplate','ePayout'])assert.equal((configHtml.match(new RegExp('id="'+id+'"','g'))||[]).length,1,id);
+console.log('Grouped settings preserve every input exactly once; stale core assignments cannot remove adminRemainder passed.');
