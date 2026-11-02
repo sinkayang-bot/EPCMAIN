@@ -6,8 +6,11 @@ function pool(e,gross){
  gross=n(gross);const m=mode(e),rate=m==='tournament'?0:n(e.jp??e.jpRate),unit=Math.max(1,n(e.jpRound)||1);
  const jp=rate?Math.ceil(gross*rate/100/unit)*unit:0;
  const earned=Math.max(0,gross-jp),guarantee=m!=='normal'?n(e.guaranteedPool):0;
- const avail=Math.max(earned,guarantee),overlay=Math.max(0,guarantee-earned);
- return {pool:gross+overlay,gross,jp,avail,overlay,earned};
+ let avail=Math.max(earned,guarantee);const unroundedAvail=avail,overlay=Math.max(0,guarantee-earned);
+ if(m==='tournament'){
+  avail=Math.floor(unroundedAvail/100)*100;
+ }
+ return {pool:gross+overlay,gross,jp,avail,overlay,earned,...(m==='tournament'?{unroundedAvail,roundingRemainder:unroundedAvail-avail}:{})};
 }
 function itm(e){
  const entries=(e.players||[]).reduce((s,p)=>s+n(p.buyin)+n(p.rebuy)+n(p.addon),0);

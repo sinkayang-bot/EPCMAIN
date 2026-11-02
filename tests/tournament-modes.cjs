@@ -40,3 +40,8 @@ console.log('Mode UI: creation defaults, conditional buy-in fields, separate com
  existing.players[0].rebuy=6;assert.equal(ctx.poolInfoForEvent(existing).avail,23200);
  console.log('Existing event settlement: guarantee saved, players retained, screenshot case pays 18000 instead of 5800, above-guarantee uses actual pool passed.');
 })().catch(e=>{console.error(e);process.exitCode=1});
+
+const tailEvent={tournamentMode:'tournament',itmPercent:12.5,players:[{buyin:1,rebuy:12}]};
+const tail=T.pool(tailEvent,6240);assert.equal(tail.avail,6200);assert.equal(tail.unroundedAvail,6240);assert.equal(tail.roundingRemainder,40);assert.deepEqual(T.schedule(tailEvent,tail.unroundedAvail).rows.map(r=>r.prize),[4300,1900]);
+assert.equal(T.pool({jp:3,jpRound:100},6240).avail,6040);assert.equal(T.pool({tournamentMode:'guaranteed',guaranteedPool:18000,jp:3},6240).avail,18000);
+console.log('Screenshot 6240: payable total 6200, prizes 4300/1900, remainder 40, timed modes unchanged passed.');
