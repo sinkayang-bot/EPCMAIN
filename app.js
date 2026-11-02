@@ -135,7 +135,7 @@ function fillNewMemberId_(){
 window.epcGenerateNewMemberId_=function(){
  const field=document.querySelector('#mId');
  if(!field)return;
- if(memberIdEditing_()){alert('編輯既有會員時不能重新產生編號，請先取消編輯。');return;}
+ // Both new and existing members may preview a new number; only Save persists it.
  field.value=nextMemberId(field.value);
  return field.value;
 };
