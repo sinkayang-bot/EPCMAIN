@@ -1,3 +1,4 @@
+import {enrollmentAdmin} from './enrollment.js?v=10';
 import {anonymousMembers} from './ranking-names.js?v=9';
 import {lookupSourceMember} from './member-source.js?v=6';
 import {sdk} from './sdk.js?v=5';
@@ -25,5 +26,7 @@ export async function sparkAdmin(config,connectSdk=sdk,lookupMemberSource=lookup
   });return {ok:true};
  }
  async function syncHistory(memberId,readEvents){const {syncMemberHistory}=await import('./history-sync.js?v=7');return syncMemberHistory({fs,db,allowed},memberId,readEvents)}
- return {auth,au,fs,db,allowed,call,lookupMember,syncHistory};
+ let accounts;
+ const enrollment=enrollmentAdmin({au,fs,db,allowed,lookupMember,createAccount:async(...args)=>{accounts ||= await (await import('./sdk.js?v=10')).enrollmentAccountFactory(config);return accounts.createAccount(...args)},discardAccount:async user=>accounts.discardAccount(user)});
+ return {auth,au,fs,db,allowed,call,lookupMember,syncHistory,enrollment};
 }

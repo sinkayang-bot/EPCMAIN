@@ -3,8 +3,10 @@ service cloud.firestore {
  match /databases/{database}/documents {
   function google() { return request.auth != null && request.auth.token.email_verified == true && request.auth.token.firebase.sign_in_provider == 'google.com'; }
   function admin() { return google() && (request.auth.token.email == '__OWNER_EMAIL__' || (exists(/databases/$(database)/documents/epc_player_admins/$(request.auth.uid)) && get(/databases/$(database)/documents/epc_player_admins/$(request.auth.uid)).data.active == true)); }
-  function owner(uid) { return google() && request.auth.uid == uid; }
-  function bound(uid) { return exists(/databases/$(database)/documents/epc_player_profiles/$(uid)) && get(/databases/$(database)/documents/epc_player_profiles/$(uid)).data.active == true; }
+  function passwordUser() { return request.auth != null && request.auth.token.firebase.sign_in_provider == 'password'; }
+  function owner(uid) { return (google() || passwordUser()) && request.auth.uid == uid; }
+  function requester(uid) { return request.auth != null && request.auth.uid == uid && request.auth.token.firebase.sign_in_provider == 'anonymous'; }
+  function bound(uid) { return exists(/databases/$(database)/documents/epc_player_profiles/$(uid)) && get(/databases/$(database)/documents/epc_player_profiles/$(uid)).data.active == true && get(/databases/$(database)/documents/epc_player_profiles/$(uid)).data.get('passwordChangeRequired', false) == false; }
   match /epc_player_admins/{uid} { allow get: if owner(uid) || admin(); allow list, write: if admin(); }
   match /epc_player_meta/{id} { allow read: if true; allow write: if admin(); }
   match /epc_player_public_events/{id} { allow read: if true; allow write: if admin(); }
@@ -18,12 +20,16 @@ service cloud.firestore {
    }
    function myKeys() { return [get(/databases/$(database)/documents/epc_player_profiles/$(request.auth.uid)).data.leaderboardKey]; }
    allow read: if true;
-   allow create: if google() && bound(request.auth.uid) && validEntry() && request.resource.data.names.keys().hasOnly(myKeys());
-   allow update: if google() && bound(request.auth.uid) && validEntry() && request.resource.data.names.diff(resource.data.names).affectedKeys().hasOnly(myKeys());
+   allow create: if (google() || passwordUser()) && bound(request.auth.uid) && validEntry() && request.resource.data.names.keys().hasOnly(myKeys());
+   allow update: if (google() || passwordUser()) && bound(request.auth.uid) && validEntry() && request.resource.data.names.diff(resource.data.names).affectedKeys().hasOnly(myKeys());
    allow delete: if admin();
   }
   match /epc_player_profiles/{uid} {
-   allow get: if owner(uid) || admin(); allow list, write: if admin();
+   allow get: if owner(uid) || admin(); allow list, create, delete: if admin();
+   allow update: if admin() || (owner(uid) && passwordUser() && resource.data.active == true
+    && resource.data.passwordChangeRequired == true && resource.data.activationExpiresAt > request.time
+    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['passwordChangeRequired'])
+    && request.resource.data.passwordChangeRequired == false);
    match /{collection}/{record} {
     allow read: if admin() || (owner(uid) && bound(uid) && collection in ['history','coupons','points']);
     allow write: if admin();
@@ -38,6 +44,15 @@ service cloud.firestore {
     && request.resource.data.expiresAt > request.time
     && request.resource.data.expiresAt <= request.time + duration.value(10,'m'));
    allow delete: if admin();
+  }
+  match /epc_player_enrollment_requests/{uid} {
+   allow get: if requester(uid) || admin();
+   allow list, update, delete: if admin();
+   allow create: if admin() || (requester(uid)
+    && request.resource.data.keys().hasOnly(['memberId','status','createdAt'])
+    && request.resource.data.memberId is string
+    && request.resource.data.memberId.matches('^[A-Z0-9_-]{1,60}$')
+    && request.resource.data.status == 'pending' && request.resource.data.createdAt == request.time);
   }
   match /epc_player_members/{id} { allow read, write: if admin(); }
   match /epc_player_audit/{id} { allow read, write: if admin(); }
