@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 const read=name=>readFileSync(new URL('../'+name,import.meta.url),'utf8');
 const data=s=>'data:text/javascript;base64,'+Buffer.from(s).toString('base64');
-const pricing=read('player-pricing.js').replace("'./tournament-core.js?v=20261103-round4'",JSON.stringify(data(read('tournament-core.js'))));
+const pricing=read('player-pricing.js').replace("'./tournament-core.js?v=20261103-admin5'",JSON.stringify(data(read('tournament-core.js'))));
 const {newTimer,command,remaining,parseTime,eventTotals,validateLevels}=await import(data(read('timer-core.js').replace("'./player-pricing.js'",JSON.stringify(data(pricing)))));
 let t=newTimer();t=command(t,'set','12:35',1000);assert.equal(t.remaining,755);
 t=command(t,'toggle',undefined,1000);assert.equal(remaining(t,6000),750);

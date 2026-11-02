@@ -1,5 +1,5 @@
 import {mountAppearanceEditor} from './timer-appearance-editor.js?v=20261023-tablet-rgb41';
-import {DEFAULT_LEVELS,newTimer,remaining,timeText,eventTotals,parseTime,validateLevels,timerAt,tournamentRemaining,durationText} from './timer-core.js?v=20261103-round4';
+import {DEFAULT_LEVELS,newTimer,remaining,timeText,eventTotals,parseTime,validateLevels,timerAt,tournamentRemaining,durationText} from './timer-core.js?v=20261103-admin5';
 import {STANDARD_TEMPLATE} from './timer-store.js?v=20261023-tablet-rgb41';
 const $=id=>document.getElementById(id),params=new URLSearchParams(location.search),demo=params.has('demo'),id=params.get('eventId'),esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 let event,timer,service,templates=[],busy=false,draft=structuredClone(DEFAULT_LEVELS),textLoaded=false,structureLoaded=false,textDirty=false,structureDirty=false,textRevision=0,structureRevision=0;

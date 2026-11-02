@@ -44,7 +44,7 @@ function epcRankValidation_(e){
   }
   if(plan.rows.length>e.players.length)throw Error('依組數計算的 ITM 超過參賽人數，請調整 ITM %');
   if(plan.rows.some(r=>!seen.has(r.rank)))throw Error('請填妥全部 ITM 名次並計算獎金');
-  return {ok:true,total,target:plan.total,diff:0,message:'名次獎金正確；百位取整餘額 '+money(plan.remainder)};
+  return {ok:true,total,target:plan.total,diff:0,message:'名次獎金正確；取整餘額轉入行政費 '+money(plan.remainder)};
  }catch(err){return {ok:false,total,target:0,diff:0,message:err.message}}
 }
 function epcSetFinishRank_(index,value){
@@ -70,8 +70,8 @@ function epcRenderModeSummary_(e){
  if(mode==='normal'){epcSettlementModeEditor_(e);return}
  if(mode==='guaranteed'){epcSettlementModeEditor_(e);return}
  const locked=e.status==='已結算'||e.status==='settled';
- try{const plan=epcRankPlan_(e),itm=EPCTournament.itm(e),admin=e.players.reduce((s,p)=>s+calcPlayerForEvent(p,e).netAdmin,0);
-  el.innerHTML='<h3>一般錦標賽｜名次獎金</h3><div>實際累積獎池 '+money(info.unroundedAvail??info.avail)+'｜總可發獎金（百位整數）'+money(info.avail)+'｜實收行政費 '+money(admin)+'｜ITM '+plan.rows.length+' 人（'+itm.entries+' 組 × '+(itm.percent??'舊制固定人數')+'% 無條件進位）｜保底 '+money(e.guaranteedPool)+'｜店家補足 '+money(info.overlay)+'｜發放合計 '+money(plan.total)+'｜向下取整餘額 '+money(plan.remainder)+'（獨立列帳，不自動計為行政費）</div><div style="display:flex;gap:16px;flex-wrap:wrap;margin:12px 0">'+plan.rows.map(r=>'<span>第 '+r.rank+' 名：<b>'+money(r.prize)+'</b></span>').join('')+'</div><div class="small">填入玩家最終名次後，按「依名次計算獎金」。淘汰玩家不需要保留籌碼。獎金表會同步至本場計時器，每 8 秒輪播一頁。</div><div id="tournamentRankRows"></div>';
+ try{const plan=epcRankPlan_(e),itm=EPCTournament.itm(e),admin=plan.remainder+e.players.reduce((s,p)=>s+calcPlayerForEvent(p,e).netAdmin,0);
+  el.innerHTML='<h3>一般錦標賽｜名次獎金</h3><div>實際累積獎池 '+money(info.unroundedAvail??info.avail)+'｜總可發獎金（百位整數）'+money(info.avail)+'｜實收行政費 '+money(admin)+'｜ITM '+plan.rows.length+' 人（'+itm.entries+' 組 × '+(itm.percent??'舊制固定人數')+'% 無條件進位）｜保底 '+money(e.guaranteedPool)+'｜店家補足 '+money(info.overlay)+'｜發放合計 '+money(plan.total)+'｜取整餘額轉入行政費 '+money(plan.remainder)+'</div><div style="display:flex;gap:16px;flex-wrap:wrap;margin:12px 0">'+plan.rows.map(r=>'<span>第 '+r.rank+' 名：<b>'+money(r.prize)+'</b></span>').join('')+'</div><div class="small">填入玩家最終名次後，按「依名次計算獎金」。淘汰玩家不需要保留籌碼。獎金表會同步至本場計時器，每 8 秒輪播一頁。</div><div id="tournamentRankRows"></div>';
   const box=$('tournamentRankRows');e.players.forEach((p,i)=>{const row=document.createElement('label');row.style.cssText='display:inline-flex;gap:10px;align-items:center;margin:8px';const name=document.createElement('span'),m=db.members.find(m=>String(m.id)===String(p.memberId));name.textContent=m?.name||p.name||p.memberId;const input=document.createElement('input');input.type='number';input.min='0';input.max=e.players.length;input.value=p.finishRank||'';input.placeholder='名次';input.style.width='90px';input.disabled=locked;input.onchange=()=>epcSetFinishRank_(i,input.value);row.append(name,input);box.append(row)})
  }catch(err){el.textContent='名次獎金設定：'+err.message}
 }

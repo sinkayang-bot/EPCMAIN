@@ -28,6 +28,11 @@ function schedule(e,amount){
  const rows=weights.map((v,i)=>({rank:i+1,percent:v/sum*100,prize:Math.floor(n(amount)*v/sum/100)*100}));
  return {rows,total:rows.reduce((a,b)=>a+b.prize,0),remainder:n(amount)-rows.reduce((a,b)=>a+b.prize,0)};
 }
+function adminRemainder(e,gross){
+ if(mode(e)!=='tournament')return 0;
+ const info=pool(e,gross);
+ try{const plan=schedule(e,info.unroundedAvail);return plan.rows.length?plan.remainder:0}catch(_){return 0}
+}
 function pricing(p,e){
  const buy=n(p.buyin),re=n(p.rebuy)+n(p.addon),groups=buy+re,custom=e.pricingMode==='custom';
  const ba=n(custom?e.buyinAdmin:e.admin),ra=n(custom?e.rebuyAdmin:e.admin);
@@ -36,5 +41,5 @@ function pricing(p,e){
  const manual=n(p.manualDiscount)+earlyDiscount+lateDiscount+ladiesDiscount,original=buy*bt+re*rt,grossAdmin=buy*ba+re*ra;
  return {groups,original,paid:Math.max(0,original-manual),pool:buy*Math.max(0,bt-ba)+re*Math.max(0,rt-ra),grossAdmin,netAdmin:Math.max(0,grossAdmin-manual),manual,auto:0,totalDiscount:manual,earlyDiscount,lateDiscount,ladiesDiscount,birdDiscount:earlyDiscount+lateDiscount,rebuyDiscount:0,overbuyDiscount:0,accountingRebuyDiscount:0,accountingGroupDiscount:0};
 }
-root.EPCTournament={mode,pool,schedule,pricing,itm};
+root.EPCTournament={mode,pool,schedule,pricing,itm,adminRemainder};
 })(globalThis);

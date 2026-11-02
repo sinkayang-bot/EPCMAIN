@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="zh-Hant">
-<head><script src="tournament-ui.js?v=20261103-round4"></script><script src="tournament-core.js?v=20261103-round4"></script><meta charset="utf-8"><script src="member-number-core.js?v=20261101-numbers1"></script><script defer src="tablet/layout.js?v=46"></script><script src="terminal-mode.js?v=20261016-modes1"></script><script src="event-patch-core.js?v=20261016-modes1"></script>
+<head><script src="tournament-ui.js?v=20261103-admin5"></script><script src="tournament-core.js?v=20261103-admin5"></script><meta charset="utf-8"><script src="member-number-core.js?v=20261101-numbers1"></script><script defer src="tablet/layout.js?v=46"></script><script src="terminal-mode.js?v=20261016-modes1"></script><script src="event-patch-core.js?v=20261016-modes1"></script>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
 <link rel="icon" type="image/png" sizes="32x32" href="assets/epc-icon-32.png?v=20261024-brand46"><link rel="apple-touch-icon" sizes="180x180" href="assets/epc-icon-180.png?v=20261024-brand46"><meta name="apple-mobile-web-app-title" content="EPC"><link rel="stylesheet" href="brand.css?v=20261024-brand46"><link rel="manifest" href="manifest.webmanifest?v=20261024-brand46"><title>EPC POKER MANAGEMENT V3.0</title>
@@ -2279,7 +2279,7 @@ window.addEventListener('error',function(e){
    <div class="tournamentFields"><label>買入｜行政費</label><input id="eTourBuyFee" type="number" min="0" value="200"></div>
    <div class="tournamentFields"><label>重買｜進獎池</label><input id="eTourRePool" type="number" min="0" value="1000"></div>
    <div class="tournamentFields"><label>重買｜行政費</label><input id="eTourReFee" type="number" min="0" value="200"></div>
-   <div class="tournamentFields"><label>各名次比例 %（留空自動分配）</label><input id="ePayoutPercentages" placeholder="例如 50,30,20"><div class="small">合計 100%；獎金向下取整至百位，餘額另外列示。買入進獎池 1000＋行政費 200，實付 1200。重買依設定收費，不自動半價。</div></div>
+   <div class="tournamentFields"><label>各名次比例 %（留空自動分配）</label><input id="ePayoutPercentages" placeholder="例如 50,30,20"><div class="small">合計 100%；獎金向下取整至百位，餘額轉入行政費。買入進獎池 1000＋行政費 200，實付 1200。重買依設定收費，不自動半價。</div></div>
    <div><label>起始籌碼 / 組</label><input type="number" id="eChips" value="300000"></div>
    <div><label>JP %</label><input type="number" step=".1" id="eJP" value="3"></div>
    <div><label>JP 取整單位</label><input type="number" id="eJPRound" value="100"></div>
@@ -4705,6 +4705,7 @@ function accountingTotalsForEvents(events){
      rebuyDiscount+=x.accountingRebuyDiscount??(x.rebuyDiscount||0);
      groupDiscount+=x.accountingGroupDiscount??(x.overbuyDiscount||0);
    });
+   gross+=eventRoundingAdmin_(e);
    jp+=eventOwnJP(e);
  });
  const discountExpense=rebuyDiscount+groupDiscount+manual;
@@ -4843,6 +4844,11 @@ function accountingIndependentGroups(date){
 function poolInfoForEvent(e){
  if(!e)return {pool:0,jp:0,avail:0,overlay:0};
  return EPCTournament.pool(e,(e.players||[]).reduce((sum,p)=>sum+calcPlayerForEvent(p,e).pool,0));
+}
+function eventRoundingAdmin_(e){
+ if(!e||EPCTournament.mode(e)!=='tournament')return 0;
+ const gross=(e.players||[]).reduce((s,p)=>s+calcPlayerForEvent(p,e).pool,0);
+ return EPCTournament.adminRemainder(e,gross);
 }
 function eventOwnJP(e){
  if(!e)return 0;
@@ -5142,6 +5148,7 @@ function renderDailyAccountingDetail(){
      rebuy+=c.accountingRebuyDiscount??(c.rebuyDiscount||0);
      group+=c.accountingGroupDiscount??(c.overbuyDiscount||0);
    });
+   const roundingAdmin=eventRoundingAdmin_(e);gross+=roundingAdmin;net+=roundingAdmin;
    const disc=rebuy+group+manual;
    const ag=accountingGroupForEvent(e);
    return `<tr><td>第${e.seq||1}場</td><td>${Number(e.level||0).toLocaleString()} 賽事</td><td><input value="${ag}" placeholder="一般帳" style="min-width:110px" onchange="setEventAccountingGroup('${e.id}',this.value)"></td><td>${buyers}</td><td>${rebuyGroups}</td><td>${g}</td><td>${money(gross)}</td><td>${money(rebuy)}</td><td>${money(group)}</td><td>${money(manual)}</td><td>${money(disc)}</td><td class="${epcPnlClass_(net)}">${money(net)}</td><td>${money(eventOwnJP(e))}</td><td><button type="button" onclick="openEventAccounting('${e.id}')">編輯帳務</button></td></tr>`;
@@ -5181,6 +5188,7 @@ function printDailyAccounting(){
      rebuy+=c.accountingRebuyDiscount??(c.rebuyDiscount||0);
      group+=c.accountingGroupDiscount??(c.overbuyDiscount||0);
    });
+   const roundingAdmin=eventRoundingAdmin_(e);gross+=roundingAdmin;net+=roundingAdmin;
    const disc=rebuy+group+manual;
    return `<tr>
     <td>第${e.seq||i+1}場</td>
@@ -5283,6 +5291,7 @@ function accountingInfo(e){
    // manual discounts are assumed to reduce EPC receipts after group discount.
    netAdmin+=c.netAdmin||0;
  });
+ const roundingAdmin=eventRoundingAdmin_(e);gross+=roundingAdmin;netAdmin+=roundingAdmin;
  let a=ensureAccounting(e);
  let revenue=netAdmin+a.otherIncome+a.venueIncome;
  let expense=a.laborExpense+a.otherExpense+(poolInfoForEvent(e).overlay||0);
@@ -7016,7 +7025,7 @@ function render(){
  // renderDashboardSummary() already calculates the authoritative ledger KPIs.
  let settledEvents=db.events.filter(x=>x.status==='已結算');
  $('kMembers').textContent=db.members.length;
- $('sPool').textContent=money(info.pool);$('sJP').textContent=money(info.jp);const settleTotals=ev.players.reduce((a,p)=>{const c=calcPlayerForEvent(p,ev);a.discount+=(+c.totalDiscount||0);a.netAdmin+=(+c.netAdmin||0);a.paid+=(+c.paid||0);return a;},{discount:0,netAdmin:0,paid:0});renderSettlementPaymentSummary_(ev);if($('sTotalDiscount'))$('sTotalDiscount').textContent=money(settleTotals.discount);if($('sNetAdmin'))$('sNetAdmin').textContent=money(settleTotals.netAdmin);$('sAvail').textContent=money(info.avail);if($('sEntrants'))$('sEntrants').textContent=ev.players.reduce((sum,p)=>sum+calcPlayerForEvent(p,ev).groups,0);if($('sStartingChips'))$('sStartingChips').textContent=Number(ev.chips||0).toLocaleString();$('sChipDiff').textContent=chipDiff.toLocaleString();$('sChipDiff').className='v '+(chipDiff===0?'pos':'neg');
+ $('sPool').textContent=money(info.pool);$('sJP').textContent=money(info.jp);const settleTotals=ev.players.reduce((a,p)=>{const c=calcPlayerForEvent(p,ev);a.discount+=(+c.totalDiscount||0);a.netAdmin+=(+c.netAdmin||0);a.paid+=(+c.paid||0);return a;},{discount:0,netAdmin:eventRoundingAdmin_(ev),paid:0});renderSettlementPaymentSummary_(ev);if($('sTotalDiscount'))$('sTotalDiscount').textContent=money(settleTotals.discount);if($('sNetAdmin'))$('sNetAdmin').textContent=money(settleTotals.netAdmin);$('sAvail').textContent=money(info.avail);if($('sEntrants'))$('sEntrants').textContent=ev.players.reduce((sum,p)=>sum+calcPlayerForEvent(p,ev).groups,0);if($('sStartingChips'))$('sStartingChips').textContent=Number(ev.chips||0).toLocaleString();$('sChipDiff').textContent=chipDiff.toLocaleString();$('sChipDiff').className='v '+(chipDiff===0?'pos':'neg');
  epcRenderModeSummary_(ev);
  if($('btnCalcICM')){$('btnCalcICM').textContent=EPCTournament.mode(ev)==='tournament'?'② 依名次計算獎金':'② 計算籌碼比例獎金';$('btnCalcICM').disabled=chipDiff!==0&&EPCTournament.mode(ev)==='normal';$('btnCalcICM').style.opacity=$('btnCalcICM').disabled?'.45':'1';}
  const prizeCheck=manualPrizeValidation(ev);

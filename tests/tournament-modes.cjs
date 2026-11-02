@@ -45,3 +45,10 @@ const tailEvent={tournamentMode:'tournament',itmPercent:12.5,players:[{buyin:1,r
 const tail=T.pool(tailEvent,6240);assert.equal(tail.avail,6200);assert.equal(tail.unroundedAvail,6240);assert.equal(tail.roundingRemainder,40);assert.deepEqual(T.schedule(tailEvent,tail.unroundedAvail).rows.map(r=>r.prize),[4300,1900]);
 assert.equal(T.pool({jp:3,jpRound:100},6240).avail,6040);assert.equal(T.pool({tournamentMode:'guaranteed',guaranteedPool:18000,jp:3},6240).avail,18000);
 console.log('Screenshot 6240: payable total 6200, prizes 4300/1900, remainder 40, timed modes unchanged passed.');
+
+const acctEvent={tournamentMode:'tournament',itmPercent:12.5,poolUnit:480,admin:120,players:[{buyin:1,rebuy:12}],jp:0};
+const ac={EPCTournament:T,eventOwnJP:()=>0,ensureAccounting:()=>({otherIncome:0,venueIncome:0,laborExpense:0,otherExpense:0})};vm.createContext(ac);
+vm.runInContext(['calcPlayerForEvent','poolInfoForEvent','eventRoundingAdmin_','accountingTotalsForEvents','accountingInfo'].map(extract).join('\n'),ac);
+assert.equal(ac.eventRoundingAdmin_(acctEvent),40);const first=ac.accountingTotalsForEvents([acctEvent]),second=ac.accountingTotalsForEvents([acctEvent]);assert.equal(first.gross,1600);assert.equal(first.netAdmin,1600);assert.equal(second.netAdmin,1600);assert.equal(ac.accountingInfo(acctEvent).netAdmin,1600);
+assert.equal(T.adminRemainder({...acctEvent,tournamentMode:'normal'},6240),0);
+console.log('Accounting: 40 remainder returned once, gross/net admin 1600, repeated reads unchanged, normal timed fees unchanged passed.');
