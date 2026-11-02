@@ -9,12 +9,12 @@ field.disabled=true;ctx.fillNewMemberId_();assert.equal(field.value,'A000002');
 assert.equal(ctx.epcGenerateNewMemberId_(),'A000003');assert.equal(field.value,'A000003');
 field.disabled=false;assert.equal(ctx.epcGenerateNewMemberId_(),'A000002');
 field.value='CUSTOM';ctx.fillNewMemberId_();assert.equal(field.value,'CUSTOM','auto-fill preserves manual values');
-ctx.editingMemberId='CUSTOM';ctx.epcGenerateNewMemberId_();assert.equal(field.value,'CUSTOM');assert.equal(ctx.alerts.length,1);
+ctx.editingMemberId='CUSTOM';ctx.epcGenerateNewMemberId_();assert.match(field.value,/^A\d{6}$/);assert.equal(ctx.editingMemberId,'CUSTOM','regenerate keeps the original member selected');assert.equal(ctx.alerts.length,0);
 field.value='';ctx.fillNewMemberId_();assert.equal(field.value,'','never fill an existing member ID during editing');
 ctx.editingMemberId=null;ctx.fillNewMemberId_();assert.match(field.value,/^A\d{6}$/);
 // The actual HTML button remains a local preview in view mode, while creates stay protected.
-const page=new JSDOM(html);const button=page.window.document.querySelector('[onclick="window.epcGenerateNewMemberId_()"]');assert(button.hasAttribute('data-mode-control'));assert(html.includes('app.js?v=20261101-member-numbers1'));
+const page=new JSDOM(html);const button=page.window.document.querySelector('[onclick="window.epcGenerateNewMemberId_()"]');assert(button.hasAttribute('data-mode-control'));assert(html.includes('app.js?v=20261102-regenerate-existing1'));
 vm.runInContext(fs.readFileSync('terminal-mode.js','utf8'),vm.createContext({window:w,document:w.document,CustomEvent:w.CustomEvent,MutationObserver:w.MutationObserver,console,WeakMap,Set,Promise}));
 const realButton=w.document.importNode(button,true);w.document.body.append(realButton);realButton.onclick=ctx.epcGenerateNewMemberId_;field.disabled=true;const before=field.value;realButton.click();assert.notEqual(field.value,before,'actual button changes the preview under the view-mode click guard');
 assert(w.EPCMode.isView());assert.throws(()=>w.EPCMode.assertAction('member.create'),/檢視模式/);
-console.log('PASS: disabled-field regression, distinct preview IDs, case-insensitive duplicate checks, manual input preservation, editing protection and create permission guard');dom.window.close();page.window.close();
+console.log('PASS: disabled-field regression, distinct preview IDs, case-insensitive duplicate checks, manual input preservation, existing-member regeneration, original selection protection and create permission guard');dom.window.close();page.window.close();

@@ -14,11 +14,16 @@ const ctx={console:{error:()=>{}},document:dom.window.document,editingMemberId:'
 }};ctx.$=id=>ctx.document.getElementById(id);ctx.cloneCloud_=structuredClone;ctx.scrollTo=()=>{};ctx.memberNumber_=v=>C.number(v,ctx.db.activityManagement.memberNumbers||{});ctx.window=ctx;vm.createContext(ctx);const app=fs.readFileSync('app.js','utf8');vm.runInContext(app.slice(app.indexOf('async function saveMemberNumber_'),app.indexOf('window.performDelMember=')),ctx);
 (async()=>{
  await ctx.saveMemberEdit();assert.equal(ctx.lastError,undefined);assert(canceled);assert.equal(settings.memberNumbers.OLD123.number,'NEW999');assert.equal(settings.concurrentNote,'preserved');
+ vm.runInContext(app.slice(app.indexOf('function nextMemberId('),app.indexOf('function openMemberModal(')),ctx);
  const html=fs.readFileSync('index.html','utf8');vm.runInContext(html.slice(html.indexOf('function editMember(id){'),html.indexOf('async function saveMemberEdit(){')),ctx);ctx.editMember('OLD123');assert.equal(ctx.document.querySelector('#mId').value,'NEW999');assert.equal(ctx.document.querySelector('#mId').disabled,false,'existing member number is editable in the actual form');
+ const previousSettings=JSON.stringify(settings),beforeCalls=calls.length;
+ const generated=ctx.epcGenerateNewMemberId_();assert.match(generated,/^A\d{6}$/);assert.notEqual(generated,'NEW999');assert.equal(ctx.editingMemberId,'OLD123');assert.equal(calls.length,beforeCalls,'regenerate does not call any write API');assert.equal(JSON.stringify(settings),previousSettings,'regenerate alone never persists a number');
+ ctx.editMember('OLD123');assert.equal(ctx.document.querySelector('#mId').value,'NEW999','reopening without saving discards generated preview');
+ const savedNumber=ctx.epcGenerateNewMemberId_();await ctx.saveMemberEdit();assert.equal(settings.memberNumbers.OLD123.number,savedNumber,'save applies generated number to the original member');
  assert.deepEqual(ctx.db.events,original.events);assert.deepEqual(ctx.db.ledger,original.ledger);assert.deepEqual(settings.hunter,original.activityManagement.hunter);assert.deepEqual(settings.weeklyClaims,original.activityManagement.weeklyClaims);
  assert(!('memberId' in calls.find(x=>x.action==='member.update').p.patch),'profile ID and all historical keys remain stable');
  ctx.document.querySelector('#mId').value='OTHER';calls=[];ctx.lastError='';await ctx.saveMemberEdit();assert.match(ctx.lastError,/使用/);assert.equal(calls.length,0,'duplicate blocked before profile writes');
- ctx.document.querySelector('#mId').value='NEXT999';fail=true;canceled=false;await ctx.saveMemberEdit();assert.match(ctx.lastError,/offline/);assert(!canceled);assert.equal(settings.memberNumbers.OLD123.number,'NEW999','failed cloud write leaves old mapping authoritative');
+ ctx.document.querySelector('#mId').value='NEXT999';fail=true;canceled=false;await ctx.saveMemberEdit();assert.match(ctx.lastError,/offline/);assert(!canceled);assert.equal(settings.memberNumbers.OLD123.number,savedNumber,'failed cloud write leaves old mapping authoritative');
  fail=false;const prior=JSON.stringify(settings);await assert.rejects(ctx.saveMemberNumber_('OLD123','OLD123',true),/已存在/);assert.equal(JSON.stringify(settings),prior,'failed duplicate signup cannot reset an existing custom number');
  view=true;calls=[];await ctx.saveMemberEdit();assert.equal(calls.length,0,'view mode blocks every write');
  // Same-source aliases are emitted after ranking/claim calculation, with stable lookup identifiers.
