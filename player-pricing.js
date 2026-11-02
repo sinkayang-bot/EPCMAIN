@@ -1,4 +1,6 @@
+import './tournament-core.js?v=20261103-modes1';
 export function calcPlayerForEvent(p,e){
+ if(globalThis.EPCTournament.mode(e)==='tournament')return globalThis.EPCTournament.pricing(p,e);
  let buyin=(+p.buyin||0), rebuy=(+p.rebuy||0), addon=(+p.addon||0);
  let groups=buyin+rebuy+addon;
  const earlyDiscount=groups>0&&p.earlyBird?Math.max(0,+e.earlyBirdDiscount||0):0;

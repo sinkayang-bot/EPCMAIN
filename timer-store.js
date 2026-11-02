@@ -1,4 +1,4 @@
-import {newTimer,DEFAULT_LEVELS,validateLevels,normalizeAppearance} from './timer-core.js?v=20261023-tablet-rgb41';
+import {newTimer,DEFAULT_LEVELS,validateLevels,normalizeAppearance} from './timer-core.js?v=20261103-modes1';
 export const STANDARD_TEMPLATE={id:'standard',name:'20 分鐘標準賽',startingStack:300000,levels:DEFAULT_LEVELS,announcement:'歡迎參加 EPC 限時錦標賽',payoutInput:'依籌碼比例分配',featuredHand:{enabled:false,title:'指定手牌',left:{rank:'7',suit:'♠'},right:{rank:'A',suit:'♥'}},revision:0};
 export function templateData(value){
  const name=String(value.name||'').trim(),startingStack=Number(value.startingStack??300000);
