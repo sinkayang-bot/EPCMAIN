@@ -29,3 +29,14 @@ node('newTournamentMode').value='tournament';ctx.epcNewModeFields_();assert.equa
 node('eTournamentMode').value='tournament';ctx.epcTournamentFields_();assert.equal(node('ePricingMode').parentElement.hidden,true);assert.equal(groups['.standardPricing,.customPricing'][0].hidden,true);
 node('eTournamentMode').value='normal';ctx.epcTournamentFields_();assert.equal(node('guaranteedFields').hidden,true);assert.equal(groups['.tournamentFields'][0].hidden,true);assert.equal(groups['.standardPricing,.customPricing'][0].hidden,false);
 console.log('Mode UI: creation defaults, conditional buy-in fields, separate components, JP exclusion and switching visibility passed.');
+(async()=>{
+ const existing={id:'existing',players:[{memberId:'a',buyin:1,stack:350000},{memberId:'b',buyin:1,stack:250000}],jp:3,jpRound:100,tournamentMode:'normal',poolUnit:3000,admin:400};
+ const before=JSON.stringify(existing.players);ctx.currentEvent=()=>existing;ctx.touchEvent_=()=>{};ctx.persist=()=>{};ctx.render=()=>{};ctx.actionMsg=()=>{};ctx.alert=m=>{throw Error(m)};
+ let saved;ctx.syncEventToFirestore_=async e=>{saved=JSON.parse(JSON.stringify(e));return true};
+ node('settlementTournamentMode').value='guaranteed';node('settlementGuaranteedPool').value='18000';
+ await ctx.epcSaveSettlementMode_();assert.equal(saved.tournamentMode,'guaranteed');assert.equal(saved.guaranteedPool,18000);assert.equal(JSON.stringify(existing.players),before);
+ assert.equal(ctx.poolInfoForEvent(existing).avail,18000);assert.equal(ctx.poolInfoForEvent(existing).overlay,12200);assert.equal(ctx.poolInfoForEvent(existing).jp,200);
+ assert.equal(18000*350000/600000,10500);assert.equal(18000*250000/600000,7500);
+ existing.players[0].rebuy=6;assert.equal(ctx.poolInfoForEvent(existing).avail,23200);
+ console.log('Existing event settlement: guarantee saved, players retained, screenshot case pays 18000 instead of 5800, above-guarantee uses actual pool passed.');
+})().catch(e=>{console.error(e);process.exitCode=1});

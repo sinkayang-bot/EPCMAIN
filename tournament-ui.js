@@ -21,7 +21,7 @@ function epcResetNewMode_(){
 }
 function epcNewModeSettings_(){
  const mode=$('newTournamentMode').value,guaranteedPool=Number($('newGuaranteedPool').value);
- if(mode!=='normal'&&(!Number.isFinite(guaranteedPool)||guaranteedPool<0))throw Error('保底獎金須為非負數');
+ if(mode!=='normal'&&(!Number.isFinite(guaranteedPool)||guaranteedPool<0||(mode==='guaranteed'&&guaranteedPool===0)))throw Error('保底獎金須為非負數');
  const result={tournamentMode:mode,guaranteedPool:mode==='normal'?0:guaranteedPool};
  if(mode==='tournament'){
   result.itmPercent=Number($('newItmPercent').value);EPCTournament.itm(result);
@@ -67,13 +67,41 @@ function epcAssignRankPrizes_(){
 function epcRenderModeSummary_(e){
  const el=$('tournamentModeSummary');if(!el)return;
  const mode=EPCTournament.mode(e),info=poolInfoForEvent(e);
- if(mode==='normal'){el.textContent='一般限時：依實際剩餘籌碼比例分配可發獎池。';return}
- if(mode==='guaranteed'){
-  el.textContent='限時保底｜保證可發 '+money(e.guaranteedPool)+'｜買入累積（扣 JP 後）'+money(info.earned)+'｜店家補足 '+money(info.overlay)+'｜本場可發 '+money(info.avail)+'。按實點籌碼總和分配；保底不增加桌上籌碼。';return;
- }
+ if(mode==='normal'){epcSettlementModeEditor_(e);return}
+ if(mode==='guaranteed'){epcSettlementModeEditor_(e);return}
  const locked=e.status==='已結算'||e.status==='settled';
  try{const plan=epcRankPlan_(e),itm=EPCTournament.itm(e),admin=e.players.reduce((s,p)=>s+calcPlayerForEvent(p,e).netAdmin,0);
   el.innerHTML='<h3>一般錦標賽｜名次獎金</h3><div>總獎池 '+money(info.avail)+'｜實收行政費 '+money(admin)+'｜ITM '+plan.rows.length+' 人（'+itm.entries+' 組 × '+(itm.percent??'舊制固定人數')+'% 無條件進位）｜保底 '+money(e.guaranteedPool)+'｜店家補足 '+money(info.overlay)+'｜發放合計 '+money(plan.total)+'｜向下取整餘額 '+money(plan.remainder)+'（獨立列帳，不自動計為行政費）</div><div style="display:flex;gap:16px;flex-wrap:wrap;margin:12px 0">'+plan.rows.map(r=>'<span>第 '+r.rank+' 名：<b>'+money(r.prize)+'</b></span>').join('')+'</div><div class="small">填入玩家最終名次後，按「依名次計算獎金」。淘汰玩家不需要保留籌碼。獎金表會同步至本場計時器，每 8 秒輪播一頁。</div><div id="tournamentRankRows"></div>';
   const box=$('tournamentRankRows');e.players.forEach((p,i)=>{const row=document.createElement('label');row.style.cssText='display:inline-flex;gap:10px;align-items:center;margin:8px';const name=document.createElement('span'),m=db.members.find(m=>String(m.id)===String(p.memberId));name.textContent=m?.name||p.name||p.memberId;const input=document.createElement('input');input.type='number';input.min='0';input.max=e.players.length;input.value=p.finishRank||'';input.placeholder='名次';input.style.width='90px';input.disabled=locked;input.onchange=()=>epcSetFinishRank_(i,input.value);row.append(name,input);box.append(row)})
  }catch(err){el.textContent='名次獎金設定：'+err.message}
+}
+
+// Existing timed events can enable a guarantee directly at settlement.
+function epcSettlementModeEditor_(e){
+ const el=$('tournamentModeSummary');if(!el||EPCTournament.mode(e)==='tournament')return;
+ const locked=e.status==='已結算'||e.status==='settled',mode=EPCTournament.mode(e),info=poolInfoForEvent(e);
+ const title=document.createElement('h3');title.textContent='本場獎池設定';
+ const form=document.createElement('div');form.className='formgrid';
+ const modeLabel=document.createElement('label');modeLabel.textContent='賽事模式';
+ const select=document.createElement('select');select.id='settlementTournamentMode';
+ for(const [value,label] of [['normal','一般限時錦標賽'],['guaranteed','保底限時']]){const option=document.createElement('option');option.value=value;option.textContent=label;select.append(option)}
+ select.value=mode;select.disabled=locked;modeLabel.append(select);
+ const guaranteeLabel=document.createElement('label');guaranteeLabel.textContent='保底獎金';
+ const input=document.createElement('input');input.id='settlementGuaranteedPool';input.type='number';input.min='1';input.step='100';input.placeholder='例如 18000';input.value=Number(e.guaranteedPool)>0?e.guaranteedPool:'';input.disabled=locked;guaranteeLabel.append(input);
+ const toggle=()=>{guaranteeLabel.hidden=select.value!=='guaranteed'};select.onchange=toggle;toggle();
+ const button=document.createElement('button');button.type='button';button.className='primary';button.textContent='儲存模式與保底金額';button.disabled=locked;button.onclick=()=>epcSaveSettlementMode_();
+ form.append(modeLabel,guaranteeLabel,button);
+ const explanation=document.createElement('div');explanation.className='small';explanation.style.marginTop='12px';explanation.textContent=mode==='guaranteed'?'保底 '+money(e.guaranteedPool)+'｜實際可發獎池（扣 JP 後）'+money(info.earned)+'｜店家補足 '+money(info.overlay)+'｜總可發獎金 '+money(info.avail)+'。未超過保底按保底計算，超過按實際可發獎池計算。':'這場目前未啟用保底。有保底請選「保底限時」，輸入金額並儲存，再重新計算玩家獎金。';
+ el.replaceChildren(title,form,explanation);
+}
+async function epcSaveSettlementMode_(){
+ const e=currentEvent();if(!e||e.status==='已結算'||e.status==='settled')return alert('請先解鎖賽事');
+ const mode=$('settlementTournamentMode').value,guarantee=Number($('settlementGuaranteedPool').value);
+ if(mode==='guaranteed'&&(!Number.isFinite(guarantee)||guarantee<=0))return alert('請輸入大於 0 的保底獎金');
+ if(mode!=='normal'&&mode!=='guaranteed')return;
+ const id=String(e.id);
+ e.tournamentMode=mode;e.guaranteedPool=mode==='guaranteed'?guarantee:0;
+ touchEvent_(e);persist();
+ try{await syncEventToFirestore_(e,true);if(String(currentEvent()?.id)===id)render();actionMsg('模式與保底金額已儲存，請重新計算籌碼比例獎金');}
+ catch(err){actionMsg('模式與保底同步失敗：'+String(err?.message||err),true)}
 }

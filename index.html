@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="zh-Hant">
-<head><script src="tournament-ui.js?v=20261103-modes2"></script><script src="tournament-core.js?v=20261103-modes2"></script><meta charset="utf-8"><script src="member-number-core.js?v=20261101-numbers1"></script><script defer src="tablet/layout.js?v=46"></script><script src="terminal-mode.js?v=20261016-modes1"></script><script src="event-patch-core.js?v=20261016-modes1"></script>
+<head><script src="tournament-ui.js?v=20261103-guarantee3"></script><script src="tournament-core.js?v=20261103-modes2"></script><meta charset="utf-8"><script src="member-number-core.js?v=20261101-numbers1"></script><script defer src="tablet/layout.js?v=46"></script><script src="terminal-mode.js?v=20261016-modes1"></script><script src="event-patch-core.js?v=20261016-modes1"></script>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
 <link rel="icon" type="image/png" sizes="32x32" href="assets/epc-icon-32.png?v=20261024-brand46"><link rel="apple-touch-icon" sizes="180x180" href="assets/epc-icon-180.png?v=20261024-brand46"><meta name="apple-mobile-web-app-title" content="EPC"><link rel="stylesheet" href="brand.css?v=20261024-brand46"><link rel="manifest" href="manifest.webmanifest?v=20261024-brand46"><title>EPC POKER MANAGEMENT V3.0</title>
@@ -4160,6 +4160,7 @@ async function saveEvent(){
  const timerTemplateId=(!e.timerId||replaceTimerTemplate)?chosenTimerTemplate:'',expectedTimerTemplateId=e.timerTemplateId||'';
  if(e.status==='已結算'||e.status==='settled')return alert('請先解鎖賽事再修改設定');
  const nextMode=$('eTournamentMode').value;
+ if(nextMode==='guaranteed'&&!(Number($('eGuaranteedPool').value)>0))return alert('保底限時請輸入大於 0 的保底獎金');
  const settings={tournamentMode:nextMode,guaranteedPool:Math.max(0,+$('eGuaranteedPool').value||0),itmPercent:+$('eItmPercent').value,payoutPercentages:$('ePayoutPercentages').value.trim()};
  if(nextMode==='tournament'){try{EPCTournament.itm(settings);EPCTournament.schedule({...settings,players:e.players},0)}catch(err){return alert(err.message)}}
  if(nextMode==='tournament'&&['eTourBuyPool','eTourBuyFee','eTourRePool','eTourReFee'].some(id=>!Number.isFinite(Number($(id).value))||Number($(id).value)<0))return alert('買入與重買金額須為非負數');
@@ -4400,6 +4401,7 @@ function calculateICM(){
  if(actual<=0)return alert('請先輸入下桌籌碼');
  if(chipDiff!==0&&!confirm('實點籌碼與發出籌碼差額 '+chipDiff.toLocaleString()+'，確認依實點總和分配保底獎池？'))return;
 
+ if(EPCTournament.mode(e)==='guaranteed'&&!(Number(e.guaranteedPool)>0))return alert('請先設定本場保底獎金');
  let info=poolInfo();
  let unit=100;
  let raw=e.players.map(p=>info.avail*((+p.stack||0)/actual));
@@ -5289,6 +5291,7 @@ function accountingInfo(e){
 function validateSettlement(){
  let e=requireEvent(); if(!e)return {ok:false,msg:'尚未建立賽事'};
  if(!e.players.length)return {ok:false,msg:'本場尚未加入玩家'};
+ if(EPCTournament.mode(e)==='guaranteed'&&!(Number(e.guaranteedPool)>0))return {ok:false,msg:'請先設定本場保底獎金'};
  let totalGroups=e.players.reduce((sum,p)=>sum+calcPlayerForEvent(p,e).groups,0);
  let expected=totalGroups*e.chips;
  let actual=e.players.reduce((sum,p)=>sum+(+p.stack||0),0);
