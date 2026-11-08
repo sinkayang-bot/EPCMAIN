@@ -1,3 +1,4 @@
+import {commandSound} from './timer-command-sound.js?v=20261108-start-cue1';
 import {mountAppearanceEditor} from './timer-appearance-editor.js?v=20261023-tablet-rgb41';
 import {DEFAULT_LEVELS,newTimer,remaining,timeText,eventTotals,parseTime,validateLevels,timerAt,tournamentRemaining,durationText} from './timer-core.js?v=20261103-layout6';
 import {STANDARD_TEMPLATE} from './timer-store.js?v=20261023-tablet-rgb41';
@@ -7,6 +8,7 @@ for(const side of ['Left','Right']){const r=$('hand'+side+'Rank'),s=$('hand'+sid
 function handValue(){return {enabled:$('handEnabled').checked,title:$('handTitle').value,left:{rank:$('handLeftRank').value,suit:$('handLeftSuit').value},right:{rank:$('handRightRank').value,suit:$('handRightSuit').value}}}
 function fillHand(v){v=v||{};$('handEnabled').checked=v.enabled===true;$('handTitle').value=v.title||'指定手牌';for(const [side,key,rank,suit] of [['Left','left','7','♠'],['Right','right','A','♥']]){$('hand'+side+'Rank').value=v[key]?.rank||rank;$('hand'+side+'Suit').value=v[key]?.suit||suit}}
 const appearanceEditor=mountAppearanceEditor($('appearanceEditor'),()=>{if(!textDirty)textRevision=timer?.revision||0;textDirty=true});
+const commandAudio=commandSound();addEventListener('pagehide',e=>{if(!e.persisted)commandAudio.dispose()});
 function canWrite(){try{return demo||window.parent!==window&&!window.parent.EPCMode.isView()}catch(_){return false}}
 function message(s){$('message').textContent=s}
 function update(){
@@ -27,7 +29,7 @@ function levels(){
  // Disabled blind fields in breaks remain disabled even in operate mode.
  document.querySelectorAll('#levels [data-field]').forEach(el=>{if(draft[el.dataset.index].break&&el.dataset.field!=='min')el.disabled=true});
 }
-async function send(action,value,expected){if(!service||busy)return;busy=true;update();try{const t=await service.change(id,expected??(timer?.revision||0),action,value);timer=t;if(action==='background')$('background').value=t.background||'classic';if(action==='settings'){textDirty=false;textRevision=t.revision}if(action==='structure'){structureDirty=false;structureRevision=t.revision}message('已同步到雲端與投影畫面')}catch(e){message('未儲存：'+e.message)}finally{busy=false;update()}}
+async function send(action,value,expected){if(!service||busy)return;const before=timerAt(timer,Date.now()),wantsCue=(action==='toggle'&&!before?.running)||action==='level',audioReady=wantsCue?commandAudio.prepare():null;busy=true;update();try{const t=await service.change(id,expected??(timer?.revision||0),action,value);timer=t;if(action==='background')$('background').value=t.background||'classic';if(action==='settings'){textDirty=false;textRevision=t.revision}if(action==='structure'){structureDirty=false;structureRevision=t.revision}message('已同步到雲端與投影畫面');if(wantsCue)void commandAudio.after(action,before,t,event?.eventId||id||(demo?'demo':''),audioReady)}catch(e){message('未儲存：'+e.message)}finally{busy=false;update()}}
 function structure(){try{validateLevels(draft)}catch(e){return message(e.message)}if(timer&&!confirm('套用結構會重設本場級別與時間，確定套用？'))return;send('structure',draft,structureRevision)}
 for(const [key,action,value] of [['toggle','toggle'],['reset','reset'],['previous','level',-1],['next','level',1],['minus','shift',-60],['plus','shift',60]])$(key).onclick=()=>send(action,value);
 function setTime(){try{parseTime($('remainingTime').value);send('set',$('remainingTime').value)}catch(e){message(e.message)}}

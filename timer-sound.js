@@ -1,4 +1,4 @@
-import {preloadSelectedTimerSounds,playSelectedTimerSound} from './timer-selected-sounds.js?v=20261031-double5';
+import {preloadSelectedTimerSounds,playSelectedTimerSound,timerTransitionCueKey} from './timer-selected-sounds.js?v=20261108-start-cue1';
 // Only a naturally advancing countdown may trigger a cue; opening, seeking,
 // pausing or switching levels must not replay an old warning.
 export function countdownCue(previous,current){
@@ -41,14 +41,14 @@ export function countdownSound(){
  panel.onmouseleave=()=>{if(!details.open)panel.style.opacity=panelOpacity()};
  panel.onfocusout=e=>{if(!details.open&&!panel.contains(e.relatedTarget))panel.style.opacity=panelOpacity()};
  details.ontoggle=()=>{panel.style.opacity=details.open?'.95':panelOpacity()};
- function bell(kind='level'){
+ function bell(kind='level',cueKey=''){
   if(!enabled||context?.state!=='running')return;
   if(samplesReady){
    if(kind==='five'){
     // Two clearly separated strikes of the SAME approved countdown sample.
     playSelectedTimerSound(context,'five',volume/100,0,.22);
     playSelectedTimerSound(context,'five',volume/100,.38,.22);
-   }else playSelectedTimerSound(context,kind,volume/100);
+   }else playSelectedTimerSound(context,kind,volume/100,0,0,cueKey);
   }
  }
  function pauseBell(){
@@ -93,5 +93,5 @@ export function countdownSound(){
  document.addEventListener?.('keydown',unlock,{capture:true});
  testButton.onclick=async()=>{enabled=true;await activate();if(context?.state==='running'&&samplesReady)bell('ten');};
  updateButton();void activate();
- return {test:async(kind='ten')=>{enabled=true;await activate();if(context?.state!=='running'||!samplesReady)return false;bell(kind);return true},observe(timer,seconds,eventId){const event=String(eventId||''),structure=timer?JSON.stringify(timer.levels):'',current=timer?{key:event+':'+timer.index+':'+structure,event,structure,index:timer.index,last:timer.index===timer.levels.length-1,at:Date.now(),duration:Number(timer.levels[timer.index]?.min||0)*60,seconds,running:!!timer.running,endsAt:timer.endsAt}:null;const cue=current?countdownCue(previous,current):null,changed=levelChangeCue(previous,current),finished=finishedCue(previous,current),started=startedCue(previous,current),paused=pausedCue(previous,current);previous=current;if(finished)bell('end');else if(paused)pauseBell();else if(started)bell('start');else if(changed)bell('level');else if(cue)bell(cue===5?'five':'ten');}};
+ return {test:async(kind='ten')=>{enabled=true;await activate();if(context?.state!=='running'||!samplesReady)return false;bell(kind);return true},observe(timer,seconds,eventId){const event=String(eventId||''),structure=timer?JSON.stringify(timer.levels):'',current=timer?{key:event+':'+timer.index+':'+structure,event,structure,index:timer.index,last:timer.index===timer.levels.length-1,at:Date.now(),duration:Number(timer.levels[timer.index]?.min||0)*60,seconds,running:!!timer.running,endsAt:timer.endsAt}:null;const cue=current?countdownCue(previous,current):null,changed=levelChangeCue(previous,current),finished=finishedCue(previous,current),started=startedCue(previous,current),paused=pausedCue(previous,current);previous=current;if(finished)bell('end');else if(paused)pauseBell();else if(started)bell('start',timerTransitionCueKey(timer,event));else if(changed)bell('level',timerTransitionCueKey(timer,event));else if(cue)bell(cue===5?'five':'ten');}};
 }
