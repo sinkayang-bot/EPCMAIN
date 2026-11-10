@@ -478,19 +478,6 @@ window.addEventListener('online',()=>{boot(false)});
 // Do not replace them with Sheet-summary handlers: Firestore event/player data
 // is not present in the separate EPC_帳務 / EPC_其他收支 Sheet tables.
 
-async function renderSettlementManagerV3(){
- const from=document.querySelector('#settlementDateFrom')?.value||'',to=document.querySelector('#settlementDateTo')?.value||'',r=await api('settlement.report',{startDate:from,endDate:to}),z=r.report||{};
- const body=document.querySelector('#settlementDayRows');if(!body)return;const by={};(z.events||[]).forEach(e=>{if(!by[e.businessDate])by[e.businessDate]={date:e.businessDate,events:0};by[e.businessDate].events++});
- body.innerHTML=Object.values(by).sort((a,b)=>b.date.localeCompare(a.date)).map(x=>'<tr><td>'+x.date+'</td><td>'+x.events+'</td><td>—</td><td>—</td><td>—</td><td>—</td><td><button type="button" onclick="openSettlementDayV3(\''+x.date+'\')">查看</button></td></tr>').join('')||'<tr><td colspan="7" class="small">此區間尚無已結算賽事</td></tr>';
-}
-async function openSettlementDayV3(date){
- const r=await api('settlement.report',{businessDate:date}),z=r.report||{};document.querySelector('#settlementListView').style.display='none';document.querySelector('#settlementDetailView').style.display='block';document.querySelector('#settlementDetailDate').textContent=date;document.querySelector('#dailyDate').value=date;
- const set=(id,v)=>{const e=document.querySelector(id);if(e)e.textContent=v};set('#dEvents',z.eventCount||0);set('#dMembers',z.memberCount||0);set('#dPaid',money(z.totalPaid||0));set('#dPrize',money(z.totalPrize||0));
- const host=document.querySelector('#dailyGroupDetail');if(host)host.innerHTML=(z.groups||[]).map(g=>'<div class="card tablewrap"><h3>'+esc(g.group)+'</h3><div class="grid"><div class="kpi"><div class="l">群組實付</div><div class="v">'+money(g.totalPaid)+'</div></div><div class="kpi"><div class="l">群組領回</div><div class="v">'+money(g.totalPrize)+'</div></div><div class="kpi"><div class="l">群組輸贏</div><div class="v '+pnlClass(g.net)+'">'+money(g.net)+'</div></div></div><table><thead><tr><th>玩家</th><th>實付</th><th>領回</th><th>輸贏</th></tr></thead><tbody>'+g.members.map(m=>'<tr><td>'+esc(playerDisplayName(m))+' <span class="small">'+esc(window.memberNumber_?.(m)||m.memberId)+'</span></td><td>'+money(m.paid)+'</td><td>'+money(m.prize)+'</td><td class="'+pnlClass(m.net)+'">'+money(m.net)+'</td></tr>').join('')+'</tbody></table></div>').join('')||'<div class="card small">本日尚無分帳資料</div>';
-}
-window.renderSettlementManager=renderSettlementManagerV3;
-window.openSettlementDayV3=openSettlementDayV3;
-
 let EPC_ACTIVITY_SAVE_TIMER=null,EPC_ACTIVITY_SAVING=false,EPC_ACTIVITY_READING=false;
 let EPC_ACTIVITY_PENDING=null,EPC_ACTIVITY_SEQUENCE=0,EPC_ACTIVITY_BASE=null;
 const ACTIVITY_PENDING_KEY='epcActivityPendingV1';
