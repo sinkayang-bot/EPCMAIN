@@ -3,19 +3,24 @@
  const esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
  function config(){
   ensureActDb_();
-  return {...EPCMemberReward.defaults,...db.activityManagement.memberReward};
+  return EPCMemberReward.settings(db.activityManagement.memberReward);
  }
  function saveConfig(change){
   try{
    window.EPCMode?.assertWrite();
    if(!window.EPC_ACTIVITY_LOADED||typeof window.saveActivityCloudV3!=='function')throw Error('活動雲端資料尚未載入，請稍後再儲存');
-   const next={...config(),...change};
-   EPCMemberReward.score([],next);
+   const next=EPCMemberReward.settings({...config(),...change});
+   EPCMemberReward.score([],next,next);
    db.activityManagement.memberReward=next;
    persist();window.saveActivityCloudV3();renderActivities();
   }catch(error){alert(error.message);renderActivities();}
  }
  window.memberRewardSetDate_=function(field,value){if(['from','to'].includes(field))saveConfig({[field]:value});};
+ window.memberRewardSaveScoring_=function(form){
+  const change={};
+  for(const key of Object.keys(EPCMemberReward.scoreFields))change[key]=form.elements.namedItem(key).value;
+  saveConfig(change);
+ };
  window.memberRewardSetEarly_=function(select){
   const key=select.dataset.key,values={...(config().earlyOverrides||{})};
   if(select.value==='auto')delete values[key];else values[key]=select.value==='yes';
@@ -43,12 +48,13 @@
    return !q||[row.memberId,memberNumber_(row.memberId),member.name,member.nickname].some(v=>String(v||'').toLowerCase().includes(q));
   });
   const free=all.filter(row=>row.freeEntry).length,paid=all.filter(row=>row.canRegister&&!row.freeEntry).length,pending=all.reduce((n,row)=>n+row.pending,0);
-  const status=row=>row.freeEntry?'首次免費參賽':row.canRegister?'可付費報名（1,000 元）':'距報名資格差 '+(21-row.points)+' 點';
+  const status=row=>row.freeEntry?'首次免費參賽':row.canRegister?'可付費報名（1,000 元）':'距報名資格差 '+(c.paidThreshold-row.points)+' 點';
   return '<div class="card"><h3>限時會員回饋賽｜累積點數</h3>'+
    '<div class="formgrid" style="grid-template-columns:repeat(auto-fit,minmax(180px,1fr))"><div><label>集點開始日</label><input type="date" value="'+esc(c.from)+'" onchange="memberRewardSetDate_(\'from\',this.value)"></div><div><label>集點結束日</label><input type="date" value="'+esc(c.to)+'" onchange="memberRewardSetDate_(\'to\',this.value)"></div></div>'+
-   '<p>1200 每場 1 點，3400 每場 2 點，6600 以上每場 3 點。每位玩家每場計一次，重買與加購不另加點。</p>'+
-   '<p>店內當日首場，平日 19:10 前報名 +1 點，假日 17:10 前報名 +2 點。假日每場再 +1 點，首場可疊加。</p>'+
-   '<p><b>21 點以上可付費報名，超過 45 點首次免費參賽。</b>起始 20,000，超過 45 點每多 1 點 +500，含加成最高 30,000。點數為資格門檻，不扣點。</p>'+
+   '<form onsubmit="memberRewardSaveScoring_(this);return false;"><h4>分數設定</h4><div class="formgrid" style="grid-template-columns:repeat(auto-fit,minmax(180px,1fr))">'+
+   Object.entries(EPCMemberReward.scoreFields).map(([key,label])=>'<div><label for="memberRewardScore_'+key+'">'+label+'</label><input id="memberRewardScore_'+key+'" name="'+key+'" type="number" min="0" step="1" required value="'+c[key]+'"></div>').join('')+
+   '</div><p class="small">免費參賽須超過基準點數。儲存後會依新分數重新計算整個活動期間的紀錄，並同步至其他裝置。</p><button type="submit" class="primary">儲存分數設定</button></form>'+
+   '<p>'+esc(EPCMemberReward.rules(c))+'</p>'+
    '<p class="small">依集點日期及營業日即時計算，含進行中賽事；獨立帳與一般賽事模式不計入。舊紀錄未記錄報名時間時，首場加成待確認，可在明細選擇確認結果。上方查詢日期不影響本活動累計。</p>'+
    '<p>參與 '+all.length+' 人｜可付費 '+paid+' 人｜首次免費 '+free+' 人｜首場待確認 '+pending+' 筆</p>'+
    '<div class="tablewrap"><table><thead><tr><th>名次</th><th>會員</th><th>參賽場數</th><th>累積點數</th><th>參賽資格</th><th>起始籌碼</th><th>逐場明細</th></tr></thead><tbody>'+
