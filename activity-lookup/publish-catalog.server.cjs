@@ -1,5 +1,6 @@
 'use strict';
 require('../lucky-multiplier-core.js');
+const memberReward=require('../member-reward-core.js');
 // Trusted server-side publisher. Never expose V3 raw activity data to public clients.
 const admin=require('firebase-admin');
 const credential=JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_JSON||'null');
@@ -84,9 +85,13 @@ function rank(rows,scoreKey){rows.sort((a,b)=>numeric(b[scoreKey])-numeric(a[sco
   activities.push({id:'luckyMultiplier',title:'幸運加乘',active:true,period:lucky.from+' ～ '+lucky.to,rules:'當日店內首場額外 +2 分；各場基本分依當日場序 +1/+2/+3/+4；假日每場 +1。重買不計分。40 分：500 折價卡；60 分：1,000 折價卡。',leaderboard:luckyRows});
  }
 
+ const reward={...memberReward.defaults,...a.memberReward};
+ const rewardRows=memberReward.score(events,reward,reward).filter(x=>valid(x.memberId)).map((x,i)=>({memberId:x.memberId,rank:i+1,points:x.points,games:x.games,progress:x.points+' 點｜'+(x.freeEntry?'首次免費參賽':x.canRegister?'可付費報名':'未達 21 點')+(x.canRegister?'｜起始 '+x.chips.toLocaleString('en-US'):'')+(x.pending?'｜首場加成待確認':'')}));
+ activities.push({id:'memberReward',title:'會員回饋賽',active:true,period:reward.from+' ～ '+reward.to,rules:'21 點以上可付費報名，超過 45 點首次免費。1200／3400／6600 以上各 1／2／3 點；平日首場 19:10 前 +1、假日首場 17:10 前 +2，假日每場再 +1。超過 45 點每點 +500 籌碼，含起始最高 30,000。',leaderboard:rewardRows});
+
  if(!a.publicActivityVisibility||typeof a.publicActivityVisibility!=='object'||Array.isArray(a.publicActivityVisibility))throw Error('Public visibility settings missing from V3 cloud; refusing to overwrite existing public catalog');
  const visibility=a.publicActivityVisibility;
- const activityKeys={umbrella:'umbrella',extreme:'extremeTen',weekly:'weekly',weeklyRank:'rank',hunter:'hunter',pioneer:'pioneer',luckyMultiplier:'luckyMultiplier'};
+ const activityKeys={umbrella:'umbrella',extreme:'extremeTen',weekly:'weekly',weeklyRank:'rank',hunter:'hunter',pioneer:'pioneer',luckyMultiplier:'luckyMultiplier',memberReward:'memberReward'};
  const publicActivities=activities.filter(item=>visibility[activityKeys[item.id]]===true).map(item=>({...item,leaderboard:item.leaderboard.map(row=>({...row,recordId:row.memberId,memberId:a.memberNumbers?.[row.memberId]?.number||row.memberId}))}));
  const catalog={version:1,sourceRevision:numeric(body.revision),generatedAt:admin.firestore.FieldValue.serverTimestamp(),activities:publicActivities};
  await db.collection('epc_public_activity_catalog').doc('current').set(catalog);

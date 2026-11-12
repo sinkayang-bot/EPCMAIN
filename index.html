@@ -2653,7 +2653,7 @@ window.addEventListener('error',function(e){
   <button class="secondary" onclick="setActTab_('rank')">3. 週排行榜</button>
   <button class="secondary" onclick="setActTab_('hunter')">4. TOP HUNTER</button>
   <button class="secondary" onclick="setActTab_('umbrella')">5. 保護傘</button>
-  <button class="secondary" onclick="setActTab_('extremeTen')">6. 極限 10 秒</button><button class="secondary" onclick="setActTab_('luckyMultiplier')">7. 幸運加乘</button>
+  <button class="secondary" onclick="setActTab_('extremeTen')">6. 極限 10 秒</button><button class="secondary" onclick="setActTab_('luckyMultiplier')">7. 幸運加乘</button><button class="secondary" onclick="setActTab_('memberReward')">8. 會員回饋賽</button>
  </div>
  <div id="actWeekly" class="act-pane"></div>
  <div id="actPioneer" class="act-pane" style="display:none"></div>
@@ -2661,7 +2661,7 @@ window.addEventListener('error',function(e){
  <div id="actHunter" class="act-pane" style="display:none"></div>
  <div id="actUmbrella" class="act-pane" style="display:none"></div>
  
- <div id="actExtremeTen" class="act-pane" style="display:none"></div><div id="actLuckyMultiplier" class="act-pane" style="display:none"></div>
+ <div id="actExtremeTen" class="act-pane" style="display:none"></div><div id="actLuckyMultiplier" class="act-pane" style="display:none"></div><div id="actMemberReward" class="act-pane" style="display:none"></div>
 </section>
 
 <section id="dailysettle" class="page">
@@ -6201,7 +6201,7 @@ function actSetActivityRange_(kind,field,value){
  else{const R=db.activityManagement.activityRanges[kind]||(db.activityManagement.activityRanges[kind]={from:'',to:''});R[field]=String(value||'')}
  persist();if(window.saveActivityCloudV3)window.saveActivityCloudV3();renderActivities();
 }
-function actRangeEditor_(kind){ if(kind==='luckyMultiplier')return '';
+function actRangeEditor_(kind){ if(kind==='luckyMultiplier'||kind==='memberReward')return '';
  const names={weekly:'每週任務卡',pioneer:'開桌先鋒',rank:'週排行榜',hunter:'TOP HUNTER',umbrella:'保護傘',boss:'雙十狩主',extremeTen:'極限 10 秒',luckyMultiplier:'幸運加乘'},r=actActivityRange_(kind);
  return `<div class="card" style="margin-bottom:12px;border-color:#9b7a35"><h3>${names[kind]||'活動'}｜活動區間</h3><div class="small" style="margin-bottom:8px">此區間決定本活動實際計算資料；上方「查詢開始日／查詢結束日」只用於歷史查詢，不會改變活動計算。</div><div class="formgrid" style="grid-template-columns:1fr 1fr"><div><label>活動開始日</label><input type="date" value="${r.from}" onchange="actSetActivityRange_('${kind}','from',this.value)"></div><div><label>活動結束日</label><input type="date" value="${r.to}" onchange="actSetActivityRange_('${kind}','to',this.value)"></div></div></div>`;
 }
@@ -6887,7 +6887,7 @@ function renderActivities(){
  window.epcActivityIdentityMode_=mode;
  try{ 
  if($('actActivityRangeTop'))$('actActivityRangeTop').innerHTML=actPublicVisibilityPanel_()+actRangeEditor_(actTab_);
- const panes={weekly:'actWeekly',pioneer:'actPioneer',rank:'actRank',hunter:'actHunter',umbrella:'actUmbrella',extremeTen:'actExtremeTen',luckyMultiplier:'actLuckyMultiplier'};
+ const panes={weekly:'actWeekly',pioneer:'actPioneer',rank:'actRank',hunter:'actHunter',umbrella:'actUmbrella',extremeTen:'actExtremeTen',luckyMultiplier:'actLuckyMultiplier',memberReward:'actMemberReward'};
  document.querySelectorAll('.act-pane').forEach(x=>x.style.display='none');
  const id=panes[actTab_]||'actWeekly';if($(id))$(id).style.display='block';
  if($('actWeekly'))$('actWeekly').innerHTML=actWeekly_();
@@ -6897,6 +6897,7 @@ function renderActivities(){
  if($('actUmbrella'))$('actUmbrella').innerHTML=actUmbrella_();
  
  if($('actExtremeTen'))$('actExtremeTen').innerHTML=actExtremeTen_(); if(actTab_==='luckyMultiplier'&&$('actLuckyMultiplier')&&window.actLuckyMultiplier_)$('actLuckyMultiplier').innerHTML=actLuckyMultiplier_();
+ if(actTab_==='memberReward'&&$('actMemberReward')&&window.actMemberReward_)$('actMemberReward').innerHTML=actMemberReward_();
  }finally{window.epcActivityIdentityMode_=previous;}
 }
 function render(){
@@ -7724,7 +7725,7 @@ function displaySpecificControls_(id,type,sec,ui){
  const identity='<div><label>玩家資料顯示</label><div style="display:flex;gap:12px;flex-wrap:wrap;padding-top:7px"><label style="display:flex;gap:5px;align-items:center"><input id="displayShowName_'+id+'" type="checkbox"'+checked(ui.showName,true)+'>玩家（綽號優先）</label><label style="display:flex;gap:5px;align-items:center"><input id="displayShowMemberId_'+id+'" type="checkbox"'+checked(ui.showMemberId,false)+'>會員編號</label></div></div>';
  if(type==='rank')return '<div><label>排行榜顯示</label><select id="displayLimit_'+id+'"><option value="5" '+(limit==='5'?'selected':'')+'>TOP 5</option><option value="10" '+(limit==='10'?'selected':'')+'>TOP 10</option><option value="20" '+(limit==='20'?'selected':'')+'>TOP 20</option></select></div><div><label>顯示欄位</label><div style="display:flex;gap:12px;flex-wrap:wrap;padding-top:7px"><label style="display:flex;gap:5px;align-items:center"><input id="displayShowRank_'+id+'" type="checkbox"'+checked(ui.showRank,true)+'>名次</label><label style="display:flex;gap:5px;align-items:center"><input id="displayShowName_'+id+'" type="checkbox"'+checked(ui.showName,true)+'>玩家（綽號優先）</label><label style="display:flex;gap:5px;align-items:center"><input id="displayShowMemberId_'+id+'" type="checkbox"'+checked(ui.showMemberId,false)+'>會員編號</label><label style="display:flex;gap:5px;align-items:center"><input id="displayShowScore_'+id+'" type="checkbox"'+checked(ui.showScore,true)+'>分數</label></div></div><div><label>排行榜字體大小</label><select id="displayRankFontScale_'+id+'">'+[80,90,100,110,120,130,140,150,160].map(v=>'<option value="'+v+'" '+(font===String(v)?'selected':'')+'>'+v+'%</option>').join('')+'</select></div>'+common;
  if(type==='extremeTen')return identity+'<div><label>排行榜顯示</label><select id="displayLimit_'+id+'">'+[5,8,10,20].map(v=>'<option value="'+v+'" '+(limit===String(v)?'selected':'')+'>TOP '+v+'</option>').join('')+'</select></div>'+common;
- if(type==='luckyMultiplier')return identity+'<div><label>顯示人數</label><select id="displayLimit_'+id+'">'+[5,10,20].map(n=>'<option value="'+n+'" '+(Number(limit)===n?'selected':'')+'>前 '+n+' 名</option>').join('')+'</select></div>'+common;
+ if(type==='luckyMultiplier'||type==='memberReward')return identity+'<div><label>顯示人數</label><select id="displayLimit_'+id+'">'+[5,10,20].map(n=>'<option value="'+n+'" '+(Number(limit)===n?'selected':'')+'>前 '+n+' 名</option>').join('')+'</select></div>'+common;
  if(type==='pioneer')return identity+'<div><label>顯示人數</label><select id="displayLimit_'+id+'"><option value="5" '+(limit==='5'?'selected':'')+'>前 5 名</option><option value="10" '+(limit==='10'?'selected':'')+'>前 10 名</option></select></div><div><label>顯示內容</label><select id="displayPioneerMode_'+id+'"><option value="score">先鋒積分</option></select></div>'+common;
  if(type==='hunter')return identity+'<div><label>顯示獵人</label><select id="displayLimit_'+id+'"><option value="5" '+(limit==='5'?'selected':'')+'>前 5 名</option><option value="10" '+(limit==='10'?'selected':'')+'>前 10 名</option></select></div><div><label>顯示內容</label><select id="displayHunterMode_'+id+'"><option value="points">獵人積分</option></select></div>'+common;
  if(type==='weekly')return identity+'<div><label>顯示玩家</label><select id="displayLimit_'+id+'"><option value="5" '+(limit==='5'?'selected':'')+'>5 位</option><option value="10" '+(limit==='10'?'selected':'')+'>10 位</option><option value="20" '+(limit==='20'?'selected':'')+'>20 位</option></select></div><div><label>任務資訊</label><select id="displayWeeklyMode_'+id+'"><option value="progress">出席天數＋參賽場次</option></select></div>'+common;
@@ -7796,6 +7797,10 @@ function displayPayload_(type){
  return payload;
 }
 function displayActivityPayload_(type){
+ if(type==='memberReward'&&window.memberRewardStats_){
+  const {config,rows}=memberRewardStats_();
+  return {type,title:'會員回饋賽',activityFrom:config.from,activityTo:config.to,rows:rows.map(row=>({id:row.memberId,memberId:row.memberId,name:epcPlayerDisplayName_(row.memberId),score:row.points,games:row.games}))};
+ }
  ensureActDb_();const A=db.activityManagement||{},range=actActivityRange_(type);
  if(type==='luckyMultiplier'){
   const c=A.luckyMultiplier||{},from=c.from||'',to=c.to||'';
@@ -8271,6 +8276,7 @@ let timer;const schedule=()=>{clearTimeout(timer);timer=setTimeout(render,120)};
 })();
 
 </script>
+<script src="member-reward-core.js?v=20261112-reward1"></script><script src="member-reward-ui.js?v=20261112-reward1"></script>
 <script src="lucky-multiplier-core.js"></script><script src="lucky-multiplier-ui.js?v=20261101-member-numbers1"></script>
 </body></html>
 

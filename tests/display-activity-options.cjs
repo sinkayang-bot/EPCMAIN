@@ -16,7 +16,7 @@ vm.runInContext(extract('function actActivityNames_(){','function actPublicVisib
 vm.runInContext(extract('function displayActivityOptions_(){','async function pairDisplay_'),ctx);
 vm.runInContext(extract('function displaySpecificControls_(','function refreshDisplayControls_'),ctx);
 vm.runInContext(extract('function displayPayload_(type){','async function publishAllDisplays_'),ctx);
-const ids=ctx.displayActivityIds_();assert.equal(ids.length,7);assert(ids.includes('luckyMultiplier'));assert(!ids.includes('boss'));
+const ids=ctx.displayActivityIds_();assert.equal(ids.length,8);assert(ids.includes('memberReward'));assert(ids.includes('luckyMultiplier'));assert(!ids.includes('boss'));
 function controls(type){return ctx.displaySpecificControls_('TEST',type,15,{parallelItems:['luckyMultiplier'],rotateItems:['luckyMultiplier'],showMemberId:true,showName:false})}
 for(const type of ['parallel','rotate','rotateParallel'])assert(controls(type).includes('幸運加乘'));
 const tab=doc.querySelector('[onclick="setActTab_(\'luckyMultiplier\')"]');tab.textContent='7. 幸運加乘新名稱';assert(ctx.displayContentOptions_('luckyMultiplier').includes('幸運加乘新名稱'));

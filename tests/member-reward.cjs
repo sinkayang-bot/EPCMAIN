@@ -1,0 +1,66 @@
+'use strict';
+const assert=require('node:assert/strict');
+const fs=require('node:fs');
+const vm=require('node:vm');
+const Core=require('../member-reward-core.js');
+const period=Core.defaults;
+const player=(memberId='A',registeredAt)=>({memberId,buyin:1,rebuy:0,registeredAt});
+const event=(id,date,seq,level=3400,players=[player()])=>({id,date,seq,level,startTime:seq===1?'18:00':'21:00',players});
+const at=(date,hm)=>Date.parse(date+'T'+hm+':00+08:00');
+const score=events=>Core.score(events,period);
+
+let first=event('E1','2026-11-16',1,3400,[player('A',at('2026-11-16','19:10')),player('B',at('2026-11-16','19:11')),player('C')]);
+let result=score([first]);
+assert.equal(result.find(x=>x.memberId==='A').points,3);
+assert.equal(result.find(x=>x.memberId==='B').points,2);
+assert.equal(result.find(x=>x.memberId==='C').pending,1);
+assert.equal(result.find(x=>x.memberId==='C').points,2);
+const key=Core.overrideKey(period,'E1','C');
+result=Core.score([first],period,{earlyOverrides:{[key]:true}});
+assert.equal(result.find(x=>x.memberId==='C').points,3);
+assert.equal(result.find(x=>x.memberId==='C').pending,0);
+assert.equal(Core.score([first],period,{earlyOverrides:{[Core.overrideKey({from:'2026-11-15',to:period.to},'E1','C')]:true}}).find(x=>x.memberId==='C').pending,1,'confirmations are period-scoped');
+
+const holiday=event('SAT','2026-11-21',1,6600,[player('A',at('2026-11-21','17:10'))]);
+assert.equal(score([holiday])[0].points,6);
+assert.equal(score([{...holiday,players:[player('A',at('2026-11-21','17:11'))]}])[0].points,4);
+assert.equal(score([{...holiday,seq:2}])[0].points,4,'store second event cannot become first bonus');
+assert.equal(score([{...holiday,players:[player('A',at('2026-11-22','00:10'))]}])[0].points,4,'overnight registration misses afternoon cutoff');
+assert.equal(score([first,event('E2','2026-11-16',2,3400,[player('D',at('2026-11-16','18:00'))])]).find(x=>x.memberId==='D').points,2,'member first visit is not store first event');
+
+const weekendEvents=[holiday,event('S2','2026-11-21',2,6600),event('S3','2026-11-21',3,6600),event('SUN','2026-11-22',1,6600,[player('A',at('2026-11-22','17:00'))]),event('U2','2026-11-22',2,6600)];
+assert.equal(score(weekendEvents)[0].points,24);
+assert.equal(score([...weekendEvents,holiday])[0].points,24,'replayed event cannot add points');
+const duplicate={...holiday,players:[{...holiday.players[0],rebuy:20},holiday.players[0]]};
+assert.equal(score([duplicate])[0].points,6,'rebuys and duplicate members cannot add points');
+assert.equal(score([{...holiday,players:[{memberId:'A',buyin:0,rebuy:0,addon:0}]}]).length,0);
+assert.equal(score([{...holiday,players:[{memberId:'A'}]}])[0].points,4,'legacy rows still count with pending first bonus');
+for(const level of [1200,3400,6600,11000,21500,32000])assert.equal(score([event('L','2026-11-16',2,level)])[0].points,level===1200?1:level===3400?2:3);
+assert.equal(score([event('L','2026-11-16',1,1000)]).length,0);
+for(const props of [{deleted:true},{status:'deleted'},{status:'已取消'},{accountingGroup:'獨立帳'},{memberRewardIndependent:true},{tournamentMode:'tournament'},{date:'2026-11-28'},{date:'2026-11-15'}])assert.equal(score([{...holiday,...props}]).length,0);
+assert.equal(score([{...holiday,accountingGroup:'一般帳'}])[0].points,6);
+assert.equal(score([{...holiday,status:'進行中'}])[0].points,6);
+assert.equal(score([{...holiday,status:'已結算'}])[0].points,6);
+assert.throws(()=>Core.score([],{from:'2026-11-31',to:'2026-12-01'}));
+assert.throws(()=>Core.score([],{from:period.to,to:period.from}));
+assert.deepEqual(Core.qualification(20),{canRegister:false,freeEntry:false,chips:20000});
+assert.deepEqual(Core.qualification(21),{canRegister:true,freeEntry:false,chips:20000});
+assert.equal(Core.qualification(45).freeEntry,false);
+assert.deepEqual(Core.qualification(46),{canRegister:true,freeEntry:true,chips:20500});
+assert.equal(Core.qualification(65).chips,30000);
+assert.equal(Core.qualification(100).chips,30000);
+const original=JSON.stringify(weekendEvents);score(weekendEvents);assert.equal(JSON.stringify(weekendEvents),original,'scoring cannot mutate tournament or accounting records');
+
+// Exercise actual UI entry, time corrections, cloud save guards and member search.
+let saves=0,persists=0,view=false;
+const ctx={EPCMemberReward:Core,db:{activityManagement:{},events:[first],members:[{id:'A',name:'楊振嘉',nickname:'Sinka'}]},ensureActDb_(){},actBusinessDate_:e=>e.date,isIndependentAccountingEvent:e=>!!e.accountingGroup,memberNumber_:id=>id==='A'?'0021':id,eventDisplayName_:e=>e.id,document:{getElementById:()=>({value:'Sinka'})},persist:()=>persists++,renderActivities(){},alert:message=>{ctx.lastAlert=message;}};
+ctx.window=ctx;ctx.EPCMode={assertWrite(){if(view)throw Error('view')}};ctx.EPC_ACTIVITY_LOADED=true;ctx.saveActivityCloudV3=()=>saves++;
+vm.createContext(ctx);vm.runInContext(fs.readFileSync('member-reward-ui.js','utf8'),ctx);
+const markup=ctx.actMemberReward_();assert.match(markup,/Sinka|A/);assert.match(markup,/19:10/);assert.match(markup,/首場時間加成確認/);assert(!markup.includes('>B</td>'));
+ctx.memberRewardSetEarly_({dataset:{key},value:'yes'});assert.equal(saves,1);assert.equal(persists,1);assert.equal(ctx.db.activityManagement.memberReward.earlyOverrides[key],true);
+ctx.memberRewardSetEarly_({dataset:{key},value:'auto'});assert.equal(saves,2);assert.equal(Object.hasOwn(ctx.db.activityManagement.memberReward.earlyOverrides,key),false);
+view=true;ctx.memberRewardSetDate_('to','2026-11-26');assert.equal(saves,2);assert.equal(ctx.db.activityManagement.memberReward.to,period.to);
+view=false;ctx.EPC_ACTIVITY_LOADED=false;ctx.memberRewardSetDate_('to','2026-11-26');assert.equal(saves,2);
+ctx.EPC_ACTIVITY_LOADED=true;ctx.memberRewardSetDate_('to','2026-11-01');assert.equal(saves,2,'invalid dates never write cloud');
+const html=fs.readFileSync('index.html','utf8');assert.match(html,/setActTab_\('memberReward'\)/);assert.match(html,/memberReward:'actMemberReward'/);assert.match(html,/innerHTML=actMemberReward_\(\)/);
+console.log('PASS member reward scoring, historical confirmations, eligibility, chip cap, search and cloud guards');
