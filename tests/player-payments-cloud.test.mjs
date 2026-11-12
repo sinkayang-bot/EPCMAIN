@@ -82,3 +82,47 @@ store.get(eventKey('C')).players[0].ladies=true;
 await bridge.playerPayment(cmd('rebuy',{eventId:'C',memberId:'88',groups:1,manualDiscount:0,paidNow:true,expectedDelta:3400}));
 assert.equal(store.get(eventKey('C')).players[0].ladies,true,'Rebuy preserves the original registration discount');
 console.log('PASS: rebuy rejects adding ladies discount while preserving an existing registration discount.');
+
+// One event checkout is atomic across players, scoped to that event and retry-safe.
+const Core=globalThis.EPCPlayerPaymentsCore;
+const batchEvent={eventId:'BATCH',date:'2026-11-13',name:'本場結帳測試',status:'settled',finalJP:900,players:[
+ {memberId:'201',buyin:1,rebuy:0,stack:25000,prize:1000,registrationUnpaid:true,registrationUnpaidAmount:3000},
+ {memberId:'202',buyin:1,rebuy:0,stack:30000,prize:2000,registrationUnpaid:true,registrationUnpaidAmount:3400},
+ {memberId:'203',buyin:1,rebuy:0,stack:50000,prize:3000,registrationUnpaid:false}
+]};
+store.set(eventKey('BATCH'),copy(batchEvent));
+const s201=Core.empty('201');s201.wallet=1000;s201.accounts={BATCH:{charge:3400,paid:400},OTHER:{charge:2000,paid:0}};store.set(ledgerKey('201'),s201);
+const batch={kind:'settleEvent',id:'batch-once',eventId:'BATCH',payments:[
+ {memberId:'201',expectedRevision:0,expectedDue:3000,expectedWalletUsed:1000},
+ {memberId:'202',expectedRevision:0,expectedDue:3400,expectedWalletUsed:0}
+]};
+const untouched=JSON.stringify([...store]);
+await assert.rejects(bridge.playerPayment({...batch,payments:[batch.payments[0]]}),/玩家已變更/);
+await assert.rejects(bridge.playerPayment({...batch,payments:[batch.payments[0],{...batch.payments[1],expectedRevision:9}]}),/已有更新/);
+await assert.rejects(bridge.playerPayment({...batch,payments:[batch.payments[0],{...batch.payments[1],expectedDue:3300}]}),/已變更/);
+await assert.rejects(bridge.playerPayment({...batch,payments:[{...batch.payments[0],expectedWalletUsed:0},batch.payments[1]]}),/寄存金/);
+assert.equal(JSON.stringify([...store]),untouched,'failed batch must not pay the earlier player');
+const batchResult=await bridge.playerPayment(batch);
+assert.equal(batchResult.ledgers.length,2);
+assert.equal(store.get(ledgerKey('201')).wallet,0);
+assert.equal(store.get(ledgerKey('201')).accounts.BATCH.paid,3400);
+assert.equal(store.get(ledgerKey('201')).accounts.OTHER.paid,0,'other events remain unpaid');
+assert.equal(store.get(ledgerKey('201')).items.at(-1).cashAmount,2000);
+assert.equal(store.get(ledgerKey('202')).items.at(-1).cashAmount,3400);
+assert(!store.has(ledgerKey('203')),'already paid member needs no new ledger');
+assert.deepEqual(store.get(eventKey('BATCH')).players[2],batchEvent.players[2]);
+assert.equal(store.get(eventKey('BATCH')).finalJP,900);
+assert.equal(store.get(eventKey('BATCH')).status,'settled');
+for(const p of store.get(eventKey('BATCH')).players){assert(!p.registrationUnpaid);assert.equal(p.stack,batchEvent.players.find(x=>x.memberId===p.memberId).stack);assert.equal(p.prize,batchEvent.players.find(x=>x.memberId===p.memberId).prize);}
+const afterBatch=JSON.stringify([...store]);
+assert.equal((await bridge.playerPayment(batch)).replayed,true);
+assert.equal(JSON.stringify([...store]),afterBatch,'lost acknowledgements must not produce duplicate receipts');
+await bridge.playerPayment({id:'batch-void',kind:'void',memberId:'201',targetId:batch.id});
+assert.equal(store.get(ledgerKey('201')).wallet,1000);
+assert.equal(store.get(ledgerKey('201')).accounts.BATCH.paid,400);
+assert.equal(store.get(ledgerKey('201')).accounts.OTHER.paid,0);
+const concurrent={...batch,id:'batch-concurrent-a',payments:[{...batch.payments[0],expectedRevision:store.get(ledgerKey('201')).revision}]};
+const outcomes=await Promise.allSettled([bridge.playerPayment(concurrent),bridge.playerPayment({...concurrent,id:'batch-concurrent-b'})]);
+assert.equal(outcomes.filter(x=>x.status==='fulfilled').length,1);
+assert.equal(store.get(ledgerKey('201')).items.filter(x=>x.kind==='settleEvent'&&!x.voidedBy).length,1);
+console.log('PASS: event-wide checkout is atomic, isolates other events, preserves settled results, guards changed totals/wallet/revisions, supports receipt reversal and deduplicates retries/concurrent submits.');

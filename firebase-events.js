@@ -76,7 +76,7 @@
    async deleteDailyAccounting(date){window.EPCMode?.assertWrite();this.requireAccountingAccess();date=String(date||'').trim();if(date)await fs.deleteDoc(fs.doc(accountingCol,date))}
   };
   for(const name of ['upsertEvent','createEvent','deleteEvent','upsertDailyAccounting','deleteDailyAccounting']){const original=window.EPCFirestore[name];window.EPCFirestore[name]=async function(...args){return window.EPCMode?EPCMode.runWrite(()=>original.apply(this,args)):original.apply(this,args);};}
-  const paymentModule=await import('./player-payments-cloud.js?v=20261029-admin-correction');
+  const paymentModule=await import('./player-payments-cloud.js?v=20261113-event-checkout1');
   paymentModule.setupPlayerPayments({fs,db,col,accountingCol,bridge:window.EPCFirestore});
   const publicPublisher=await import('./activity-lookup/live-publisher.js?v=20261101-member-numbers1');
   publicPublisher.setupLivePublisher({fs,db,bridge:window.EPCFirestore});

@@ -9,6 +9,7 @@ global.window=w;
 const clone=x=>JSON.parse(JSON.stringify(x));let selected='A';
 const events=[{id:'A',seq:1,date:'2026-10-15',status:'已結算',level:3400,poolUnit:3000,admin:400,players:[{memberId:'42',buyin:1,rebuy:0,addon:0,manualDiscount:0,prize:5400}]},{id:'B',seq:1,date:'2026-10-16',status:'open',level:3400,poolUnit:3000,admin:400,players:[]}];
 w.db={events,members:[{id:'42',name:'甲',nickname:'小甲'}]};w.epcDb=w.db;
+w.eval(fs.readFileSync(require.resolve('../tournament-core.js'),'utf8'));
 const calcStart=html.indexOf('function calcPlayerForEvent('),calcEnd=html.indexOf('function memberHistoryInRange(',calcStart);w.eval(html.slice(calcStart,calcEnd));
 w.currentEvent=()=>w.db.events.find(e=>e.id===selected);w.businessDateForEvent=e=>e.date||e.businessDate;w.eventDisplayName_=e=>e.name||'EPC#'+e.seq;
 w.epcPlayerEditing_=()=>false;w.renderEventFast_=()=>{};w.setP=()=>{};w.addPlayer=()=>{};
@@ -99,6 +100,28 @@ $('ppSearch').value='EPC#4';w.PP.renderPage();assert($('ppPageBody').querySelect
 w.dispatchEvent(new w.CustomEvent('epcPlayerPayments',{detail:{connected:true,rows:[{...ledger99,revision:101,accounts:{...ledger99.accounts,D:{...ledger99.accounts.D,paid:3400}}}]}}));assert(!w.PP.pending('99').some(x=>x.e.id==='D'));
 w.db.events.push({id:'LEGACY',seq:5,date:'2026-10-18',name:'舊制未結帳場',poolUnit:3000,admin:400,players:[{memberId:'98',buyin:1,rebuy:0,registrationUnpaidAmount:1700}]});w.PP.renderPage();assert.equal(w.PP.pending('98').find(x=>x.e.id==='LEGACY').due,1700);assert($('ppPageBody').querySelector('[data-pp-event="LEGACY"]'));
 console.log('PASS: debts grouped by event, per-event amounts, ledger-first debt before roster arrival, no duplicate rows, paid/cancelled suppression, wallet list, search, retained expansion and safe missing-roster guards.');
+// Event shortcut uses the complete event even when member search hides another debtor.
+$('playerpayments').classList.add('active');
+const batchPlayers=['201','202'].map(memberId=>({memberId,buyin:1,rebuy:0,addon:0,manualDiscount:0,stack:20000,prize:0,registrationUnpaidAmount:3400,registrationUnpaid:true}));
+w.db.members.push({id:'201',name:'批次甲'},{id:'202',name:'批次乙'});
+const batchRaw={eventId:'BATCH',date:'2026-11-13',seq:1,name:'批次場',status:'settled',buyin:3000,fee:400,players:clone(batchPlayers)};
+data.set('events/BATCH',clone(batchRaw));
+w.EPC_FIRESTORE_LAST_EVENTS.push(batchRaw);w.applyFirestoreEventsToLegacy_(w.EPC_FIRESTORE_LAST_EVENTS);
+let confirmation='';w.confirm=text=>{confirmation=text;return false;};
+$('ppSearch').value='批次甲';w.PP.renderPage();
+const shortcut=$('ppPageBody').querySelector('[data-pp-event="BATCH"] summary button[data-pp-action]');assert(shortcut);assert.equal(shortcut.textContent,'本場一鍵結帳');
+await w.PP.settleEvent('BATCH');assert(confirmation.includes('批次乙'));assert(confirmation.includes('$6,800'));assert(!data.has('accounting/PLAYER_PAYMENTS_201'));
+const otherDebt=w.PP.pending('43').reduce((sum,row)=>sum+row.due,0);
+w.confirm=()=>true;let batchLost=true;const ids=[];
+bridge.playerPayment=async command=>{if(command.kind==='settleEvent')ids.push(command.id);const result=await originalPayment(command);if(batchLost&&command.kind==='settleEvent'){batchLost=false;throw Object.assign(Error('lost event checkout response'),{code:'unavailable'});}return result;};
+await w.PP.settleEvent('BATCH');assert(data.get('accounting/PLAYER_PAYMENTS_201'));assert($('ppConnection').textContent.includes('確認上一筆儲存結果'));
+await w.PP.retryPending();assert.equal(ids.length,2);assert.equal(ids[0],ids[1]);
+assert.equal(w.PP.pending().filter(row=>row.e.id==='BATCH').length,0);
+assert.equal(w.PP.pending('43').reduce((sum,row)=>sum+row.due,0),otherDebt);
+assert.equal(data.get('accounting/PLAYER_PAYMENTS_201').items.filter(x=>x.kind==='settleEvent').length,1);
+assert.equal(data.get('accounting/PLAYER_PAYMENTS_202').items.filter(x=>x.kind==='settleEvent').length,1);
+assert(!$('ppPageBody').querySelector('[data-pp-event="BATCH"]'));
+console.log('PASS: per-event shortcut, explicit all-member confirmation under search, cancellation, atomic checkout and lost-response retry using the same request ID.');
 dom.window.close();console.log('PASS: real page DOM, register checkbox, deposit, +1 rebuy, partial cash, prior net-profit offset, red/clear labels, pending summary, cross-event clear, preserved prizes.');
 })().catch(e=>{console.error(e);process.exitCode=1});
 

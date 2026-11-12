@@ -1,10 +1,53 @@
-import './player-payments-core.js?v=20261029-admin-correction';
+import './player-payments-core.js?v=20261113-event-checkout1';
 export function setupPlayerPayments({fs,db,col,accountingCol,bridge}){
  const Core=globalThis.EPCPlayerPaymentsCore;
  bridge.playerPaymentDocId=id=>'PLAYER_PAYMENTS_'+encodeURIComponent(String(id));
+ async function settleEvent(cmd){
+  if(!cmd.id||!cmd.eventId||!Array.isArray(cmd.payments)||!cmd.payments.length||cmd.payments.length>400)throw Error('本場結帳指令不完整或人數過多，請重新確認');
+  if(cmd.payments.some(row=>!row||!Number.isSafeInteger(row.expectedRevision)||row.expectedRevision<0||!Number.isSafeInteger(row.expectedDue)||row.expectedDue<=0||!Number.isSafeInteger(row.expectedWalletUsed)||row.expectedWalletUsed<0))throw Error('本場結帳金額或版本不正確');
+  const expected=new Map(cmd.payments.map(row=>[String(row.memberId||''),row]));
+  if(expected.has('')||expected.size!==cmd.payments.length)throw Error('本場結帳玩家名單不正確');
+  const eventRef=fs.doc(col,String(cmd.eventId));
+  const execute=()=>fs.runTransaction(db,async tx=>{
+   window.EPCMode?.assertWrite();bridge.requireAccountingAccess();
+   const eventSnap=await tx.get(eventRef),event=eventSnap.exists()?eventSnap.data():null;
+   const ids=[...new Set([...expected.keys(),...(event?.players||[]).map(p=>String(p.memberId||'')).filter(Boolean)])];
+   const refs=new Map(ids.map(id=>[id,fs.doc(accountingCol,bridge.playerPaymentDocId(id))]));
+   const snapshots=await Promise.all(ids.map(id=>tx.get(refs.get(id))));
+   const stored=new Map(snapshots.map((snap,i)=>[ids[i],snap.exists()?snap.data():Core.empty(ids[i])]));
+   const replayed=[...expected.keys()].filter(id=>(stored.get(id).items||[]).some(item=>item.id===cmd.id));
+   if(replayed.length===expected.size)return {ledgers:[...expected.keys()].map(id=>stored.get(id)),event:event?{...event,eventId:String(cmd.eventId)}:null,replayed:true};
+   if(replayed.length)throw Error('本場結帳紀錄不一致，請先核對款項');
+   if(!event||event.deleted||event.status==='deleted')throw Error('此場賽事已不存在，請重新確認');
+   const info=new Map(),players=new Map();
+   for(const p of event.players||[]){
+    const id=String(p.memberId||'');if(!id)continue;
+    const s=stored.get(id),charge=window.epcPlayerPaymentPrice_(event,p);
+    const legacyDue=Math.max(0,Number(p.registrationUnpaidAmount)||0)+Math.max(0,Number(p.rebuyUnpaidAmount)||0);
+    const paid=s.accounts?.[String(cmd.eventId)]?.paid??Math.max(0,charge-Math.min(charge,legacyDue));
+    if(Math.max(0,charge-Number(paid))>0){
+     info.set(id,{charge,date:event.businessDate||event.date||'',name:event.name||'',legacyDue});players.set(id,p);
+    }
+   }
+   if(info.size!==expected.size||[...info.keys()].some(id=>!expected.has(id)))throw Error('本場未結帳玩家已變更，請重新確認名單與收款');
+   const results=[...expected].map(([id,row])=>{
+    const result=Core.apply(stored.get(id),{id:cmd.id,kind:'settleEvent',memberId:id,eventId:String(cmd.eventId),expectedRevision:row.expectedRevision,expectedDue:row.expectedDue,expectedWalletUsed:row.expectedWalletUsed,note:cmd.note||'本場一鍵結帳，寄存金優先，其餘現金收款'},{[String(cmd.eventId)]:info.get(id)});
+    return {id,state:result.state};
+   });
+   // Read and validate the whole batch before writing any ledger or roster field.
+   for(const {id,state} of results)tx.set(refs.get(id),{...state,date:bridge.playerPaymentDocId(id),updatedAt:fs.serverTimestamp()});
+   const settledIds=new Set(players.keys());
+   const nextPlayers=(event.players||[]).map(p=>settledIds.has(String(p.memberId))?{...p,registrationUnpaidAmount:0,rebuyUnpaidAmount:0,registrationUnpaid:false,_paymentRevision:(Number(p._paymentRevision)||0)+1}:p);
+   const updatedAt=Math.max(Date.now(),Number(event._eventUpdatedAt||0)+1);
+   tx.update(eventRef,{players:nextPlayers,_eventUpdatedAt:updatedAt,updatedAt:fs.serverTimestamp()});
+   return {ledgers:results.map(result=>result.state),event:{...event,eventId:String(cmd.eventId),players:nextPlayers,_eventUpdatedAt:updatedAt}};
+  });
+  return window.EPCMode?window.EPCMode.runWrite(execute):execute();
+ }
  bridge.playerPayment=async function(command){
   window.EPCMode?.assertWrite();bridge.requireAccountingAccess();
   const cmd=JSON.parse(JSON.stringify(command));
+  if(cmd.kind==='settleEvent')return settleEvent(cmd);
   if(cmd.kind==='add')cmd.registeredAt=Date.now();
   if(!cmd.memberId||!cmd.id)throw Error('帳務指令不完整');
   const ledgerRef=fs.doc(accountingCol,bridge.playerPaymentDocId(cmd.memberId));

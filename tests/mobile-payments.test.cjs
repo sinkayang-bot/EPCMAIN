@@ -14,6 +14,7 @@ require('../player-payments-core.js');
  Object.assign(w,api,{fs:api,authMod:{},initializeApp:()=>({}),getFirestore:()=>({}),onSnapshot:(col,cb)=>{eventCallback=cb;return ()=>{}},setupPlayerPayments:options=>{bridge=options.bridge;setupPlayerPayments(options)},setupAccountingAuth:options=>{options.bridge.accountingReady=true;options.bridge.requireAccountingAccess=()=>{}},...pricing});
  w.ResizeObserver=class{observe(){}};w.confirm=()=>true;
  w.fetch=async()=>({ok:true,json:async()=>({ok:true,members:[{memberId:'42',name:'甲'},{memberId:'43',name:'乙'}]})});
+ w.eval(fs.readFileSync(require.resolve('../member-number-core.js'),'utf8'));
  w.eval(fs.readFileSync(require.resolve('../phone/stack-core.js'),'utf8'));
  const source=fs.readFileSync(require.resolve('../phone/phone.js'),'utf8').replace(/^import .*;\n/gm,'');w.eval(source);
  const $=id=>w.document.getElementById(id),tick=()=>new Promise(r=>setImmediate(r));await tick();await tick();

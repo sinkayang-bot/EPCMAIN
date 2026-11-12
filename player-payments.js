@@ -54,11 +54,13 @@
   if(busy)return;ensure();const commandKey=JSON.stringify(command),previous=attempts.get(commandKey);
   if(uncertain&&commandKey!==uncertain.key)throw Error('上一筆款項尚未確認，請先按「確認上一筆儲存結果」，避免重複收款');
   busy=true;
-  const cmd=previous||{...command,lastSavedWins:command.kind==='change'&&!!window.EPCMode&&!window.EPCMode.isView(),id:'PP_'+Date.now()+'_'+crypto.randomUUID(),memberId:String(command.memberId),expectedRevision:ledger(command.memberId).revision};
+  const cmd=previous||{...command,lastSavedWins:command.kind==='change'&&!!window.EPCMode&&!window.EPCMode.isView(),id:'PP_'+Date.now()+'_'+crypto.randomUUID(),...(command.kind==='settleEvent'?{}:{memberId:String(command.memberId),expectedRevision:ledger(command.memberId).revision})};
   attempts.set(commandKey,cmd);setStatus('儲存中，請稍候…');
   document.querySelectorAll('[data-pp-action]').forEach(x=>x.disabled=true);
   try{
-   const result=await window.EPCFirestore.playerPayment(cmd);state.set(String(cmd.memberId),result.ledger);attempts.delete(commandKey);uncertain=null;
+   const result=await window.EPCFirestore.playerPayment(cmd);
+   for(const s of result.ledgers||[result.ledger])if(s&&(!state.has(String(s.memberId))||Number(s.revision)>=Number(state.get(String(s.memberId)).revision)))state.set(String(s.memberId),s);
+   attempts.delete(commandKey);uncertain=null;
    if(result.event){
     const remote=[...(window.EPC_FIRESTORE_LAST_EVENTS||[])],i=remote.findIndex(e=>String(e.eventId||e.id)===String(result.event.eventId));
     if(i>=0)remote[i]=result.event;else remote.push(result.event);
@@ -102,14 +104,14 @@
   el('ppMemberList').innerHTML=actMemberSearchOptions_();
   const walletsHtml='<h3>玩家寄存金</h3>'+(wallets.length?'<div class="tablewrap"><table><thead><tr><th>玩家</th><th>會員編號</th><th>寄存金</th><th>操作</th></tr></thead><tbody>'+wallets.map(([id,s])=>'<tr><td>'+button(esc(name(id)),'',id)+'</td><td>'+esc(number(id))+'</td><td>'+cash(s.wallet)+'</td><td>'+button('帳務明細／寄存','',id)+'</td></tr>').join('')+'</tbody></table></div>':'<p class="small">'+(q?'沒有符合搜尋的寄存玩家':'目前沒有寄存金')+'</p>');
   root.innerHTML='<div class="grid"><div class="card kpi"><div class="l">寄存金合計</div><div class="v">'+cash([...state.values()].reduce((n,x)=>n+x.wallet,0))+'</div></div><div class="card kpi"><div class="l">未結清合計</div><div class="v neg">'+cash(dues.reduce((n,x)=>n+x.due,0))+'</div></div></div>'+walletsHtml+'<h3>依場次查看未結帳玩家</h3>'+
-  groups.map(({e,rows},i)=>'<details class="card" data-pp-event="'+esc(e.id)+'" '+((expanded.has(String(e.id))?expanded.get(String(e.id)):i===0)?'open':'')+'><summary style="cursor:pointer;display:flex;gap:12px;flex-wrap:wrap;align-items:center"><b>'+esc(businessDateForEvent(e)||'日期待確認')+'｜'+esc(eventDisplayName_(e))+'</b><span>'+rows.length+' 人未結帳</span><span class="small">點開／收合明細</span><b class="neg">尚欠 '+cash(rows.reduce((n,x)=>n+x.due,0))+'</b></summary><div class="tablewrap" style="margin-top:12px"><table><thead><tr><th>玩家</th><th>會員編號</th><th>本場應付</th><th>本場已付</th><th>本場尚欠</th><th>操作</th></tr></thead><tbody>'+rows.map(x=>{
+  groups.map(({e,rows},i)=>'<details class="card" data-pp-event="'+esc(e.id)+'" '+((expanded.has(String(e.id))?expanded.get(String(e.id)):i===0)?'open':'')+'><summary style="cursor:pointer;display:flex;gap:12px;flex-wrap:wrap;align-items:center"><b>'+esc(businessDateForEvent(e)||'日期待確認')+'｜'+esc(eventDisplayName_(e))+'</b><span>'+rows.length+' 人未結帳</span><span class="small">點開／收合明細</span><b class="neg">尚欠 '+cash(rows.reduce((n,x)=>n+x.due,0))+'</b><button type="button" data-pp-action data-e="'+esc(e.id)+'" '+(busy?'disabled':'')+' onclick="event.preventDefault();event.stopPropagation();PP.settleEvent(this.dataset.e)">本場一鍵結帳</button></summary><div class="tablewrap" style="margin-top:12px"><table><thead><tr><th>玩家</th><th>會員編號</th><th>本場應付</th><th>本場已付</th><th>本場尚欠</th><th>操作</th></tr></thead><tbody>'+rows.map(x=>{
    const id=String(x.p.memberId);
    return '<tr data-pp-member="'+esc(id)+'"><td>'+button(esc(name(id)),e.id,id)+'</td><td>'+esc(number(id))+'</td><td>'+cash(x.charge)+'</td><td>'+cash(x.paid)+'</td><td class="neg">'+cash(x.due)+'</td><td>'+button('本場帳務／補帳',e.id,id)+' '+button('跨場結清','',id,'clearAll')+' '+button('刪除帳務名單','',id,'removeAccount')+(x.p._paymentOnly?'<small>帳務已載入，場次人員資料待同步；欠款仍保留</small>':'')+'</td></tr>';
   }).join('')+'</tbody></table></div></details>').join('')+
   (!groups.length?'<p class="small">'+(q?'沒有符合搜尋的未結帳場次':'目前沒有未結帳款')+'</p>':'')+
 
   (!dues.length&&!wallets.length&&!q?'<p class="small">目前沒有寄存金或未結帳款</p>':'')+
-  '<p class="small">點開場次可查看該場未結帳玩家與金額；「本場帳務／補帳」只開啟該場，「跨場結清」會確認此玩家所有場次的欠款。寄存金獨立列出，零餘額歷史可從上方選擇會員查看。合計涵蓋所有場次，不受搜尋影響。</p>';
+  '<p class="small">「本場一鍵結帳」會確認該場全部未結帳玩家，先用寄存金抵扣，餘額記為現金收款，搜尋不會縮小結帳範圍。「本場帳務／補帳」處理單一玩家，「跨場結清」處理該玩家所有場次。合計涵蓋所有場次，不受搜尋影響。</p>';
  }
  function open(e,id){selection={eventId:String(e||''),memberId:String(id)};renderDialog();if(!el('ppDialog').open)el('ppDialog').showModal();}
  function renderDialog(){
@@ -125,7 +127,7 @@
   <div class="toolbar"><button class="primary" data-pp-action onclick="PP.submit()">確認登記</button><button data-pp-action data-m="${esc(memberId)}" onclick="PP.clearAll('',this.dataset.m)">結清剩餘帳款</button></div><div id="ppStatus" class="small"></div>
   <h3>未結帳場次</h3><div class="pp-pending">${rows.map(r=>button(esc(businessDateForEvent(r.e))+'｜'+esc(eventDisplayName_(r.e))+'｜欠 '+cash(r.due),r.e.id,memberId)).join('')||'無未結帳紀錄'}</div>
   <details style="margin-top:14px"><summary>盈餘抵扣／領取餘額</summary>${Object.entries(s.profits||{}).map(([id,x])=>'<p>'+esc(x.date)+'｜'+esc(x.name)+'：盈餘 '+cash(x.limit)+'；已抵扣 '+cash(x.used)+'；已領現金 '+cash(x.cash)+'；剩餘 '+cash(x.limit-x.used-x.cash)+'</p>').join('')||'<p>尚無已確認的盈餘來源</p>'}</details>
-  <details style="margin-top:14px"><summary>付款與異動紀錄（${s.items.length} 筆）</summary><div class="tablewrap"><table><thead><tr><th>時間</th><th>項目</th><th>金額／異動</th><th>備註</th><th>操作</th></tr></thead><tbody>${s.items.slice().reverse().map(x=>`<tr><td>${esc(new Date(x.at).toLocaleString('zh-TW'))}</td><td>${esc(({add:'報名',rebuy:'重買',change:'買入／優惠調整',reconcile:'寄存自動抵扣／欠款登記',walletPay:'寄存抵扣',cash:'現金補帳',transfer:'轉帳收款',deposit:'存入寄存',withdraw:'領回寄存',profit:'盈餘抵扣',profitCash:'盈餘已領現金',creditExcess:'溢付轉寄存',settleAll:'跨場結清',archive:'刪除帳務名單',cancelRegistration:'取消本場報名',adminCorrection:'管理員修正',void:'撤銷'})[x.kind]||x.kind)}${x.eventId?'<br>'+esc(s.accounts[x.eventId]?.date||'')+'｜'+esc(s.accounts[x.eventId]?.name||''):''}</td><td>${x.amount?cash(x.amount):''}${['add','rebuy','settleAll'].includes(x.kind)&&x.cashAmount?'<br>現金收款 '+cash(x.cashAmount):''}${x.effects?.wallet?'<br>寄存 '+(x.effects.wallet>0?'+':'')+cash(x.effects.wallet):''}${Object.entries(x.effects?.paid||{}).map(([id,n])=>'<br>付款 '+(n>0?'+':'')+cash(n)).join('')}</td><td>${esc(x.note||'')}${x.voidedBy?'（已撤銷）':''}</td><td><button type="button" data-pp-action data-id="${esc(x.id)}" onclick="PP.correct(this.dataset.id)">修正</button> ${!x.voidedBy&&!['change','reconcile','void','archive','cancelRegistration'].includes(x.kind)&&(!['add','rebuy'].includes(x.kind)||x.cashAmount>0)?`<button data-pp-action data-id="${esc(x.id)}" onclick="PP.undo(this.dataset.id)">撤銷</button>`:'—'}</td></tr>`).join('')}</tbody></table></div></details>`;
+  <details style="margin-top:14px"><summary>付款與異動紀錄（${s.items.length} 筆）</summary><div class="tablewrap"><table><thead><tr><th>時間</th><th>項目</th><th>金額／異動</th><th>備註</th><th>操作</th></tr></thead><tbody>${s.items.slice().reverse().map(x=>`<tr><td>${esc(new Date(x.at).toLocaleString('zh-TW'))}</td><td>${esc(({add:'報名',rebuy:'重買',change:'買入／優惠調整',reconcile:'寄存自動抵扣／欠款登記',walletPay:'寄存抵扣',cash:'現金補帳',transfer:'轉帳收款',deposit:'存入寄存',withdraw:'領回寄存',profit:'盈餘抵扣',profitCash:'盈餘已領現金',creditExcess:'溢付轉寄存',settleAll:'跨場結清',settleEvent:'本場一鍵結帳',archive:'刪除帳務名單',cancelRegistration:'取消本場報名',adminCorrection:'管理員修正',void:'撤銷'})[x.kind]||x.kind)}${x.eventId?'<br>'+esc(s.accounts[x.eventId]?.date||'')+'｜'+esc(s.accounts[x.eventId]?.name||''):''}</td><td>${x.amount?cash(x.amount):''}${['add','rebuy','settleAll','settleEvent'].includes(x.kind)&&x.cashAmount?'<br>現金收款 '+cash(x.cashAmount):''}${x.effects?.wallet?'<br>寄存 '+(x.effects.wallet>0?'+':'')+cash(x.effects.wallet):''}${Object.entries(x.effects?.paid||{}).map(([id,n])=>'<br>付款 '+(n>0?'+':'')+cash(n)).join('')}</td><td>${esc(x.note||'')}${x.voidedBy?'（已撤銷）':''}</td><td><button type="button" data-pp-action data-id="${esc(x.id)}" onclick="PP.correct(this.dataset.id)">修正</button> ${!x.voidedBy&&!['change','reconcile','void','archive','cancelRegistration'].includes(x.kind)&&(!['add','rebuy'].includes(x.kind)||x.cashAmount>0)?`<button data-pp-action data-id="${esc(x.id)}" onclick="PP.undo(this.dataset.id)">撤銷</button>`:'—'}</td></tr>`).join('')}</tbody></table></div></details>`;
  }
  function methodChanged(){el('ppProfitArea').hidden=!['profit','profitCash'].includes(el('ppMethod').value);}
  async function submit(){
@@ -148,6 +150,21 @@
    const used=Math.min(total,wallet),rest=total-used;
    if(!confirm(name(id)+' 尚欠 '+cash(total)+'\n寄存金抵扣 '+cash(used)+'，其餘 '+cash(rest)+' 記為現金收款。\n確認已收到現金後再按確定。'))return;
    await run({kind:'settleAll',memberId:id,eventIds:events().filter(e=>player(e,id)).map(e=>String(e.id)),expectedDue:total,note:'寄存金優先，其餘現金結清'});
+  }catch(err){setStatus(err.message||String(err),true);}
+ }
+ async function settleEvent(eventId){
+  if(busy)return;
+  try{
+   ensure();if(uncertain)throw Error('上一筆款項尚未確認，請先確認上一筆儲存結果');
+   const rows=pending().filter(row=>String(row.e.id)===String(eventId)),e=findEvent(eventId);
+   if(!rows.length)return actionMsg('此場目前沒有未結帳款');
+   if(!e||rows.some(row=>row.p._paymentOnly))throw Error('場次人員資料尚未載入，請確認同步後再結帳');
+   const payments=rows.map(row=>({memberId:String(row.p.memberId),expectedRevision:ledger(row.p.memberId).revision,expectedDue:row.due,expectedWalletUsed:Math.min(row.due,ledger(row.p.memberId).wallet)}));
+   const total=payments.reduce((sum,row)=>sum+row.expectedDue,0),wallet=payments.reduce((sum,row)=>sum+row.expectedWalletUsed,0);
+   const lines=payments.map(row=>name(row.memberId)+'（'+number(row.memberId)+'）欠 '+cash(row.expectedDue)+'，寄存抵扣 '+cash(row.expectedWalletUsed)+'，現金 '+cash(row.expectedDue-row.expectedWalletUsed));
+   if(!confirm(businessDateForEvent(e)+'｜'+eventDisplayName_(e)+'\n本場全部 '+payments.length+' 位未結帳玩家\n\n'+lines.join('\n')+'\n\n尚欠合計 '+cash(total)+'\n寄存抵扣 '+cash(wallet)+'｜現金收款 '+cash(total-wallet)+'\n確認已收到上述現金後，再按確定完成本場結帳。'))return;
+   await run({kind:'settleEvent',eventId:String(eventId),payments,note:'本場一鍵結帳，寄存金優先，其餘現金收款'});
+   actionMsg('本場 '+payments.length+' 位玩家已結帳，寄存抵扣 '+cash(wallet)+'，現金收款 '+cash(total-wallet));
   }catch(err){setStatus(err.message||String(err),true);}
  }
  async function removeAccount(unused,id){
@@ -351,7 +368,7 @@
    return;
   }
  },250);}
- window.PP={openRebuy,rebuyPreview,confirmRebuy,closeRebuy,removePlayer,confirmRemoval,closeRemoval,registrationPreview,confirmRegistration,cancelRegistration,open,clearAll,removeAccount,undo,correct,submit,methodChanged,nameCell,amountCell,rebuyCell,renderPage,refresh,pending,info,renderPending,
+ window.PP={openRebuy,rebuyPreview,confirmRebuy,closeRebuy,removePlayer,confirmRemoval,closeRemoval,registrationPreview,confirmRegistration,cancelRegistration,open,clearAll,settleEvent,removeAccount,undo,correct,submit,methodChanged,nameCell,amountCell,rebuyCell,renderPage,refresh,pending,info,renderPending,
   retryPending:async()=>{if(!uncertain||busy)return;const command=uncertain.command;try{const result=await run(command);if(result&&command.kind==='rebuy'&&rebuy?.eventId===command.eventId&&rebuy?.memberId===command.memberId){rebuy=null;el('ppRebuyDialog')?.close();actionMsg('已確認重買儲存結果，未重複加組或收款');}}catch(err){setStatus(err.message,true);}},
   increment:(e,id)=>openRebuy(e,id),
   openMember:()=>{const id=actResolveMember_('ppMember');if(!members().some(m=>String(m.id)===String(id)))return actionMsg('請選擇會員',true);open('',id);}

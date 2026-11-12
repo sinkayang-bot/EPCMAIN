@@ -46,7 +46,7 @@
    if(profit&&(profit.used||profit.cash))throw Error('本場盈餘已有抵扣或領取，請先撤銷相關紀錄');
    if(cmd.disposition==='mistake'){
     // Do not erase real wallet/profit funding under a mistaken-cash correction.
-    const funding=s.items.some(x=>!x.voidedBy&&((x.eventId===eventId&&['add','rebuy','change','reconcile','walletPay','profit'].includes(x.kind)&&((x.effects?.wallet||0)<0||Object.values(x.effects?.profits||{}).some(v=>v.used>0)))||(x.kind==='settleAll'&&(x.effects?.paid?.[eventId]||0)>0&&(x.effects?.wallet||0)<0)));
+    const funding=s.items.some(x=>!x.voidedBy&&((x.eventId===eventId&&['add','rebuy','change','reconcile','walletPay','profit'].includes(x.kind)&&((x.effects?.wallet||0)<0||Object.values(x.effects?.profits||{}).some(v=>v.used>0)))||(['settleAll','settleEvent'].includes(x.kind)&&(x.effects?.paid?.[eventId]||0)>0&&(x.effects?.wallet||0)<0)));
     if(funding)throw Error('本場曾使用寄存金或盈餘，請選擇「轉寄存」或確認已退款，避免刪掉實際款項');
    }
    if(cmd.disposition==='wallet')s.wallet+=a.paid;
@@ -70,6 +70,12 @@
    if(source.profit!==p.limit)throw Error('來源賽事盈餘已變更，請先核對原場結算');
    if(n>p.limit-p.used-p.cash)throw Error('來源盈餘餘額不足，可能已被其他電腦抵扣');
    if(cmd.kind==='profit'){pay(n);p.used+=n;}else p.cash+=n;
+  }else if(cmd.kind==='settleEvent'){
+   const a=account(),total=due(a);
+   if(!money(Number(cmd.expectedDue))||total===0||total!==Number(cmd.expectedDue))throw Error('本場尚欠金額已變更，請重新確認收款');
+   if(a.cancelled)throw Error('此場報名已取消，請重新確認');
+   if(Math.min(s.wallet,total)!==Number(cmd.expectedWalletUsed))throw Error('寄存金抵扣金額已變更，請重新確認收款');
+   useWallet(eventId);pay(due(a));
   }else if(cmd.kind==='settleAll'){
    const total=totalDue(s);if(total!==Number(cmd.expectedDue))throw Error('尚欠總額已變更，請重新確認收款');
    for(const id of Object.keys(s.accounts).sort((a,b)=>String(s.accounts[a].date).localeCompare(String(s.accounts[b].date))))useWallet(id);
@@ -108,7 +114,7 @@
   const changed=effects.wallet||Object.keys(effects.paid).length||Object.keys(effects.profits).length||JSON.stringify(s.accounts)!==JSON.stringify(before.accounts);
   if(cmd.kind==='reconcile'&&!changed)return {state:original||s,unchanged:true};
   if(cmd.kind!=='archive')s.archived=false;
-  const cashAmount=['add','rebuy','settleAll'].includes(cmd.kind)?Object.values(effects.paid).reduce((n,x)=>n+x,0)+effects.wallet:cmd.kind==='cash'?Number(cmd.amount):0;
+  const cashAmount=['add','rebuy','settleAll','settleEvent'].includes(cmd.kind)?Object.values(effects.paid).reduce((n,x)=>n+x,0)+effects.wallet:cmd.kind==='cash'?Number(cmd.amount):0;
   s.items.push({id:cmd.id,kind:cmd.kind,at:now,eventId,sourceEventId:cmd.sourceEventId||'',amount:Number(cmd.amount)||0,cashAmount,note:String(cmd.note||''),targetId:cmd.targetId||'',effects});
   s.revision=(Number(s.revision)||0)+1;
   if(JSON.stringify(s).length>750000)throw Error('玩家帳務紀錄容量接近上限，請先匯出封存');
