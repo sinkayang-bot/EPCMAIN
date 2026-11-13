@@ -126,3 +126,8 @@ const outcomes=await Promise.allSettled([bridge.playerPayment(concurrent),bridge
 assert.equal(outcomes.filter(x=>x.status==='fulfilled').length,1);
 assert.equal(store.get(ledgerKey('201')).items.filter(x=>x.kind==='settleEvent'&&!x.voidedBy).length,1);
 console.log('PASS: event-wide checkout is atomic, isolates other events, preserves settled results, guards changed totals/wallet/revisions, supports receipt reversal and deduplicates retries/concurrent submits.');
+
+store.get(eventKey('B')).status='open';store.get(eventKey('B')).payoutSnapshot={lockedAt:1};
+await assert.rejects(bridge.playerPayment(cmd('change',{eventId:'B',field:'rebuy',increment:true})),/截止買入/);
+await assert.rejects(bridge.playerPayment({...cmd('add',{eventId:'B'}),memberId:'99'}),/截止買入/);
+console.log('PASS: published tournament blocks new registration and rebuy transactions.');
