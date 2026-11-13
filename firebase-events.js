@@ -42,6 +42,9 @@
      // Rebase only fields explicitly changed on this terminal onto the newest document.
      // Firestore commit order determines the last saved value for the same field.
      let protectedEvent=job?window.EPCEventPatch.apply(old,job.ops):window.EPCStackCore.protectStacks(e,old,options);
+     const entryKey=x=>JSON.stringify((x.players||[]).map(p=>[String(p.memberId),Number(p.buyin)||0,Number(p.rebuy)||0,Number(p.addon)||0]).sort((a,b)=>a[0].localeCompare(b[0])));
+     if(old.payoutSnapshot?.lockedAt&&protectedEvent.payoutSnapshot?.lockedAt&&entryKey(old)!==entryKey(protectedEvent))throw Error('本場已截止買入，不能變更報名或重買組數');
+     if(!old.payoutSnapshot?.lockedAt&&protectedEvent.payoutSnapshot?.lockedAt&&entryKey(old)!==entryKey(e))throw Error('報名組數已被其他設備更新，請重新整理後鎖定獎金表');
      if(options.settle){
       for(const p of e.players||[]){const latest=(old.players||[]).find(x=>String(x.memberId)===String(p.memberId));if(latest&&['stack','seat','hunterHeads'].some(k=>Number(latest['_'+k+'Revision']||0)>Number(p['_'+k+'Revision']||0)||(latest[k]??null)!==(p[k]??null)))throw Error('玩家籌碼已有更新，請重新計算後再結算');}
       protectedEvent={...protectedEvent,status:e.status,finalJP:e.finalJP,finalAccounting:e.finalAccounting};
@@ -76,7 +79,7 @@
    async deleteDailyAccounting(date){window.EPCMode?.assertWrite();this.requireAccountingAccess();date=String(date||'').trim();if(date)await fs.deleteDoc(fs.doc(accountingCol,date))}
   };
   for(const name of ['upsertEvent','createEvent','deleteEvent','upsertDailyAccounting','deleteDailyAccounting']){const original=window.EPCFirestore[name];window.EPCFirestore[name]=async function(...args){return window.EPCMode?EPCMode.runWrite(()=>original.apply(this,args)):original.apply(this,args);};}
-  const paymentModule=await import('./player-payments-cloud.js?v=20261113-event-checkout1');
+  const paymentModule=await import('./player-payments-cloud.js?v=20261113-payout7');
   paymentModule.setupPlayerPayments({fs,db,col,accountingCol,bridge:window.EPCFirestore});
   const publicPublisher=await import('./activity-lookup/live-publisher.js?v=20261101-member-numbers1');
   publicPublisher.setupLivePublisher({fs,db,bridge:window.EPCFirestore});

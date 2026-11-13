@@ -1,6 +1,6 @@
 import {applyAppearance} from './timer-appearance-view.js?v=20261023-tablet-rgb41';
 import {countdownSound} from './timer-sound.js?v=20261108-start-cue1';
-import {remaining,timeText,eventTotals,newTimer,timerAt,tournamentRemaining,durationText} from './timer-core.js?v=20261103-layout6';
+import {remaining,timeText,eventTotals,newTimer,timerAt,tournamentRemaining,durationText} from './timer-core.js?v=20261113-payout7';
 const $=id=>document.getElementById(id),params=new URLSearchParams(location.search),demo=params.has('demo'),id=params.get('eventId');
 let event,timer,service;
 const sound=countdownSound();
@@ -47,7 +47,7 @@ function render(){
  }
  text($('extraContent'),'$'+num(totals.pool));if(globalThis.EPCTournament.mode(event)==='tournament'){
   try{const plan=globalThis.EPCTournament.schedule(event,totals.payoutBase??totals.pool),size=6,pages=Math.max(1,Math.ceil(plan.rows.length/size)),page=Math.floor(Date.now()/8000)%pages;
-   payout(plan.rows.slice(page*size,(page+1)*size).map(r=>'第 '+r.rank+' 名： $'+num(r.prize)).join('\n')+(pages>1?'\n獎金表 '+(page+1)+' / '+pages:''));
+   payout((event.payoutSnapshot?.lockedAt?'正式獎金表':'報名中・預估獎金')+'\n'+plan.rows.slice(page*size,(page+1)*size).map(r=>'第 '+r.rank+' 名： $'+num(r.prize)).join('\n')+(pages>1?'\n獎金表 '+(page+1)+' / '+pages:''));
   }catch(err){payout(err.message)}
  }else payout('依實際剩餘籌碼比例分配');
  const ann=$('announcementDisplay');if(ann.textContent!==(state.announcement||'')){ann.textContent=state.announcement||'';let size=40;ann.style.fontSize=size+'px';while(size>18&&ann.scrollHeight>$('announcementBody').clientHeight-50){size-=2;ann.style.fontSize=size+'px'}}

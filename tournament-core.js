@@ -18,14 +18,20 @@ function itm(e){
  return {entries,percent:null,count:Math.floor(n(e.itmCount))};
 }
 function schedule(e,amount){
+ if(e.payoutSnapshot?.lockedAt)return JSON.parse(JSON.stringify(e.payoutSnapshot.plan));
  const count=itm(e).count;if(count===0&&e.itmPercent!=null)return {rows:[],total:0,remainder:n(amount)};if(count<1||count>500)throw Error('ITM 人數須為 1–500 人');
  const custom=String(e.payoutPercentages||'').trim();
- const weights=custom?custom.split(/[,，\s]+/).map(Number):Array.from({length:count},(_,i)=>1/Math.pow(i+1,1.15));
- if(weights.length!==count||weights.some(x=>!Number.isFinite(x)||x<=0))throw Error('獎金比例筆數須等於 ITM 人數，每個比例須大於 0');
+ const champion=n(e.guaranteedChampion),available=n(amount);
+ if(champion>available)throw Error('保證冠軍不可超過總獎池');
+ const remainingCount=champion?count-1:count;
+ const weights=custom?custom.split(/[,，\s]+/).map(Number):Array.from({length:remainingCount},(_,i)=>1/Math.pow(i+(champion?2:1),1.15));
+ if(weights.length!==remainingCount||weights.some(x=>!Number.isFinite(x)||x<=0))throw Error('獎金比例筆數須等於待分配名次數（保冠時不含冠軍），每個比例須大於 0');
  const sum=weights.reduce((a,b)=>a+b,0);
- if(custom&&Math.abs(sum-100)>0.00001)throw Error('自訂獎金比例合計須為 100%');
+ if(custom&&remainingCount&&Math.abs(sum-100)>0.00001)throw Error('自訂獎金比例合計須為 100%');
  if(weights.some((v,i)=>i>0&&v>weights[i-1]))throw Error('名次獎金比例須由高至低');
- const rows=weights.map((v,i)=>({rank:i+1,percent:v/sum*100,prize:Math.floor(n(amount)*v/sum/100)*100}));
+ const rows=weights.map((v,i)=>({rank:i+1+(champion?1:0),percent:available?(available-champion)*v/sum/available*100:0,prize:Math.floor((available-champion)*v/sum/100)*100}));
+ if(champion)rows.unshift({rank:1,percent:available?champion/available*100:0,prize:Math.floor(champion/100)*100});
+ if(rows.some((r,i)=>i&&r.prize>rows[i-1].prize))throw Error('冠軍獎金低於後續名次，請調整保冠或分配比例');
  return {rows,total:rows.reduce((a,b)=>a+b.prize,0),remainder:n(amount)-rows.reduce((a,b)=>a+b.prize,0)};
 }
 function adminRemainder(e,gross){
@@ -41,7 +47,7 @@ function pricing(p,e){
  const manual=n(p.manualDiscount)+earlyDiscount+lateDiscount+ladiesDiscount,original=buy*bt+re*rt,grossAdmin=buy*ba+re*ra;
  return {groups,original,paid:Math.max(0,original-manual),pool:buy*Math.max(0,bt-ba)+re*Math.max(0,rt-ra),grossAdmin,netAdmin:Math.max(0,grossAdmin-manual),manual,auto:0,totalDiscount:manual,earlyDiscount,lateDiscount,ladiesDiscount,birdDiscount:earlyDiscount+lateDiscount,rebuyDiscount:0,overbuyDiscount:0,accountingRebuyDiscount:0,accountingGroupDiscount:0};
 }
-const api={version:6,mode,pool,schedule,pricing,itm,adminRemainder};
+const api={version:7,mode,pool,schedule,pricing,itm,adminRemainder};
  const old=root.EPCTournament;let active=Number(old?.version)>api.version?old:api;
  Object.defineProperty(root,'EPCTournament',{configurable:true,enumerable:true,get(){return active},set(value){if(Number(value?.version)>=Number(active.version))active=value}});
 })(globalThis);

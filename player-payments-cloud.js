@@ -66,6 +66,7 @@ export function setupPlayerPayments({fs,db,col,accountingCol,bridge}){
    if(cmd.kind==='add'||cmd.kind==='change'||cmd.kind==='rebuy'){
     const old=raws.get(String(cmd.eventId));if(!old)throw Error('找不到賽事');
     if(['settled','已結算'].includes(old.status))throw Error('已結算賽事不能新增買入或重買');
+    if(old.payoutSnapshot?.lockedAt&&(cmd.kind!=='change'||['buyin','rebuy','addon'].includes(cmd.field)))throw Error('本場已截止買入，獎金表已鎖定');
     const players=(old.players||[]).map(x=>({...x}));
     let p=players.find(x=>String(x.memberId)===String(cmd.memberId));
     if(cmd.kind==='add'){
@@ -131,6 +132,7 @@ export function setupPlayerPayments({fs,db,col,accountingCol,bridge}){
    if(cmd.kind==='cancelRegistration'){
     const old=raws.get(String(cmd.eventId));
     if(!old||!info[String(cmd.eventId)])throw Error('這位玩家已不在本場，請重新整理');
+    if(old.payoutSnapshot?.lockedAt)throw Error('本場已截止買入，不能取消報名');
     if(['settled','已結算'].includes(old.status))throw Error('已結算賽事請先解鎖，再取消報名');
     const players=(old.players||[]).filter(p=>String(p.memberId)!==String(cmd.memberId));
     changed={...old,players,_eventUpdatedAt:Math.max(Date.now(),Number(old._eventUpdatedAt||0)+1)};

@@ -4,7 +4,7 @@ import {getFirestore,collection,doc,onSnapshot,runTransaction,serverTimestamp} f
 import * as fs from 'https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js';
 import * as authMod from 'https://www.gstatic.com/firebasejs/12.4.0/firebase-auth.js';
 import {setupAccountingAuth} from '../firebase-accounting-auth.js?v=20261016-phone-payments1';
-import {setupPlayerPayments} from '../player-payments-cloud.js?v=20261026-arrival3';
+import {setupPlayerPayments} from '../player-payments-cloud.js?v=20261113-payout7';
 import {pricePlayer,registrationPrice,rebuyPrice} from '../player-pricing.js?v=20261023-rebuy-no-ladies30';
 const $=id=>document.getElementById(id),esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const app=initializeApp(window.EPC_FIREBASE_CONFIG,'epc-phone'),store=getFirestore(app),col=collection(store,'epc_events');

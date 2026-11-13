@@ -19,7 +19,7 @@ function epcNewModeFields_(){
  const name=$('newEventName');if(!name.value||name.value===name.dataset.defaultName){const e=blankEvent();e.tournamentMode=mode;const value=mode==='tournament'?'EPC 一般賽事':mode==='guaranteed'?'EPC 保底限時':eventDisplayName_(e);name.value=value;name.dataset.defaultName=value;}
 }
 function epcResetNewMode_(){
- $('newTimedPool').value=3000;$('newTimedAdmin').value=400;$('newTournamentMode').value='normal';$('newGuaranteedPool').value=18000;$('newItmPercent').value=15;
+ $('newGuaranteedChampion').value='';$('newTimedPool').value=3000;$('newTimedAdmin').value=400;$('newTournamentMode').value='normal';$('newGuaranteedPool').value=18000;$('newItmPercent').value=15;
  for(const [id,value] of [['newTourBuyPool',1000],['newTourBuyFee',200],['newTourRePool',1000],['newTourReFee',200]])$(id).value=value;
  epcNewModeFields_();
 }
@@ -28,6 +28,7 @@ function epcNewModeSettings_(){
  if(mode!=='normal'&&(!Number.isFinite(guaranteedPool)||guaranteedPool<0||(mode==='guaranteed'&&guaranteedPool===0)))throw Error('保底獎金須為非負數');
  const result={tournamentMode:mode,guaranteedPool:mode==='normal'?0:guaranteedPool};
  if(mode==='tournament'){
+  result.guaranteedChampion=Math.max(0,Number($('newGuaranteedChampion').value)||0);
   result.itmPercent=Number($('newItmPercent').value);EPCTournament.itm(result);
   const nums=['newTourBuyPool','newTourBuyFee','newTourRePool','newTourReFee'].map(id=>Number($(id).value));
   if(nums.some(x=>!Number.isFinite(x)||x<0))throw Error('買入與重買金額須為非負數');
@@ -51,32 +52,57 @@ function epcRankValidation_(e){
   return {ok:true,total,target:plan.total,diff:0,message:'名次獎金正確；取整餘額轉入行政費 '+money(plan.remainder)};
  }catch(err){return {ok:false,total,target:0,diff:0,message:err.message}}
 }
+function epcTournamentSave_(e){touchEvent_(e);persist();render();}
+function epcCloseTournamentBuyin_(){
+ const e=currentEvent();if(!e||e.payoutSnapshot?.lockedAt||['已結算','settled'].includes(e.status))return;
+ try{const plan=epcRankPlan_(e),info=poolInfoForEvent(e),itm=EPCTournament.itm(e);
+ if(!plan.rows.length)throw Error('本場尚無買入組數');
+ if(plan.rows.length>e.players.length)throw Error('錢圈超過參賽人數，請調整 ITM');
+ if(plan.rows.some(r=>r.prize<=0))throw Error('獎池不足以分配全部錢圈');
+ if(!confirm('截止買入並公布 '+plan.rows.length+' 個錢圈、鎖定各名次獎金？'))return;
+ e.payoutSnapshot={lockedAt:Date.now(),plan,itm,gross:info.gross,overlay:info.overlay};
+ epcTournamentSave_(e);
+ }catch(err){alert(err.message)}
+}
+function epcReopenTournamentBuyin_(){
+ const e=currentEvent();if(!e||['已結算','settled'].includes(e.status))return;
+ if(e.players.some(p=>p.prizePaidAt))return alert('已有獎金發放，不能重新開放買入');
+ if(!confirm('重新開放買入將撤銷已公布獎金表，並清除尚未發放的名次獎金，確定繼續？'))return;
+ e.payoutSnapshot=null;e.players.forEach(p=>{p.prize=0;p.finishRank=0});epcTournamentSave_(e);
+}
 function epcSetFinishRank_(index,value){
- const e=currentEvent();if(!e||e.status==='已結算'||e.status==='settled')return;
- e.players[index].finishRank=Math.max(0,Math.floor(Number(value)||0));e.players.forEach(p=>p.prize=0);
- touchEvent_(e);persist();render();
+ const e=currentEvent();if(!e||['已結算','settled'].includes(e.status))return;
+ const p=e.players[index];if(p.prizePaidAt)return alert('已發放獎金的玩家不能修改名次');
+ if(!e.payoutSnapshot?.lockedAt)return alert('請先截止買入並鎖定獎金表');
+ const rank=Number(value)||0;
+ if(!Number.isInteger(rank)||rank<0||rank>e.players.length||rank&&e.players.some((p,i)=>i!==index&&Number(p.finishRank)===rank))return alert('名次須為有效整數且不能重複');
+ p.finishRank=rank;p.prize=epcRankPlan_(e).rows.find(r=>r.rank===rank)?.prize||0;epcTournamentSave_(e);
+}
+function epcMarkTournamentPaid_(index){
+ const e=currentEvent(),p=e?.players[index];if(!p||!e.payoutSnapshot?.lockedAt||!p.prize||p.prizePaidAt||['已結算','settled'].includes(e.status))return;
+ if(!confirm('確認已發放第 '+p.finishRank+' 名獎金 '+money(p.prize)+'？'))return;
+ p.prizePaidAt=Date.now();epcTournamentSave_(e);
 }
 function epcAssignRankPrizes_(){
- const e=currentEvent();if(!e||e.status==='已結算'||e.status==='settled')return;
- try{
-  const plan=epcRankPlan_(e),seen=new Set();
-  if(!plan.rows.length)throw Error('本場尚無買入組數');
-  if(plan.rows.length>e.players.length)throw Error('依組數計算的 ITM 超過參賽人數，請調整 ITM %');
-  for(const p of e.players){const r=Number(p.finishRank||0);if(r&&(!Number.isInteger(r)||r<1||r>e.players.length||seen.has(r)))throw Error('名次須為有效整數且不能重複');if(r)seen.add(r)}
-  if(plan.rows.some(r=>!seen.has(r.rank)))throw Error('請先填妥全部 ITM 名次');
-  e.players.forEach(p=>p.prize=plan.rows.find(r=>r.rank===Number(p.finishRank))?.prize||0);
-  touchEvent_(e);persist();render();
- }catch(err){alert(err.message)}
+ const e=currentEvent();if(!e||['已結算','settled'].includes(e.status))return;
+ if(!e.payoutSnapshot?.lockedAt)return alert('請先截止買入並鎖定獎金表');
+ const plan=epcRankPlan_(e);e.players.forEach(p=>{if(!p.prizePaidAt)p.prize=plan.rows.find(r=>r.rank===Number(p.finishRank))?.prize||0});epcTournamentSave_(e);
 }
 function epcRenderModeSummary_(e){
  const el=$('tournamentModeSummary');if(!el)return;
- const mode=EPCTournament.mode(e),info=poolInfoForEvent(e);
- if(mode==='normal'){epcSettlementModeEditor_(e);return}
- if(mode==='guaranteed'){epcSettlementModeEditor_(e);return}
- const locked=e.status==='已結算'||e.status==='settled';
- try{const plan=epcRankPlan_(e),itm=EPCTournament.itm(e),admin=plan.remainder+e.players.reduce((s,p)=>s+calcPlayerForEvent(p,e).netAdmin,0);
-  el.innerHTML='<h3>一般錦標賽｜名次獎金</h3><div>實際累積獎池 '+money(info.unroundedAvail??info.avail)+'｜總可發獎金（百位整數）'+money(info.avail)+'｜實收行政費 '+money(admin)+'｜ITM '+plan.rows.length+' 人（'+itm.entries+' 組 × '+(itm.percent??'舊制固定人數')+'% 無條件進位）｜保底 '+money(e.guaranteedPool)+'｜店家補足 '+money(info.overlay)+'｜發放合計 '+money(plan.total)+'｜取整餘額轉入行政費 '+money(plan.remainder)+'</div><div style="display:flex;gap:16px;flex-wrap:wrap;margin:12px 0">'+plan.rows.map(r=>'<span>第 '+r.rank+' 名：<b>'+money(r.prize)+'</b></span>').join('')+'</div><div class="small">填入玩家最終名次後，按「依名次計算獎金」。淘汰玩家不需要保留籌碼。獎金表會同步至本場計時器，每 8 秒輪播一頁。</div><div id="tournamentRankRows"></div>';
-  const box=$('tournamentRankRows');e.players.forEach((p,i)=>{const row=document.createElement('label');row.style.cssText='display:inline-flex;gap:10px;align-items:center;margin:8px';const name=document.createElement('span'),m=db.members.find(m=>String(m.id)===String(p.memberId));name.textContent=m?.name||p.name||p.memberId;const input=document.createElement('input');input.type='number';input.min='0';input.max=e.players.length;input.value=p.finishRank||'';input.placeholder='名次';input.style.width='90px';input.disabled=locked;input.onchange=()=>epcSetFinishRank_(i,input.value);row.append(name,input);box.append(row)})
+ const tour=EPCTournament.mode(e)==='tournament';
+ // Separate tournament award workflow from timed chip settlement.
+ for(const id of ['sJP','sStartingChips','sChipDiff'])if($(id))$(id).parentElement.hidden=tour;
+ if($('settleTable'))$('settleTable').parentElement.hidden=tour;
+ const sync=document.querySelector('[onclick="syncPhoneStacksOnly()"]');if(sync)sync.hidden=tour;
+ if($('btnCalcICM'))$('btnCalcICM').hidden=tour;
+ const heading=document.querySelector('#settle h2');if(heading)heading.textContent=tour?'錦標賽｜名次與發獎':'ICM / 結算';
+ if(!tour){epcSettlementModeEditor_(e);return}
+ const locked=['已結算','settled'].includes(e.status),closed=!!e.payoutSnapshot?.lockedAt,info=poolInfoForEvent(e);
+ try{const plan=epcRankPlan_(e),itm=e.payoutSnapshot?.itm||EPCTournament.itm(e),paid=e.players.reduce((s,p)=>s+(p.prizePaidAt?Number(p.prize)||0:0),0),fees=e.players.reduce((s,p)=>s+calcPlayerForEvent(p,e).netAdmin,0);
+ el.innerHTML='<h3>一般錦標賽｜'+(closed?'已截止買入・正式獎金表':'報名中・獎金表預覽')+'</h3><p>總獎池 '+money(closed?plan.total+plan.remainder:info.unroundedAvail??info.avail)+'｜'+itm.entries+' 組｜錢圈 '+plan.rows.length+' 人｜保證冠軍 '+money(e.guaranteedChampion||0)+'</p><p>協會補貼 '+money(e.payoutSnapshot?.overlay??info.overlay)+'｜行政費 '+money(fees)+'｜取整餘額 '+money(plan.remainder)+'｜預估賽事損益 '+money(fees+plan.remainder-(e.payoutSnapshot?.overlay??info.overlay))+'</p><p>已發放 '+money(paid)+'｜待發放 '+money(plan.total-paid)+'</p><div class="toolbar"><button id="tourClose" class="primary"></button></div><table><thead><tr><th>名次</th><th>獎金</th><th>狀態</th></tr></thead><tbody>'+plan.rows.map(r=>{const p=e.players.find(p=>Number(p.finishRank)===r.rank);return '<tr><td>第 '+r.rank+' 名</td><td>'+money(r.prize)+'</td><td>'+(p?.prizePaidAt?'已發放':p?'待發放':'待產生')+'</td></tr>'}).join('')+'</tbody></table><p class="small">'+(closed?'正式獎金表已鎖定並同步計時器。逐一登記淘汰名次即可發獎。':'截止買入時鎖定錢圈與全部名次獎金，再公布給玩家。')+'</p><div id="tournamentRankRows"></div>';
+ const button=$('tourClose');button.textContent=closed?'重新開放買入':'截止買入・鎖定並公布獎金表';button.disabled=locked;button.onclick=closed?epcReopenTournamentBuyin_:epcCloseTournamentBuyin_;
+ const box=$('tournamentRankRows');e.players.forEach((p,i)=>{const row=document.createElement('div');row.style.cssText='display:flex;gap:12px;align-items:center;margin:10px 0';const name=document.createElement('span'),m=db.members.find(m=>String(m.id)===String(p.memberId));name.textContent=m?.name||p.name||p.memberId;const input=document.createElement('input');input.type='number';input.min=0;input.max=e.players.length;input.value=p.finishRank||'';input.placeholder='淘汰名次';input.style.width='110px';input.disabled=locked||!closed||!!p.prizePaidAt;input.onchange=()=>epcSetFinishRank_(i,input.value);const award=document.createElement('span');award.textContent=money(p.prize||0);const pay=document.createElement('button');pay.textContent=p.prizePaidAt?'已發放':'確認已發放';pay.disabled=locked||!closed||!p.prize||!!p.prizePaidAt;pay.onclick=()=>epcMarkTournamentPaid_(i);row.append(name,input,award,pay);box.append(row)});
  }catch(err){el.textContent='名次獎金設定：'+err.message}
 }
 
