@@ -1,3 +1,4 @@
+import {mountLuckyDrawFrame} from '../lucky-draw-frame.js?v=20261115-draw12';
 import {installEventPicker} from './event-picker.js?v=20261115-draw11';
 import {pairingMarkup} from '../display-pairing.js?v=20261024-brand46';
 import {effectiveDisplay} from '../display-assignment.js?v=20261115-draw11';
@@ -8,7 +9,7 @@ let id=localStorage.getItem('epcTvDeviceId');if(!id){id=Array.from(crypto.getRan
 let timer,cloud,lastSignature='',renewing=false;
 function identity(r,ui){return [ui.showName!==false?esc(r.name||r.member||''):null,ui.showMemberId?esc(r.memberNumber||r.memberId||r.id||''):null].filter(Boolean).join(' · ')}
 function render(p,target=host){
- if(p.type==='luckyDraw'){const f=document.createElement('iframe');f.title='幸運加乘抽選投影';f.src='../lucky-draw.html?v=20261115-draw11&period='+encodeURIComponent(p.period||'');f.style.cssText='position:fixed;inset:0;width:100vw;height:100vh;border:0';target.replaceChildren(f);return;}
+ if(p.type==='luckyDraw'){mountLuckyDrawFrame(target,p.period);return;}
 
  if(p.type==='timer'){
   const ids=Array.isArray(p.eventIds)?[...new Set(p.eventIds.map(String).filter(Boolean))].slice(0,4):[String(p.eventId||'')].filter(Boolean);

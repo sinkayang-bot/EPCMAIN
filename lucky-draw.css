@@ -4,6 +4,8 @@
 
 .result{white-space:nowrap;overflow-x:auto;overflow-wrap:normal;font-size:16px;line-height:1.6}.result strong{display:inline}
 
-body{background:linear-gradient(rgba(5,8,14,.78),rgba(5,8,14,.84)),url('assets/lucky-club.jpg') center/cover fixed}.draw-person,.prize-row{background:rgba(12,18,28,.85)}
+body{background:#080a0f}body::before{content:'';position:fixed;inset:0;background:linear-gradient(rgba(5,8,14,.78),rgba(5,8,14,.84)),url('assets/lucky-club.jpg') center/cover;pointer-events:none;transform:translateZ(0);z-index:-1}body{isolation:isolate}.draw-person,.prize-row{background:rgba(12,18,28,.85)}
 
 button:focus-visible{outline:4px solid #ffe27a;outline-offset:4px}.prize-picker{position:fixed;inset:8vh 12vw;z-index:9999;padding:28px;border:2px solid #d8b354;border-radius:18px;background:#10151f;overflow:auto;box-shadow:0 0 0 100vmax #000b}.prize-picker[hidden]{display:none}.prize-picker>div{display:grid;gap:12px;margin-bottom:18px}.prize-picker button{font-size:24px;text-align:left}.prize-picker button:focus{outline:4px solid #ffe27a;background:#4c3b17}
+
+.draw-people{position:relative;contain:layout paint;overscroll-behavior:contain}.draw-person.current{transform:none}.draw-layout>aside{overscroll-behavior:contain}

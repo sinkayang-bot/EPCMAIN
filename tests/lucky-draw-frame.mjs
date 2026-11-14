@@ -1,0 +1,3 @@
+import assert from 'node:assert/strict';import {mountLuckyDrawFrame} from '../lucky-draw-frame.js';
+let creates=0;globalThis.document={createElement(){creates++;return {tagName:'IFRAME',dataset:{},style:{}}}};const host={childElementCount:0,firstElementChild:null,replaceChildren(frame){this.childElementCount=1;this.firstElementChild=frame}};
+const first=mountLuckyDrawFrame(host,'2026-11-02_2026-11-15');for(let i=0;i<20;i++)assert.equal(mountLuckyDrawFrame(host,'2026-11-02_2026-11-15'),first);assert.equal(creates,1);assert.notEqual(mountLuckyDrawFrame(host,'2026-11-16_2026-11-30'),first);assert.equal(creates,2);console.log('PASS repeated metadata updates keep existing draw iframe; actual period change mounts a new frame');
