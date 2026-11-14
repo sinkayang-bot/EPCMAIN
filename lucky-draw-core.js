@@ -10,7 +10,14 @@ function draw(s,prizeId,u,now=Date.now()){
  const people=eligible(s),total=people.reduce((n,p)=>n+p.weight,0);if(!total||!Number.isFinite(total))throw Error('沒有符合資格的抽選名單');
  let x=u*total,winner=people.at(-1);for(const p of people){x-=p.weight;if(x<0){winner=p;break}}
  const result={id:root.crypto?.randomUUID?.()||String(now),prizeId,prizeName:prize.name,memberId:winner.memberId,name:winner.name,memberNumber:winner.memberNumber,points:winner.points,settingsRevision:s.settingsRevision||0,at:now};
- return {...s,revision:(s.revision||0)+1,results:[...s.results,result],active:{resultId:result.id,startedAt:now,endsAt:now+10500,eligibleIds:people.map(p=>p.memberId)}};
+ return {...s,revision:(s.revision||0)+1,results:[...s.results,result],active:{resultId:result.id,startedAt:now,endsAt:now+Math.min(6000,Math.max(1200,(people.length*2+people.indexOf(winner)+1)*45)),eligibleIds:people.map(p=>p.memberId)}};
+}
+function animationIndex(active,winnerId,now){
+ const ids=active.eligibleIds||[],end=ids.indexOf(winnerId);if(!ids.length||end<0)return -1;
+ if(now>=active.endsAt)return end;
+ const steps=ids.length*2+end,tail=Math.min(8,steps),weights=Array.from({length:steps},(_,i)=>1+1.2*Math.max(0,(i-(steps-tail))/Math.max(1,tail-1))),sum=weights.reduce((a,b)=>a+b,0);
+ let target=Math.max(0,(now-active.startedAt)/(active.endsAt-active.startedAt))*sum;
+ for(let i=0;i<steps;i++){target-=weights[i];if(target<0)return i%ids.length}return (steps-1)%ids.length;
 }
 function settings(s,value){
  if(value.expectedRevision!=null&&value.expectedRevision!==(s.settingsRevision||0))throw Error('設定已被另一台裝置修改，請重新開啟設定');
@@ -34,5 +41,5 @@ function reset(s,expectedRevision,resetId,now=Date.now()){
  return {...s,results:[],active:null,revision:(s.revision||0)+1,resetId,resetAt:now};
 }
 function publicState(s){return {period:s.period,revision:s.revision,prizes:s.prizes,people:s.people.map(({memberId,name,memberNumber,points})=>({memberId,name,memberNumber,points})),results:s.results,active:s.active||null}}
-root.EPCLuckyDraw={draw,settings,reset,eligible,wins,publicState};
+root.EPCLuckyDraw={draw,animationIndex,settings,reset,eligible,wins,publicState};
 })(globalThis);
