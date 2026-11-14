@@ -7712,7 +7712,7 @@ function displayActivityOptions_(){
 function displayActivityIds_(){return displayActivityOptions_().map(([id])=>id)}
 function displayLabel_(text){return String(text).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 function displayContentOptions_(v){
- const a=[['timer','賽事計時器'],...displayActivityOptions_(),['parallel','活動並排'],['rotate','活動輪播'],['rotateParallel','並排輪播']];
+ const a=[['luckyDraw','幸運加乘抽選'],['timer','賽事計時器'],...displayActivityOptions_(),['parallel','活動並排'],['rotate','活動輪播'],['rotateParallel','並排輪播']];
  return a.map(x=>`<option value="${x[0]}" ${v===x[0]?'selected':''}>${displayLabel_(x[1])}</option>`).join('');
 }
 async function pairDisplay_(){
@@ -7796,12 +7796,16 @@ function displayLeaderboard_(kind){
  return Object.entries(tot).map(([id,score])=>({id,memberId:id,name:epcPlayerDisplayName_(id),score})).sort((a,b)=>b.score-a.score).slice(0,20);
 }
 function displayPayload_(type){
+ if(type==='luckyDraw')return displayActivityPayload_(type);
+
  const payload=displayActivityPayload_(type);
  for(const key of ['rows','monthRows','attacks'])if(Array.isArray(payload[key]))payload[key]=payload[key].map(r=>({...r,memberNumber:memberNumber_(r.memberId||r.id)}));
  const title=actActivityNames_()[type];if(title)payload.title=title;
  return payload;
 }
 function displayActivityPayload_(type){
+ if(type==='luckyDraw'){const c=db.activityManagement.luckyMultiplier||{};return {type,title:'幸運加乘抽選',period:c.from+'_'+c.to}}
+
  if(type==='memberReward'&&window.memberRewardStats_){
   const {config,rows}=memberRewardStats_();
   return {type,title:'會員回饋賽',activityFrom:config.from,activityTo:config.to,rows:rows.map(row=>({id:row.memberId,memberId:row.memberId,name:epcPlayerDisplayName_(row.memberId),score:row.points,games:row.games}))};
@@ -8282,7 +8286,7 @@ let timer;const schedule=()=>{clearTimeout(timer);timer=setTimeout(render,120)};
 
 </script>
 <script src="member-reward-core.js?v=20261112-reward2"></script><script src="member-reward-ui.js?v=20261112-reward2"></script>
-<script src="lucky-multiplier-core.js"></script><script src="lucky-multiplier-ui.js?v=20261101-member-numbers1"></script>
+<script src="lucky-draw-core.js?v=20261115-draw1"></script><script src="lucky-draw-admin.js?v=20261115-draw1"></script><script src="lucky-multiplier-core.js"></script><script src="lucky-multiplier-ui.js?v=20261115-draw1"></script>
 </body></html>
 
 
