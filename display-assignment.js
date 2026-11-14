@@ -15,6 +15,6 @@ export async function syncTimerAssignment({fs,db,ref}){
 export function effectiveDisplay(data){
  const assignment=data?.assignment;if(!assignment?.id||!assignment.payload)return data;
  const type=assignment.contentType;
- const useAssignment=(type==='timer'&&!pendingTimerAssignment(data))||data.contentType!==type||data.payload?.type!==type;
+ const useAssignment=type==='luckyDraw'||(type==='timer'&&!pendingTimerAssignment(data))||data.contentType!==type||data.payload?.type!==type;
  return {...data,contentType:type,rotateSeconds:assignment.rotateSeconds,payload:useAssignment?assignment.payload:data.payload};
 }

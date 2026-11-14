@@ -1,14 +1,14 @@
-import {installEventPicker} from './event-picker.js?v=20261115-draw7';
+import {installEventPicker} from './event-picker.js?v=20261115-draw8';
 import {pairingMarkup} from '../display-pairing.js?v=20261024-brand46';
-import {effectiveDisplay} from '../display-assignment.js?v=20261022-switch5';
+import {effectiveDisplay} from '../display-assignment.js?v=20261115-draw8';
 import {mountTimerFrame} from './timer-frame.js?v=20261028-rank-small9';
-import {displayCloud} from '../display-cloud.js?v=20261023-tablet-rgb41';
+import {displayCloud} from '../display-cloud.js?v=20261115-draw8';
 const host=document.getElementById('screen'),esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])),money=n=>'$'+Number(n||0).toLocaleString();
 let id=localStorage.getItem('epcTvDeviceId');if(!id){id=Array.from(crypto.getRandomValues(new Uint8Array(16)),x=>x.toString(16).padStart(2,'0')).join('');localStorage.setItem('epcTvDeviceId',id)}
 let timer,cloud,lastSignature='',renewing=false;
 function identity(r,ui){return [ui.showName!==false?esc(r.name||r.member||''):null,ui.showMemberId?esc(r.memberNumber||r.memberId||r.id||''):null].filter(Boolean).join(' · ')}
 function render(p,target=host){
- if(p.type==='luckyDraw'){const f=document.createElement('iframe');f.title='幸運加乘抽選投影';f.src='../lucky-draw.html?v=20261115-draw7&period='+encodeURIComponent(p.period||'');f.style.cssText='position:fixed;inset:0;width:100vw;height:100vh;border:0';target.replaceChildren(f);return;}
+ if(p.type==='luckyDraw'){const f=document.createElement('iframe');f.title='幸運加乘抽選投影';f.src='../lucky-draw.html?v=20261115-draw8&period='+encodeURIComponent(p.period||'');f.style.cssText='position:fixed;inset:0;width:100vw;height:100vh;border:0';target.replaceChildren(f);return;}
 
  if(p.type==='timer'){
   const ids=Array.isArray(p.eventIds)?[...new Set(p.eventIds.map(String).filter(Boolean))].slice(0,4):[String(p.eventId||'')].filter(Boolean);

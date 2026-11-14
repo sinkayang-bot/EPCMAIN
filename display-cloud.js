@@ -1,7 +1,7 @@
 import {displayTimerEvents} from './display-timer-events.js?v=20261023-remote38';
 import {selectDisplayTimer} from './display-timer-selection.js?v=20261023-device-picker33';
-import {effectiveDisplay,pendingTimerAssignment,syncTimerAssignment} from './display-assignment.js?v=20261022-switch5';
-import {refreshDisplay} from './display-refresh.js?v=20261022-switch5';
+import {effectiveDisplay,pendingTimerAssignment,syncTimerAssignment} from './display-assignment.js?v=20261115-draw8';
+import {refreshDisplay} from './display-refresh.js?v=20261115-draw8';
 // Display documents live in a subcollection, separate from root event records.
 export async function displayCloud(){
  const [am,fs]=await Promise.all([import('https://www.gstatic.com/firebasejs/12.4.0/firebase-app.js'),import('https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js')]);
