@@ -19,3 +19,11 @@ assert.throws(()=>T.settings(first,{...edit,text:'5000 | 5',weights:[{memberId:'
 assert(!JSON.stringify(T.publicState(changed)).includes('weight'));
 assert.equal(changed.settingsHistory.length,1);
 console.log('PASS editable awards after wins, fixed scores/results/animation, stable prize IDs on reorder, future weighting, audit and stale-edit protection');
+const reset=T.reset(changed,changed.revision,'reset-test',12000);
+assert.deepEqual(reset.results,[]);assert.equal(reset.active,null);
+assert.deepEqual(reset.people,changed.people);assert.deepEqual(reset.prizes,changed.prizes);
+assert.equal(T.wins(reset,'a'),0);assert.equal(T.draw(reset,'p',0,12001).results.length,1);
+assert.throws(()=>T.reset(changed,0,'stale',12000),/已更新/);
+assert.throws(()=>T.reset(changed,changed.revision,'active',100),/正在抽選/);
+assert.equal(changed.results.length,1);assert.equal(reset.resetId,'reset-test');
+console.log('PASS reset restores awards and win counts, retains scores/weights/prizes, guards stale/concurrent reset and leaves prior state intact');

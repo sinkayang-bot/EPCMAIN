@@ -27,6 +27,12 @@ function settings(s,value){
  const settingsRevision=(s.settingsRevision||0)+1;
  return {...s,people,prizes,revision:(s.revision||0)+1,settingsRevision,settingsHistory:[...(s.settingsHistory||[]),{revision:settingsRevision,at:Date.now(),prizes,weights:people.map(p=>({memberId:p.memberId,weight:p.weight}))}].slice(-50)};
 }
+function reset(s,expectedRevision,resetId,now=Date.now()){
+ if(expectedRevision!==s.revision)throw Error('抽選紀錄已更新，請確認最新結果後再重置');
+ if(s.active&&s.active.endsAt>now)throw Error('正在抽選，請等揭曉完成後再重置');
+ if(!resetId)throw Error('缺少重置識別碼');
+ return {...s,results:[],active:null,revision:(s.revision||0)+1,resetId,resetAt:now};
+}
 function publicState(s){return {period:s.period,revision:s.revision,prizes:s.prizes,people:s.people.map(({memberId,name,memberNumber,points})=>({memberId,name,memberNumber,points})),results:s.results,active:s.active||null}}
-root.EPCLuckyDraw={draw,settings,eligible,wins,publicState};
+root.EPCLuckyDraw={draw,settings,reset,eligible,wins,publicState};
 })(globalThis);
