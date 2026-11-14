@@ -8,6 +8,8 @@ let id=localStorage.getItem('epcTvDeviceId');if(!id){id=Array.from(crypto.getRan
 let timer,cloud,lastSignature='',renewing=false;
 function identity(r,ui){return [ui.showName!==false?esc(r.name||r.member||''):null,ui.showMemberId?esc(r.memberNumber||r.memberId||r.id||''):null].filter(Boolean).join(' · ')}
 function render(p,target=host){
+ if(p.type==='luckyDraw'){const f=document.createElement('iframe');f.title='幸運加乘抽選投影';f.src='../lucky-draw.html?period='+encodeURIComponent(p.period||'');f.style.cssText='position:fixed;inset:0;width:100vw;height:100vh;border:0';target.replaceChildren(f);return;}
+
  if(p.type==='timer'){
   const ids=Array.isArray(p.eventIds)?[...new Set(p.eventIds.map(String).filter(Boolean))].slice(0,4):[String(p.eventId||'')].filter(Boolean);
   if(ids.length<=1){mountTimerFrame(target,ids[0],p.refreshToken);return}
