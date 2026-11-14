@@ -3,3 +3,5 @@
 .draw-people{max-height:70vh;overflow:auto;padding:8px;scroll-padding:8px}.draw-layout>aside{max-height:80vh;overflow:auto}
 
 .result{white-space:nowrap;overflow-x:auto;overflow-wrap:normal;font-size:16px;line-height:1.6}.result strong{display:inline}
+
+body{background:linear-gradient(rgba(5,8,14,.78),rgba(5,8,14,.84)),url('assets/lucky-club.jpg') center/cover fixed}.draw-person,.prize-row{background:rgba(12,18,28,.85)}
