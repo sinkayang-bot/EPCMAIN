@@ -1,3 +1,21 @@
 const assert=require('node:assert/strict');require('../lucky-draw-core.js');const T=global.EPCLuckyDraw;
 const s={period:'2026-11-01_2026-11-15',revision:1,people:[{memberId:'a',name:'A',memberNumber:'001',points:8,weight:8},{memberId:'b',name:'B',memberNumber:'002',points:2,weight:2}],prizes:[{id:'p',name:'5000',quantity:4}],results:[]};
 let d=T.draw(s,'p',0,1);assert.equal(d.results[0].memberId,'a');assert.throws(()=>T.draw(d,'p',0,100),/正在抽選/);d=T.draw(d,'p',0,12000);assert.equal(T.wins(d,'a'),2);d=T.draw(d,'p',0,24000);assert.equal(d.results[2].memberId,'b');d=T.draw(d,'p',0,36000);assert.equal(T.wins(d,'b'),2);assert.throws(()=>T.draw(d,'p',0,48000),/已抽完/);assert.throws(()=>T.draw({...d,prizes:[{id:'p',quantity:5}]},'p',0,48000),/沒有符合資格/);assert.equal(T.draw(s,'p',.85,1).results[0].memberId,'b');assert.throws(()=>T.draw(s,'p',NaN,1));assert.equal('weight' in T.publicState(s).people[0],false);assert.equal(T.publicState(s).people[0].points,8);assert.equal(s.results.length,0);console.log('PASS weighted selection boundaries, 2 award cap, inventory, animation lock, no public weights, retained names/numbers/scores and immutable inputs');
+// Mid-session edits keep published results and scores while affecting only future draws.
+const first=T.draw(s,'p',0,1);
+const edit={text:'5000 | 5\n3000 | 1',expectedRevision:0,weights:[{memberId:'a',weight:0},{memberId:'b',weight:100}]};
+const changed=T.settings(first,edit);
+assert.deepEqual(changed.people.map(p=>p.points),[8,2]);
+assert.deepEqual(changed.results,first.results);assert.deepEqual(changed.active,first.active);
+assert.equal(changed.prizes[0].id,'p');assert.equal(changed.people[0].weight,0);
+assert.equal(T.draw(changed,'p',0,12000).results[1].memberId,'b');
+assert.equal(T.draw(changed,'p',0,12000).results[1].points,2);
+assert.throws(()=>T.settings(changed,edit),/另一台/);
+const reordered=T.settings({...s,prizes:[...s.prizes,{id:'q',name:'3000',quantity:2}]},{...edit,text:'3000 | 2\n5000 | 5'});
+assert.equal(reordered.prizes[0].id,'q');assert.equal(reordered.prizes[1].id,'p');
+const twoWins=T.draw(first,'p',0,12000);
+assert.throws(()=>T.settings(twoWins,{...edit,text:'5000 | 1'}),/數量不可/);
+assert.throws(()=>T.settings(first,{...edit,text:'5000 | 5',weights:[{memberId:'a',weight:NaN},{memberId:'b',weight:1}]}),/權重/);
+assert(!JSON.stringify(T.publicState(changed)).includes('weight'));
+assert.equal(changed.settingsHistory.length,1);
+console.log('PASS editable awards after wins, fixed scores/results/animation, stable prize IDs on reorder, future weighting, audit and stale-edit protection');
