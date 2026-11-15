@@ -6,6 +6,7 @@ import * as authMod from 'https://www.gstatic.com/firebasejs/12.4.0/firebase-aut
 import {setupAccountingAuth} from '../firebase-accounting-auth.js?v=20261016-phone-payments1';
 import {setupPlayerPayments} from '../player-payments-cloud.js?v=20261113-payout7';
 import {pricePlayer,registrationPrice,rebuyPrice} from '../player-pricing.js?v=20261023-rebuy-no-ladies30';
+const tabletWorkspace=document.documentElement.dataset.workspace==='tablet';
 const $=id=>document.getElementById(id),esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const app=initializeApp(window.EPC_FIREBASE_CONFIG,'epc-phone'),store=getFirestore(app),col=collection(store,'epc_events');
 let memberNumbers={};
@@ -127,19 +128,20 @@ function showPanel(id=''){
  activePanel=id;
  $('dashboard').hidden=!!id;$('backDashboard').hidden=!id;$('floatingBack').hidden=!id;
  document.querySelectorAll('.mobile-panel').forEach(el=>el.hidden=el.id!==id);
- window.scrollTo({top:0,behavior:'instant'});
+ window.scrollTo({top:0,behavior:'auto'});
+ if(tabletWorkspace){render();window.dispatchEvent(new CustomEvent('epcTabletPanel',{detail:{id}}))}
 }
 document.querySelectorAll('[data-panel]').forEach(btn=>btn.addEventListener('click',()=>showPanel(btn.dataset.panel)));
 $('backDashboard').addEventListener('click',()=>showPanel());$('floatingBack').addEventListener('click',()=>showPanel());$('overviewShortcut').addEventListener('click',()=>showPanel('overviewPanel'));
 function updateDashboard(){
  const e=events.find(x=>x.eventId===selected),ps=e?.players||[];
- renderSeating();
+ if(!tabletWorkspace||activePanel==='seatingPanel')renderSeating();
  $('dashEventName').textContent=e?.name||'目前沒有進行中的賽事';
  $('dashPlayers').textContent=ps.length+' 人';
  $('dashRebuys').textContent=ps.reduce((n,p)=>n+(+p.rebuy||0),0)+' 組';
  $('dashGroups').textContent=ps.reduce((n,p)=>n+(+p.buyin||0)+(+p.rebuy||0)+(+p.addon||0),0)+' 組';
  $('overviewStats').textContent=e?'賽事：'+(e.name||'')+'｜報名 '+ps.length+' 人｜總買入 '+ps.reduce((n,p)=>n+(+p.buyin||0)+(+p.rebuy||0)+(+p.addon||0),0)+' 組':'無進行中賽事';
- $('overviewPlayers').innerHTML=e?'<h3 class="overview-player-title">參賽玩家（點擊可操作）</h3>'+ps.map(p=>'<button type="button" class="overview-person" data-overview-player="'+esc(p.memberId)+'"><b>'+esc(seatLabel(p))+'</b>'+paymentBadge(e,p)+'<small>會員編號 '+esc(p.memberId)+'｜首次 '+num(p.buyin)+' 組｜重買 '+num(p.rebuy)+' 組｜總計 '+num((+p.buyin||0)+(+p.rebuy||0)+(+p.addon||0))+' 組｜'+([p.earlyBird?'早鳥':p.lateBird?'晚鳥':'',p.ladies?'女士':''].filter(Boolean).join('＋')||'一般')+'</small></button>').join(''):'<div class="empty">目前沒有進行中的賽事</div>';
+ if(!tabletWorkspace||activePanel==='overviewPanel')$('overviewPlayers').innerHTML=e?'<h3 class="overview-player-title">參賽玩家（點擊可操作）</h3>'+ps.map(p=>'<button type="button" class="overview-person" data-overview-player="'+esc(p.memberId)+'"><b>'+esc(seatLabel(p))+'</b>'+paymentBadge(e,p)+'<small>會員編號 '+esc(p.memberId)+'｜首次 '+num(p.buyin)+' 組｜重買 '+num(p.rebuy)+' 組｜總計 '+num((+p.buyin||0)+(+p.rebuy||0)+(+p.addon||0))+' 組｜'+([p.earlyBird?'早鳥':p.lateBird?'晚鳥':'',p.ladies?'女士':''].filter(Boolean).join('＋')||'一般')+'</small></button>').join(''):'<div class="empty">目前沒有進行中的賽事</div>';
 }
 
 function renderRebuy(){
@@ -180,16 +182,19 @@ function render(){
  const tableSel=$('chipTableSelect'),available=['all',...tables,'unseated'];if(!available.includes(selectedChipTable))selectedChipTable=tables[0]||'unseated';
  tableSel.innerHTML=tables.map(t=>'<option value="'+esc(t)+'">第 '+esc(t)+' 桌</option>').join('')+'<option value="unseated">未安排座位</option><option value="all">全部玩家</option>';tableSel.value=selectedChipTable;
  const players=allPlayers.filter(p=>selectedChipTable==='all'||(selectedChipTable==='unseated'?!String(p.seat||'').trim():String(p.seat||'').startsWith(selectedChipTable+'-')));
- renderChipSummary(e);updateDashboard();renderRebuy();
+ renderChipSummary(e);updateDashboard();if(!tabletWorkspace||activePanel==='rebuyPanel')renderRebuy();
  const total=(e.players||[]).reduce((a,p)=>a+(+p.buyin||0)+(+p.rebuy||0)+(+p.addon||0),0);
  const reb=(e.players||[]).reduce((a,p)=>a+(+p.rebuy||0),0);
  if($('entrySummary'))$('entrySummary').textContent='報名 '+(e.players||[]).length+' 人｜重買 '+reb+' 組｜總買入 '+total+' 組';
+ if(tabletWorkspace&&activePanel!=='playerPanel')return;
+ if(tabletWorkspace){window.dispatchEvent(new CustomEvent('epcTabletRoster',{detail:{players:players.map(p=>({id:String(p.memberId),name:seatLabel(p),number:memberNumber(p.memberId),seat:p.seat||'未入座',stack:p.stack,groups:(+p.buyin||0)+(+p.rebuy||0)+(+p.addon||0),due:playerDue(e,p)}))}}));}
+ const cardPlayers=tabletWorkspace?players.filter(p=>String(p.memberId)===window.epcTabletSelectedPlayer):players;
  const focus=document.activeElement?.dataset.member,focusField=document.activeElement?.dataset.field,start=document.activeElement?.selectionStart;
- $('players').innerHTML=players.map(p=>{const id=String(p.memberId),d=drafts.get(key(selected,id)),m=members.get(id);return `<div class="card"><div class="name ${playerDue(e,p)?'unpaid-player':''}">${esc([p.nickname,m?.nickname,m?.name,p.name,id].map(v=>String(v??'').trim()).find(Boolean))}</div>${paymentBadge(e,p)}<div class="meta">會員編號 ${esc(memberNumber(id))}｜${num((+p.buyin||0)+(+p.rebuy||0)+(+p.addon||0))} 組｜已儲存籌碼：${p.stack==null?'未輸入':num(p.stack)}｜人頭：${num(p.hunterHeads)}</div>${Object.entries(fieldLabels).map(([field,label])=>`<label>${label}</label><input type="text" ${field==='seat'?'maxlength="20"':'inputmode="numeric" pattern="[0-9]*"'} data-member="${esc(id)}" data-field="${field}" value="${esc(d?.patch&&field in d.patch?d.patch[field]:(p[field]??(field==='hunterHeads'?0:'')))}" ${busy.has(key(selected,id))?'disabled':''}>`).join('')}<div class="toolbar"><button data-save="${esc(id)}" ${busy.has(key(selected,id))?'disabled':''}>${busy.has(key(selected,id))?'儲存中':'儲存'}</button></div><div class="message ${d?.error?'error':d?.saved?'good':''}">${esc(d?.message||'')}</div></div>`}).join('');
+ $('players').innerHTML=cardPlayers.map(p=>{const id=String(p.memberId),d=drafts.get(key(selected,id)),m=members.get(id);return `<div class="card"><div class="name ${playerDue(e,p)?'unpaid-player':''}">${esc([p.nickname,m?.nickname,m?.name,p.name,id].map(v=>String(v??'').trim()).find(Boolean))}</div>${paymentBadge(e,p)}<div class="meta">會員編號 ${esc(memberNumber(id))}｜${num((+p.buyin||0)+(+p.rebuy||0)+(+p.addon||0))} 組｜已儲存籌碼：${p.stack==null?'未輸入':num(p.stack)}｜人頭：${num(p.hunterHeads)}</div>${Object.entries(fieldLabels).map(([field,label])=>`<label>${label}</label><input type="text" ${field==='seat'?'maxlength="20"':'inputmode="numeric" pattern="[0-9]*"'} data-member="${esc(id)}" data-field="${field}" value="${esc(d?.patch&&field in d.patch?d.patch[field]:(p[field]??(field==='hunterHeads'?0:'')))}" ${busy.has(key(selected,id))?'disabled':''}>`).join('')}<div class="toolbar"><button data-save="${esc(id)}" ${busy.has(key(selected,id))?'disabled':''}>${busy.has(key(selected,id))?'儲存中':tabletWorkspace?'儲存這位玩家':'儲存'}</button></div><div class="message ${d?.error?'error':d?.saved?'good':''}">${esc(d?.message||'')}</div></div>`}).join('');
  if(focus){const input=Array.from($('players').querySelectorAll('input')).find(x=>x.dataset.member===focus&&x.dataset.field===focusField);if(input&&!input.disabled){input.focus();if(start!=null)input.setSelectionRange(start,start)}}
 
 }
-function subscribe(){unsubscribe?.();status('正在連線…');unsubscribe=onSnapshot(col,snap=>{events=snap.docs.map(d=>({...d.data(),eventId:d.id}));render();calculateRegistrationPrice();status(snap.metadata.fromCache?'顯示暫存資料，等待網路確認…':'已連線｜賽事與玩家名單即時更新')},err=>status('連線失敗：'+err.message,true));}
+function subscribe(){unsubscribe?.();status('正在連線…');unsubscribe=onSnapshot(tabletWorkspace?fs.query(col,fs.where('status','==','open')):col,snap=>{events=snap.docs.map(d=>({...d.data(),eventId:d.id}));render();calculateRegistrationPrice();status(snap.metadata.fromCache?'顯示暫存資料，等待網路確認…':'已連線｜賽事與玩家名單即時更新')},err=>status('連線失敗：'+err.message,true));}
 $('players').addEventListener('input',e=>{
  const id=e.target.dataset.member,field=e.target.dataset.field;if(!id||!field)return;
  const k=key(selected,id),p=events.find(e=>e.eventId===selected)?.players?.find(p=>String(p.memberId)===id),previous=drafts.get(k),d=previous?.patch?previous:{patch:{},baseline:{}};
@@ -222,7 +227,7 @@ $('players').addEventListener('click',async e=>{
  catch(err){drafts.set(k,{...draft,message:err.message,error:true});status('儲存失敗，輸入已保留',true)}finally{busy.delete(k);render()}
 });
 $('chipTableSelect').addEventListener('change',()=>{selectedChipTable=$('chipTableSelect').value;render()});
-$('eventSelect').addEventListener('change',()=>{selected=$('eventSelect').value;selectedChipTable='all';render();calculateRegistrationPrice()});$('reload').addEventListener('click',subscribe);subscribe();
+$('eventSelect').addEventListener('change',()=>{selected=$('eventSelect').value;selectedChipTable='all';if(tabletWorkspace)window.epcTabletSelectedPlayer='';render();calculateRegistrationPrice()});$('reload').addEventListener('click',subscribe);subscribe();
 // Read-only member labels; roster and writes always use EPCMAIN Firestore.
 const API='https://script.google.com/macros/s/AKfycbwZi5bXuFJdtXiE6oxPmn4NZti-wZyOwEfTKZ8VPo5nXP5GK1mPOYrfkxz714AN4UQx9w/exec';
 async function api(action,data={}){
@@ -282,5 +287,7 @@ api('member.list').then(r=>{memberRows=Array.isArray(r.members)?r.members:[];mem
 $('openTimerControl').addEventListener('click',()=>{const e=selectedEvent();if(!e?.timerId)return alert('請先在電腦的賽事設定選擇計時器範本並儲存。');location.href='../timer-mobile.html?eventId='+encodeURIComponent(e.eventId);});
 
 
-async function refreshMemberNumbers(){try{const r=await api('activity.get');memberNumbers=r.data?.memberNumbers||{};renderMemberOptions();render();}catch(e){console.warn('會員編號同步',e.message)}}
-refreshMemberNumbers();setInterval(()=>{if(!document.hidden)refreshMemberNumbers()},15000);
+let memberNumbersReading=false;
+async function refreshMemberNumbers(){if(memberNumbersReading)return;memberNumbersReading=true;try{const r=await api('activity.get'),next=r.data?.memberNumbers||{};if(JSON.stringify(next)!==JSON.stringify(memberNumbers)){memberNumbers=next;renderMemberOptions();render();}}catch(e){console.warn('會員編號同步',e.message)}finally{memberNumbersReading=false}}
+refreshMemberNumbers();setInterval(()=>{if(!document.hidden)refreshMemberNumbers()},tabletWorkspace?60000:15000);
+if(tabletWorkspace){window.epcTabletRefresh=render;window.epcTabletGo=showPanel;window.dispatchEvent(new CustomEvent('epcTabletReady'));}
