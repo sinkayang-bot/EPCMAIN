@@ -1,0 +1,6 @@
+const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm'),{JSDOM}=require('jsdom');
+const html=fs.readFileSync('timer-mobile.html','utf8');
+for(const tablet of [false,true]){const dom=new JSDOM(html,{url:'https://example.test/timer-mobile.html?eventId=E'+(tablet?'&returnTo=tablet':''),runScripts:'outside-only'}),w=dom.window;for(const s of w.document.querySelectorAll('script:not([src])'))w.eval(s.textContent);const back=w.document.querySelector('header a');assert.equal(back.getAttribute('href'),tablet?'tablet/?eventId=E':'phone/');assert(w.document.getElementById('control').src.includes('eventId=E'));dom.window.close();}
+const source=fs.readFileSync('phone/phone.js','utf8'),start=source.indexOf("$('openTimerControl').addEventListener"),end=source.indexOf('\n',start),handler=source.slice(start,end);
+for(const tabletWorkspace of [false,true]){let click;const location={href:''};vm.runInNewContext(handler,{$:()=>({addEventListener:(name,fn)=>click=fn}),selectedEvent:()=>({eventId:'E',timerId:'E'}),tabletWorkspace,location,encodeURIComponent});click();assert.equal(location.href.includes('returnTo=tablet'),tabletWorkspace)}
+console.log('PASS tablet timer carries return context and selected event; mobile timer still returns to phone');

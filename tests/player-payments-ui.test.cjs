@@ -4,7 +4,8 @@ const Core=require('../player-payments-core.js');
 (async()=>{
 const {setupPlayerPayments}=await import('../player-payments-cloud.js');
 const html=fs.readFileSync(require.resolve('../index.html'),'utf8');
-const dom=new JSDOM(html,{url:'https://example.test/',runScripts:'outside-only'}),w=dom.window;
+const tablet=process.env.EPC_CHECKOUT_TABLET==='1';
+const dom=new JSDOM(html,{url:'https://example.test/'+(tablet?'?tabletTools=1':''),runScripts:'outside-only'}),w=dom.window;
 global.window=w;
 const clone=x=>JSON.parse(JSON.stringify(x));let selected='A';
 const events=[{id:'A',seq:1,date:'2026-10-15',status:'已結算',level:3400,poolUnit:3000,admin:400,players:[{memberId:'42',buyin:1,rebuy:0,addon:0,manualDiscount:0,prize:5400}]},{id:'B',seq:1,date:'2026-10-16',status:'open',level:3400,poolUnit:3000,admin:400,players:[]}];
@@ -14,7 +15,7 @@ const calcStart=html.indexOf('function calcPlayerForEvent('),calcEnd=html.indexO
 w.currentEvent=()=>w.db.events.find(e=>e.id===selected);w.businessDateForEvent=e=>e.date||e.businessDate;w.eventDisplayName_=e=>e.name||'EPC#'+e.seq;
 w.epcPlayerEditing_=()=>false;w.renderEventFast_=()=>{};w.setP=()=>{};w.addPlayer=()=>{};
 w.actMemberSearchOptions_=()=>'<option value="42">甲</option>';w.actResolveMember_=id=>w.document.getElementById(id).value;
-let notices=[];w.actionMsg=(text)=>notices.push(text);w.confirm=()=>true;
+let confirmation='';let notices=[];w.actionMsg=(text)=>notices.push(text);w.confirm=()=>true;
 w.EPC_FIRESTORE_LAST_EVENTS=events.map(e=>({...clone(e),eventId:e.id,buyin:e.poolUnit,fee:e.admin}));
 w.applyFirestoreEventsToLegacy_=rows=>{w.db.events=rows.map(e=>({...clone(e),id:e.eventId,poolUnit:e.buyin,admin:e.fee,overbuyThreshold:(e.freeAdminFrom||11)-1}));};
 w.HTMLDialogElement.prototype.showModal=function(){this.open=true;};
@@ -31,6 +32,7 @@ const api={doc:(col,id)=>col+'/'+id,serverTimestamp:()=>0,runTransaction(db,call
 setupPlayerPayments({fs:api,db:{},col:'events',accountingCol:'accounting',bridge});w.EPCFirestore=bridge;
 w.eval(fs.readFileSync(require.resolve('../player-payments-core.js'),'utf8'));w.eval(fs.readFileSync(require.resolve('../player-payments.js'),'utf8'));
 const $=id=>w.document.getElementById(id);
+async function checkout(fn,accepted=true){const pending=fn();const dialog=$('ppCheckoutConfirm');if(dialog){confirmation=dialog.textContent;$(accepted?'ppCheckoutConfirmButton':'ppCheckoutCancel').click();}return pending;}
 async function unpaidRebuy(){const before=w.currentEvent().players.find(p=>p.memberId==='42').rebuy;await w.PP.increment('B','42');assert($('ppRebuyDialog').open);assert.equal(w.currentEvent().players.find(p=>p.memberId==='42').rebuy,before);assert.equal($('ppRebuyUnpaid').checked,false);$('ppRebuyUnpaid').checked=true;await w.PP.confirmRebuy();}
 
 assert($('playerpayments'));assert($('ppRegistrationDialog'));assert(w.document.querySelector('#nav [data-page="playerpayments"]'));
@@ -45,7 +47,7 @@ $('ppMethod').value='profit';w.PP.methodChanged();assert(!$('ppProfitArea').hidd
 assert.equal(w.PP.info(w.currentEvent(),w.currentEvent().players[0]).due,0);assert.equal(data.get('accounting/PLAYER_PAYMENTS_42').profits.A.used,1000);assert(w.PP.nameCell(w.currentEvent(),w.currentEvent().players[0],'甲').includes('pp-clear'));
 await unpaidRebuy();assert(w.PP.pending('42').length===1);w.PP.renderPending();assert($('epcUnpaidPlayers').textContent.includes('小甲'));
 w.PP.renderPage();assert($('ppPageBody').textContent.includes('小甲'));assert($('ppPageBody').textContent.includes('刪除'));
-await w.PP.clearAll('','42');assert.equal(w.PP.pending('42').length,0);
+await checkout(()=>w.PP.clearAll('','42'));assert.equal(w.PP.pending('42').length,0);
 w.PP.renderPage();assert(!$('ppPageBody').textContent.includes('小甲'));assert($('ppPageBody').textContent.includes('目前沒有寄存金或未結帳款'));
 assert.equal(w.currentEvent().players[0].prize,0);assert.equal(w.db.events.find(e=>e.id==='A').players[0].prize,5400);
 await w.PP.removeAccount('','42');assert.notEqual(data.get('accounting/PLAYER_PAYMENTS_42').archived,true);assert(notices.some(x=>x.includes('未領取盈餘')));
@@ -90,7 +92,7 @@ let groupD=$('ppPageBody').querySelector('[data-pp-event="D"]');assert(groupD);a
 assert($('ppPageBody').querySelector('[data-pp-event="B"] [data-pp-member="99"]'));assert($('ppPageBody').textContent.includes('寄存玩家'));
 w.PP.open('D','99');assert($('ppDialogBody').textContent.includes('應付 $3,400｜已付 $200｜尚欠 $3,200'));
 const storedBefore=JSON.stringify([...data]);$('ppAmount').value='100';$('ppMethod').value='cash';await w.PP.submit();assert.equal(JSON.stringify([...data]),storedBefore);assert($('ppStatus').textContent.includes('資料尚未載入'));
-await w.PP.clearAll('','99');assert.equal(JSON.stringify([...data]),storedBefore);
+await checkout(()=>w.PP.clearAll('','99'));assert.equal(JSON.stringify([...data]),storedBefore);
 // Once the roster arrives the same ledger appears once, with its actual outstanding amount.
 w.db.events.push({id:'D',seq:4,date:'2026-10-18',name:'EPC#4 3400',status:'open',poolUnit:3000,admin:400,players:[{memberId:'99',buyin:1,rebuy:0,registrationUnpaidAmount:3400}]});
 assert.equal(w.PP.pending('99').filter(x=>x.e.id==='D').length,1);assert.equal(w.PP.pending('99').find(x=>x.e.id==='D').due,3200);
@@ -107,14 +109,14 @@ w.db.members.push({id:'201',name:'批次甲'},{id:'202',name:'批次乙'});
 const batchRaw={eventId:'BATCH',date:'2026-11-13',seq:1,name:'批次場',status:'settled',buyin:3000,fee:400,players:clone(batchPlayers)};
 data.set('events/BATCH',clone(batchRaw));
 w.EPC_FIRESTORE_LAST_EVENTS.push(batchRaw);w.applyFirestoreEventsToLegacy_(w.EPC_FIRESTORE_LAST_EVENTS);
-let confirmation='';w.confirm=text=>{confirmation=text;return false;};
+w.confirm=text=>{confirmation=text;return false;};
 $('ppSearch').value='批次甲';w.PP.renderPage();
 const shortcut=$('ppPageBody').querySelector('[data-pp-event="BATCH"] summary button[data-pp-action]');assert(shortcut);assert.equal(shortcut.textContent,'本場一鍵結帳');
-await w.PP.settleEvent('BATCH');assert(confirmation.includes('批次乙'));assert(confirmation.includes('$6,800'));assert(!data.has('accounting/PLAYER_PAYMENTS_201'));
+await checkout(()=>w.PP.settleEvent('BATCH'),false);assert(confirmation.includes('批次乙'));assert(confirmation.includes('$6,800'));assert(!data.has('accounting/PLAYER_PAYMENTS_201'));
 const otherDebt=w.PP.pending('43').reduce((sum,row)=>sum+row.due,0);
 w.confirm=()=>true;let batchLost=true;const ids=[];
 bridge.playerPayment=async command=>{if(command.kind==='settleEvent')ids.push(command.id);const result=await originalPayment(command);if(batchLost&&command.kind==='settleEvent'){batchLost=false;throw Object.assign(Error('lost event checkout response'),{code:'unavailable'});}return result;};
-await w.PP.settleEvent('BATCH');assert(data.get('accounting/PLAYER_PAYMENTS_201'));assert($('ppConnection').textContent.includes('確認上一筆儲存結果'));
+await checkout(()=>w.PP.settleEvent('BATCH'));assert(data.get('accounting/PLAYER_PAYMENTS_201'));assert($('ppConnection').textContent.includes('確認上一筆儲存結果'));
 await w.PP.retryPending();assert.equal(ids.length,2);assert.equal(ids[0],ids[1]);
 assert.equal(w.PP.pending().filter(row=>row.e.id==='BATCH').length,0);
 assert.equal(w.PP.pending('43').reduce((sum,row)=>sum+row.due,0),otherDebt);

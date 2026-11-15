@@ -11,7 +11,7 @@ const $=id=>document.getElementById(id),esc=s=>String(s??'').replace(/[&<>"']/g,
 const app=initializeApp(window.EPC_FIREBASE_CONFIG,'epc-phone'),store=getFirestore(app),col=collection(store,'epc_events');
 let memberNumbers={};
 const memberNumber=m=>window.EPCMemberNumbers.number(m,memberNumbers);
-let events=[],selected='',unsubscribe,members=new Map(),memberRows=[];const drafts=new Map(),busy=new Set();
+let events=[],selected=(tabletWorkspace?new URLSearchParams(location.search).get('eventId')||'':''),unsubscribe,members=new Map(),memberRows=[];const drafts=new Map(),busy=new Set();
 // Share the desktop transaction ledger; every money write requires verified admin access.
 const paymentBridge={accountingReady:false,requireAccountingAccess(){throw Error('請先完成 Google 管理員登入')}};
 window.epcPlayerPaymentPrice_=(raw,p)=>pricePlayer(raw,p).paid;
@@ -284,7 +284,7 @@ $('registerBtn').addEventListener('click',async()=>{
 api('member.list').then(r=>{memberRows=Array.isArray(r.members)?r.members:[];members=new Map(memberRows.map(m=>[String(m.memberId),m]));renderMemberOptions();render();$('memberChosen').textContent='會員已載入 '+memberRows.length+' 筆，點擊搜尋框選擇'}).catch(err=>{$('registerMessage').textContent='會員載入失敗：'+err.message;$('registerMessage').className='message error'});
 
 
-$('openTimerControl').addEventListener('click',()=>{const e=selectedEvent();if(!e?.timerId)return alert('請先在電腦的賽事設定選擇計時器範本並儲存。');location.href='../timer-mobile.html?eventId='+encodeURIComponent(e.eventId);});
+$('openTimerControl').addEventListener('click',()=>{const e=selectedEvent();if(!e?.timerId)return alert('請先在電腦的賽事設定選擇計時器範本並儲存。');location.href='../timer-mobile.html?eventId='+encodeURIComponent(e.eventId)+(tabletWorkspace?'&returnTo=tablet':'');});
 
 
 let memberNumbersReading=false;

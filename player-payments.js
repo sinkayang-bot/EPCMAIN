@@ -101,6 +101,8 @@
   const groups=[...grouped.values()].sort((a,b)=>String(businessDateForEvent(b.e)).localeCompare(String(businessDateForEvent(a.e)))||Number(b.e.seq||0)-Number(a.e.seq||0)||String(a.e.id).localeCompare(String(b.e.id)));
   const wallets=[...state.entries()].filter(([id,s])=>s.wallet>0&&matches(id));
   el('ppConnection').innerHTML=(loaded?'玩家帳務已連線':'請先到 EPC帳務完成 Google 管理員登入')+(uncertain?' <button data-pp-action onclick="PP.retryPending()">確認上一筆儲存結果</button>':'');
+  if(window.EPCMode?.isView()){const b=document.createElement('button');b.type='button';b.dataset.modeControl='';b.textContent='啟用操作模式後結帳';b.onclick=()=>{window.EPCMode.set('operate');renderPage()};el('ppConnection').append('｜目前為檢視模式 ',b);}
+  if(!window.EPCFirestore?.accountingReady){const b=document.createElement('button');b.type='button';b.dataset.modeControl='';b.textContent='管理員登入／重試帳務連線';b.onclick=()=>{const login=el('epcAccountingLogin'),target=login&&!login.hidden?login:el('epcAccountingRetry');if(target&&!target.disabled)target.click();else actionMsg('帳務登入服務尚未載入，請稍後再試',true)};el('ppConnection').append(' ',b);}
   el('ppMemberList').innerHTML=actMemberSearchOptions_();
   const walletsHtml='<h3>玩家寄存金</h3>'+(wallets.length?'<div class="tablewrap"><table><thead><tr><th>玩家</th><th>會員編號</th><th>寄存金</th><th>操作</th></tr></thead><tbody>'+wallets.map(([id,s])=>'<tr><td>'+button(esc(name(id)),'',id)+'</td><td>'+esc(number(id))+'</td><td>'+cash(s.wallet)+'</td><td>'+button('帳務明細／寄存','',id)+'</td></tr>').join('')+'</tbody></table></div>':'<p class="small">'+(q?'沒有符合搜尋的寄存玩家':'目前沒有寄存金')+'</p>');
   root.innerHTML='<div class="grid"><div class="card kpi"><div class="l">寄存金合計</div><div class="v">'+cash([...state.values()].reduce((n,x)=>n+x.wallet,0))+'</div></div><div class="card kpi"><div class="l">未結清合計</div><div class="v neg">'+cash(dues.reduce((n,x)=>n+x.due,0))+'</div></div></div>'+walletsHtml+'<h3>依場次查看未結帳玩家</h3>'+
@@ -142,13 +144,22 @@
    await run(cmd);
   }catch(err){setStatus(err.message||String(err),true);}
  }
+ function confirmCheckout(text){
+  if(new URLSearchParams(location.search).get('tabletTools')!=='1')return Promise.resolve(confirm(text));
+  if(el('ppCheckoutConfirm'))return Promise.resolve(false);
+  return new Promise(resolve=>{const dialog=document.createElement('dialog');dialog.id='ppCheckoutConfirm';dialog.setAttribute('aria-label','確認收款結帳');dialog.style.cssText='position:fixed;inset:5vh 4vw;max-width:700px;max-height:85vh;overflow:auto;background:#142030;color:#f2f5fa;border:2px solid #dab35e;border-radius:16px;padding:24px;z-index:10000';
+   const title=document.createElement('h2');title.textContent='確認收款結帳';const content=document.createElement('div');content.style.cssText='white-space:pre-wrap;line-height:1.8;margin:16px 0';content.textContent=text;
+   const cancel=document.createElement('button'),ok=document.createElement('button');cancel.id='ppCheckoutCancel';cancel.textContent='取消';ok.id='ppCheckoutConfirmButton';ok.textContent='確認已收款並結帳';for(const b of [cancel,ok]){b.type='button';b.style.cssText='min-height:54px;margin:8px;padding:14px;font-size:18px';}
+   let done=false;function finish(result){if(done)return;done=true;dialog.remove();resolve(result)}cancel.onclick=()=>finish(false);ok.onclick=()=>finish(true);dialog.addEventListener('cancel',e=>{e.preventDefault();finish(false)});dialog.append(title,content,cancel,ok);document.body.append(dialog);if(typeof dialog.showModal==='function')dialog.showModal();else dialog.setAttribute('open','');cancel.focus();
+  });
+ }
  async function clearAll(unused,id){
   if(busy)return;try{
    ensure();const rows=pending(id),total=rows.reduce((n,r)=>n+r.due,0),wallet=ledger(id).wallet;
    if(rows.some(x=>x.p._paymentOnly))throw Error('有欠款場次的人員資料尚未載入，請確認同步後再跨場結清');
    if(!total)return actionMsg('此玩家沒有未結帳款');
    const used=Math.min(total,wallet),rest=total-used;
-   if(!confirm(name(id)+' 尚欠 '+cash(total)+'\n寄存金抵扣 '+cash(used)+'，其餘 '+cash(rest)+' 記為現金收款。\n確認已收到現金後再按確定。'))return;
+   if(!await confirmCheckout(name(id)+' 尚欠 '+cash(total)+'\n寄存金抵扣 '+cash(used)+'，其餘 '+cash(rest)+' 記為現金收款。\n確認已收到現金後再按確定。'))return;
    await run({kind:'settleAll',memberId:id,eventIds:events().filter(e=>player(e,id)).map(e=>String(e.id)),expectedDue:total,note:'寄存金優先，其餘現金結清'});
   }catch(err){setStatus(err.message||String(err),true);}
  }
@@ -162,7 +173,7 @@
    const payments=rows.map(row=>({memberId:String(row.p.memberId),expectedRevision:ledger(row.p.memberId).revision,expectedDue:row.due,expectedWalletUsed:Math.min(row.due,ledger(row.p.memberId).wallet)}));
    const total=payments.reduce((sum,row)=>sum+row.expectedDue,0),wallet=payments.reduce((sum,row)=>sum+row.expectedWalletUsed,0);
    const lines=payments.map(row=>name(row.memberId)+'（'+number(row.memberId)+'）欠 '+cash(row.expectedDue)+'，寄存抵扣 '+cash(row.expectedWalletUsed)+'，現金 '+cash(row.expectedDue-row.expectedWalletUsed));
-   if(!confirm(businessDateForEvent(e)+'｜'+eventDisplayName_(e)+'\n本場全部 '+payments.length+' 位未結帳玩家\n\n'+lines.join('\n')+'\n\n尚欠合計 '+cash(total)+'\n寄存抵扣 '+cash(wallet)+'｜現金收款 '+cash(total-wallet)+'\n確認已收到上述現金後，再按確定完成本場結帳。'))return;
+   if(!await confirmCheckout(businessDateForEvent(e)+'｜'+eventDisplayName_(e)+'\n本場全部 '+payments.length+' 位未結帳玩家\n\n'+lines.join('\n')+'\n\n尚欠合計 '+cash(total)+'\n寄存抵扣 '+cash(wallet)+'｜現金收款 '+cash(total-wallet)+'\n確認已收到上述現金後，再按確定完成本場結帳。'))return;
    await run({kind:'settleEvent',eventId:String(eventId),payments,note:'本場一鍵結帳，寄存金優先，其餘現金收款'});
    actionMsg('本場 '+payments.length+' 位玩家已結帳，寄存抵扣 '+cash(wallet)+'，現金收款 '+cash(total-wallet));
   }catch(err){setStatus(err.message||String(err),true);}
