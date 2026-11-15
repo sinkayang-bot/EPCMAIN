@@ -22,7 +22,7 @@ require('../player-payments-core.js');
  function snapshot(){eventCallback({docs:[{id:'E',data:()=>clone(records.get('events/E'))}],metadata:{fromCache:false}});}
 
  records.get('events/E').players=[{memberId:'42',name:'甲',buyin:1,rebuy:0,stack:100,seat:'1-1'},{memberId:'43',name:'乙',buyin:1,rebuy:0,stack:200,seat:'1-2'}];
- snapshot();assert($('tabletRail'));assert.equal($('tabletRoster').querySelectorAll('[data-player]').length,2);assert.equal($('players').querySelectorAll('.card').length,1);
+ snapshot();assert($('tabletRail'));assert.equal($('tabletRoster').querySelectorAll('[data-player]').length,2);assert.equal($('players').querySelectorAll('.card').length,1);assert($('players').querySelector('.tablet-player-fields [data-field=stack]'));assert.equal($('players').querySelector('[data-save]').closest('.tablet-player-fields'),null);assert.equal($('tabletConnection').parentElement.tagName,'HEADER');assert($('tabletTableToolbar').contains($('chipTableSelect')));
  $('tabletRoster').querySelector('[data-player="43"]').click();let field=$('players').querySelector('[data-field="stack"]');assert.equal(field.dataset.member,'43');field.value='1234';field.dispatchEvent(new w.Event('input',{bubbles:true}));
  $('tabletRoster').querySelector('[data-player="42"]').click();$('tabletRoster').querySelector('[data-player="43"]').click();assert.equal($('players').querySelector('[data-field="stack"]').value,'1234');snapshot();assert.equal($('players').querySelector('[data-field="stack"]').value,'1234');
  $('players').querySelector('[data-save]').click();await tick();await lock;await tick();assert.equal(records.get('events/E').players[1].stack,1234);assert.equal(records.get('events/E').players[0].stack,100);
