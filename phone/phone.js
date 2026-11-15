@@ -290,4 +290,4 @@ $('openTimerControl').addEventListener('click',()=>{const e=selectedEvent();if(!
 let memberNumbersReading=false;
 async function refreshMemberNumbers(){if(memberNumbersReading)return;memberNumbersReading=true;try{const r=await api('activity.get'),next=r.data?.memberNumbers||{};if(JSON.stringify(next)!==JSON.stringify(memberNumbers)){memberNumbers=next;renderMemberOptions();render();}}catch(e){console.warn('會員編號同步',e.message)}finally{memberNumbersReading=false}}
 refreshMemberNumbers();setInterval(()=>{if(!document.hidden)refreshMemberNumbers()},tabletWorkspace?60000:15000);
-if(tabletWorkspace){window.epcTabletRefresh=render;window.epcTabletGo=showPanel;window.dispatchEvent(new CustomEvent('epcTabletReady'));}
+if(tabletWorkspace){window.epcTabletGetEvent=()=>selected;window.epcTabletRefresh=render;window.epcTabletGo=showPanel;window.dispatchEvent(new CustomEvent('epcTabletReady'));}
