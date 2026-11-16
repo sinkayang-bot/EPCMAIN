@@ -1,7 +1,7 @@
 const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
 require('../tournament-core.js');const T=global.EPCTournament;
 const base={tournamentMode:'tournament',itmPercent:100,guaranteedPool:50000,players:Array.from({length:5},(_,i)=>({memberId:String(i),buyin:1,rebuy:0,prize:0}))};
-const standard=T.schedule(base,50000);assert.equal(standard.rows.length,5);assert.equal(standard.rows[0].prize,Math.floor(50000/(Array.from({length:5},(_,i)=>1/(i+1)**1.15).reduce((a,b)=>a+b))/100)*100);
+const standard=T.schedule(base,50000);assert.equal(standard.rows.length,5);assert.equal(standard.total,50000);assert(standard.rows.every(r=>r.prize%100===0));
 const e={...base,guaranteedChampion:30000,payoutPercentages:'40,30,20,10'};
 const plan=T.schedule(e,50000);assert.deepEqual(plan.rows.map(r=>r.prize),[30000,8000,6000,4000,2000]);assert.equal(plan.total,50000);
 assert.throws(()=>T.schedule({...e,guaranteedChampion:60000},50000),/不可超過/);

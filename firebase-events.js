@@ -42,6 +42,7 @@
      // Rebase only fields explicitly changed on this terminal onto the newest document.
      // Firestore commit order determines the last saved value for the same field.
      let protectedEvent=job?window.EPCEventPatch.apply(old,job.ops):window.EPCStackCore.protectStacks(e,old,options);
+     for(const paid of old.players||[]){if(!paid.prizePaidAt)continue;const next=(protectedEvent.players||[]).find(p=>String(p.memberId)===String(paid.memberId));if(!next||Number(next.prize)!==Number(paid.prize)||Number(next.finishRank)!==Number(paid.finishRank))throw Error('此玩家已發獎，請重新載入最新紀錄，不能覆蓋已發獎金');}
      const entryKey=x=>JSON.stringify((x.players||[]).map(p=>[String(p.memberId),Number(p.buyin)||0,Number(p.rebuy)||0,Number(p.addon)||0]).sort((a,b)=>a[0].localeCompare(b[0])));
      if(old.payoutSnapshot?.lockedAt&&protectedEvent.payoutSnapshot?.lockedAt&&entryKey(old)!==entryKey(protectedEvent))throw Error('本場已截止買入，不能變更報名或重買組數');
      if(!old.payoutSnapshot?.lockedAt&&protectedEvent.payoutSnapshot?.lockedAt&&entryKey(old)!==entryKey(e))throw Error('報名組數已被其他設備更新，請重新整理後鎖定獎金表');
@@ -79,7 +80,7 @@
    async deleteDailyAccounting(date){window.EPCMode?.assertWrite();this.requireAccountingAccess();date=String(date||'').trim();if(date)await fs.deleteDoc(fs.doc(accountingCol,date))}
   };
   for(const name of ['upsertEvent','createEvent','deleteEvent','upsertDailyAccounting','deleteDailyAccounting']){const original=window.EPCFirestore[name];window.EPCFirestore[name]=async function(...args){return window.EPCMode?EPCMode.runWrite(()=>original.apply(this,args)):original.apply(this,args);};}
-  const paymentModule=await import('./player-payments-cloud.js?v=20261113-payout7');
+  const paymentModule=await import('./player-payments-cloud.js?v=20261116-payout8');
   paymentModule.setupPlayerPayments({fs,db,col,accountingCol,bridge:window.EPCFirestore});
   const publicPublisher=await import('./activity-lookup/live-publisher.js?v=20261101-member-numbers1');
   publicPublisher.setupLivePublisher({fs,db,bridge:window.EPCFirestore});
