@@ -7,13 +7,13 @@ assert.equal(T.pool({tournamentMode:'tournament',jp:99},18000).jp,0);
 const e={tournamentMode:'tournament',poolUnit:800,admin:200,itmCount:3,payoutPercentages:'50,30,20'};
 const c=T.pricing({buyin:1,rebuy:2},e);assert.equal(c.pool,2400);assert.equal(c.paid,3000);assert.equal(c.netAdmin,600);assert.equal(c.auto,0);
 const custom=T.pricing({buyin:1,rebuy:2},{...e,pricingMode:'custom',buyinTotal:1000,buyinAdmin:200,rebuyTotal:900,rebuyAdmin:100});assert.equal(custom.pool,2400);assert.equal(custom.netAdmin,400);assert.equal(custom.paid,2800);
-const plan=T.schedule(e,18100);assert.deepEqual(plan.rows.map(x=>x.prize),[9000,5400,3600]);assert.equal(plan.remainder,100);
+const plan=T.schedule(e,18100);assert.deepEqual(plan.rows.map(x=>x.prize),[9100,5400,3600]);assert.equal(plan.remainder,0);
 assert.throws(()=>T.schedule({...e,payoutPercentages:'50,20'},18000));assert.throws(()=>T.schedule({...e,payoutPercentages:'50,30,30'},18000));
 assert.equal(T.schedule({...e,payoutPercentages:''},18000).rows.length,3);
 const html=fs.readFileSync(require.resolve('../index.html'),'utf8');function extract(n){const start=html.indexOf('function '+n+'('),end=html.indexOf('\nfunction ',start+10);return html.slice(start,end)}
 const event={...e,players:[{memberId:'a',buyin:1,stack:0,finishRank:1,prize:400},{memberId:'b',buyin:1,stack:0,finishRank:2,prize:200},{memberId:'c',buyin:1,stack:1000,finishRank:3,prize:100}]};
 const ctx={EPCTournament:T,money:String,currentEvent:()=>event};vm.createContext(ctx);vm.runInContext(extract('calcPlayerForEvent')+'\n'+extract('poolInfoForEvent')+'\n'+fs.readFileSync(require.resolve('../tournament-ui.js'),'utf8'),ctx);
-assert.equal(ctx.epcRankValidation_(event).ok,false);event.players.forEach((p,i)=>p.prize=[1200,700,400][i]);assert.equal(ctx.epcRankValidation_(event).ok,true);event.players[1].finishRank=1;assert.equal(ctx.epcRankValidation_(event).ok,false);
+assert.equal(ctx.epcRankValidation_(event).ok,false);event.players.forEach((p,i)=>p.prize=[1300,700,400][i]);assert.equal(ctx.epcRankValidation_(event).ok,true);event.players[1].finishRank=1;assert.equal(ctx.epcRankValidation_(event).ok,false);
 for(const match of html.matchAll(/<script(\s[^>]*)?>([\s\S]*?)<\/script>/g)){if(!/src=|type="module"|application\//.test(match[1]||''))new vm.Script(match[2])}
 console.log('Tournament modes: guarantee below/above threshold, no phantom chips, separate fees, rebuy pricing, JP exclusion, payouts, rounding remainder, zero-chip winners, duplicate ranks, inline script syntax passed.');
 
@@ -42,16 +42,16 @@ console.log('Mode UI: creation defaults, conditional buy-in fields, separate com
 })().catch(e=>{console.error(e);process.exitCode=1});
 
 const tailEvent={tournamentMode:'tournament',itmPercent:12.5,players:[{buyin:1,rebuy:12}]};
-const tail=T.pool(tailEvent,6240);assert.equal(tail.avail,6200);assert.equal(tail.unroundedAvail,6240);assert.equal(tail.roundingRemainder,40);assert.deepEqual(T.schedule(tailEvent,tail.unroundedAvail).rows.map(r=>r.prize),[4300,1900]);
+const tail=T.pool(tailEvent,6240);assert.equal(tail.avail,6300);assert.equal(tail.unroundedAvail,6300);assert.equal(tail.roundingRemainder,0);assert.deepEqual(T.schedule(tailEvent,tail.unroundedAvail).rows.map(r=>r.prize),[4400,1900]);
 assert.equal(T.pool({jp:3,jpRound:100},6240).avail,6040);assert.equal(T.pool({tournamentMode:'guaranteed',guaranteedPool:18000,jp:3},6240).avail,18000);
-console.log('Screenshot 6240: payable total 6200, prizes 4300/1900, remainder 40, timed modes unchanged passed.');
+console.log('Screenshot 6240: payable total 6300, prizes 4400/1900, rounding supplement 60, timed modes unchanged passed.');
 
 const acctEvent={tournamentMode:'tournament',itmPercent:12.5,poolUnit:480,admin:120,players:[{buyin:1,rebuy:12}],jp:0};
 const ac={EPCTournament:T,eventOwnJP:()=>0,ensureAccounting:()=>({otherIncome:0,venueIncome:0,laborExpense:0,otherExpense:0})};vm.createContext(ac);
 vm.runInContext(['calcPlayerForEvent','poolInfoForEvent','eventRoundingAdmin_','accountingTotalsForEvents','accountingInfo'].map(extract).join('\n'),ac);
-assert.equal(ac.eventRoundingAdmin_(acctEvent),40);const first=ac.accountingTotalsForEvents([acctEvent]),second=ac.accountingTotalsForEvents([acctEvent]);assert.equal(first.gross,1600);assert.equal(first.netAdmin,1600);assert.equal(second.netAdmin,1600);assert.equal(ac.accountingInfo(acctEvent).netAdmin,1600);
+assert.equal(ac.eventRoundingAdmin_(acctEvent),0);const first=ac.accountingTotalsForEvents([acctEvent]),second=ac.accountingTotalsForEvents([acctEvent]);assert.equal(first.gross,1560);assert.equal(first.netAdmin,1560);assert.equal(second.netAdmin,1560);assert.equal(ac.accountingInfo(acctEvent).netAdmin,1560);
 assert.equal(T.adminRemainder({...acctEvent,tournamentMode:'normal'},6240),0);
-console.log('Accounting: 40 remainder returned once, gross/net admin 1600, repeated reads unchanged, normal timed fees unchanged passed.');
+console.log('Accounting: No payout remainder credited to admin; gross/net admin 1560, repeated reads unchanged, normal timed fees unchanged passed.');
 const activeApi=global.EPCTournament;global.EPCTournament={mode:()=> 'normal'};assert.equal(global.EPCTournament,activeApi);assert.equal(typeof global.EPCTournament.adminRemainder,'function');
 const configHtml=html.slice(html.indexOf('id="eventConfigLayout"'),html.indexOf('class="card pp-add-card"'));
 for(const id of ['eTournamentMode','eDate','eName','eStartTime','eRegCloseTime','eLevel','ePricingMode','ePoolUnit','eAdmin','eBuyinTotal','eBuyinAdmin','eRebuyTotal','eRebuyAdmin','eOverbuyThreshold','eGuaranteedPool','eItmPercent','eTourBuyPool','eTourBuyFee','eTourRePool','eTourReFee','ePayoutPercentages','eChips','eJP','eJPRound','eEarlyBirdDiscount','eLateBirdDiscount','eLadiesDiscount','eTimerTemplate','ePayout'])assert.equal((configHtml.match(new RegExp('id="'+id+'"','g'))||[]).length,1,id);

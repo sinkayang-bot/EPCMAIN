@@ -6,7 +6,7 @@ const e={...base,guaranteedChampion:30000,payoutPercentages:'40,30,20,10'};
 const plan=T.schedule(e,50000);assert.deepEqual(plan.rows.map(r=>r.prize),[30000,8000,6000,4000,2000]);assert.equal(plan.total,50000);
 assert.throws(()=>T.schedule({...e,guaranteedChampion:60000},50000),/不可超過/);
 assert.throws(()=>T.schedule({...e,guaranteedChampion:1000},50000),/低於/);
-const ctx={EPCTournament:T,currentEvent:()=>e,poolInfoForEvent:()=>({gross:4000,overlay:46000,unroundedAvail:50000}),confirm:()=>true,alert:m=>{throw Error(m)},touchEvent_:()=>{},persist:()=>{},render:()=>{},money:String};vm.createContext(ctx);vm.runInContext(fs.readFileSync('tournament-ui.js','utf8'),ctx);
+const ctx={EPCTournament:T,currentEvent:()=>e,poolInfoForEvent:()=>({gross:4000,overlay:46000,unroundedAvail:50000,avail:50000}),confirm:()=>true,alert:m=>{throw Error(m)},touchEvent_:()=>{},persist:()=>{},render:()=>{},money:String};vm.createContext(ctx);vm.runInContext(fs.readFileSync('tournament-ui.js','utf8'),ctx);
 ctx.epcCloseTournamentBuyin_();assert(e.payoutSnapshot.lockedAt);e.players[0].rebuy=30;assert.deepEqual(T.schedule(e,100000).rows.map(r=>r.prize),plan.rows.map(r=>r.prize));
 ctx.epcSetFinishRank_(4,5);assert.equal(e.players[4].prize,2000);assert.equal(e.players[0].prize,0);ctx.epcMarkTournamentPaid_(4);assert(e.players[4].prizePaidAt);
 assert.throws(()=>ctx.epcReopenTournamentBuyin_(),/已有獎金/);assert.throws(()=>ctx.epcSetFinishRank_(4,4),/已發放/);assert.throws(()=>ctx.epcSetFinishRank_(3,5),/不能重複/);

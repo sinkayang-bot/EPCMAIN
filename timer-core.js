@@ -1,4 +1,4 @@
-import {calcPlayerForEvent,fromRawEvent} from './player-pricing.js?v=20261116-payout8';
+import {calcPlayerForEvent,fromRawEvent} from './player-pricing.js?v=20261116-payout9';
 
 export const DEFAULT_LEVELS=[
  {sb:100,bb:200,ante:200,min:20},{sb:200,bb:400,ante:400,min:20},
