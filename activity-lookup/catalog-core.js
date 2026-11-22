@@ -1,3 +1,4 @@
+import '../member-reward-core.js?v=20261122-reward3';
 const inside=(x,r)=>!x.deleted&&(!r?.from||String(x.date||'')>=r.from)&&(!r?.to||String(x.date||'')<=r.to);
 const numeric=v=>Number.isFinite(Number(v))?Number(v):0;
 const valid=id=>/^[A-Za-z0-9_-]{3,32}$/.test(String(id||''));
@@ -72,9 +73,14 @@ export function buildCatalog(a,sourceEvents){
   activities.push({id:'luckyMultiplier',title:'幸運加乘',active:true,period:lucky.from+' ～ '+lucky.to,rules:'當日店內首場額外 +2 分；各場基本分依當日場序 +1/+2/+3/+4；假日每場 +1。重買不計分。40 分：500 折價卡；60 分：1,000 折價卡。',leaderboard:luckyRows});
  }
 
+ const memberReward=globalThis.EPCMemberReward;
+ const reward=memberReward.settings(a.memberReward);
+ const rewardRows=memberReward.score(events,reward,reward).filter(x=>valid(x.memberId)).map((x,i)=>({memberId:x.memberId,rank:i+1,points:x.points,games:x.games,progress:x.points+' 點｜'+(x.freeEntry?'首次免費參賽':x.canRegister?'可付費報名':'未達 '+reward.paidThreshold+' 點')+(x.canRegister?'｜起始 '+x.chips.toLocaleString('en-US'):'')+(x.pending?'｜首場加成待確認':'')}));
+ activities.push({id:'memberReward',title:'會員回饋賽',active:true,period:reward.from+' ～ '+reward.to,rules:memberReward.rules(reward),leaderboard:rewardRows});
+
  if(!a.publicActivityVisibility||typeof a.publicActivityVisibility!=='object'||Array.isArray(a.publicActivityVisibility))throw Error('Public visibility settings missing from V3 cloud; refusing to overwrite existing public catalog');
  const visibility=a.publicActivityVisibility;
- const activityKeys={umbrella:'umbrella',extreme:'extremeTen',weekly:'weekly',weeklyRank:'rank',hunter:'hunter',pioneer:'pioneer',luckyMultiplier:'luckyMultiplier'};
+ const activityKeys={umbrella:'umbrella',extreme:'extremeTen',weekly:'weekly',weeklyRank:'rank',hunter:'hunter',pioneer:'pioneer',luckyMultiplier:'luckyMultiplier',memberReward:'memberReward'};
  const publicActivities=activities.filter(item=>visibility[activityKeys[item.id]]===true);
 
  return publicActivities.map(item=>({...item,leaderboard:item.leaderboard.map(row=>({...row,recordId:row.memberId,memberId:a.memberNumbers?.[row.memberId]?.number||row.memberId}))}));

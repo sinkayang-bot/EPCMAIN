@@ -2,7 +2,7 @@
 (function(root){
  'use strict';
  const defaults={from:'2026-11-16',to:'2026-11-27',base1200:1,base3400:2,base6600:3,weekdayFirst:1,weekendFirst:2,weekendExtra:1,paidThreshold:21,freeThreshold:45};
- const scoreFields={base1200:'1200 級別點數',base3400:'3400 級別點數',base6600:'6600 以上級別點數',weekdayFirst:'平日首場加分',weekendFirst:'假日首場加分',weekendExtra:'假日非首場加分',paidThreshold:'付費報名門檻',freeThreshold:'免費參賽基準'};
+ const scoreFields={base1200:'1200 級別點數',base3400:'3400 級別點數',base6600:'6600 以上級別點數',weekdayFirst:'平日首場加分',weekendFirst:'假日首場加分',weekendExtra:'假日一般加分',paidThreshold:'付費報名門檻',freeThreshold:'免費參賽基準'};
  function settings(options={}){
   options=options||{};
   const result={...defaults,...options};
@@ -21,7 +21,7 @@
  const time=value=>{const m=String(value||'').match(/^(\d{1,2}):(\d{2})$/);return m&&+m[1]<24&&+m[2]<60?+m[1]*60+(+m[2]):null;};
  function independent(e){
   const group=String(e.accountingGroup||e.accountGroup||'').trim();
-  return e.memberRewardIndependent===true||!!group&&!['一般帳','一般','主帳'].includes(group);
+  return e.memberRewardIndependent===true||e.independentAccounting===true||e.isIndependentAccounting===true||!!group&&!['一般帳','一般','主帳'].includes(group);
  }
  function basePoints(e,config){
   const level=Number(String(e.level??e.buyinTotal??'').replace(/,/g,''));
@@ -35,7 +35,7 @@
  }
  function rules(options={}){
   const c=settings(options);
-  return '1200 每場 '+c.base1200+' 點，3400 每場 '+c.base3400+' 點，6600 以上每場 '+c.base6600+' 點。每位玩家每場計一次，重買與加購不另加點。店內當日首場，平日 19:10 前報名 +'+c.weekdayFirst+' 點，假日 17:10 前報名 +'+c.weekendFirst+' 點。假日非首場額外 +'+c.weekendExtra+' 點，首場不疊加。'+c.paidThreshold+' 點以上可付費報名，超過 '+c.freeThreshold+' 點首次免費參賽。起始 20,000，超過 '+c.freeThreshold+' 點每多 1 點 +500，含加成最高 30,000。點數為資格門檻，不扣點。';
+  return '1200 每場 '+c.base1200+' 點，3400 每場 '+c.base3400+' 點，6600 以上每場 '+c.base6600+' 點。每位玩家每場計一次，重買與加購不另加點。店內當日首場，平日 19:10 前報名 +'+c.weekdayFirst+' 點，假日 17:10 前報名 +'+c.weekendFirst+' 點。假日每場額外 +'+c.weekendExtra+' 點，已取得假日首場加成的場次只計首場加成。'+c.paidThreshold+' 點以上可付費報名，超過 '+c.freeThreshold+' 點首次免費參賽。起始 20,000，超過 '+c.freeThreshold+' 點每多 1 點 +500，含加成最高 30,000。點數為資格門檻，不扣點。';
  }
  function registration(player,date,cutoff){
   const raw=player.registeredAt;
@@ -78,8 +78,11 @@
      const key=overrideKey(period,eventId(e),memberId),override=options.earlyOverrides?.[key];
      const early=typeof override==='boolean'?override:registered.early;
      const firstRate=holiday?config.weekendFirst:config.weekdayFirst;
-     const firstBonus=isFirst&&early===true?firstRate:0,holidayBonus=holiday&&!isFirst?config.weekendExtra:0;
-     const detail={eventId:eventId(e),date,level:e.level??e.buyinTotal,base,firstBonus,holidayBonus,points:base+firstBonus+holidayBonus,isFirst,pending:isFirst&&firstRate>0&&early===null,registeredTime:registered.time,overrideKey:key};
+     const firstQualified=isFirst&&early===true;
+     const firstBonus=firstQualified?firstRate:0,holidayBonus=holiday&&!(firstQualified&&firstRate>0)?config.weekendExtra:0;
+     const autoPoints=base+firstBonus+holidayBonus,manualPoints=options.pointOverrides?.[key];
+     const adjusted=Number.isSafeInteger(manualPoints)&&manualPoints>=0;
+     const detail={eventId:eventId(e),date,level:e.level??e.buyinTotal,base,firstBonus,holidayBonus,autoPoints,points:adjusted?manualPoints:autoPoints,adjusted,isFirst,pending:!adjusted&&isFirst&&firstRate>0&&early===null,registeredTime:registered.time,overrideKey:key};
      const row=totals.get(memberId)||{memberId,points:0,games:0,pending:0,details:[]};
      row.points+=detail.points;row.games++;row.pending+=detail.pending?1:0;row.details.push(detail);totals.set(memberId,row);
     }

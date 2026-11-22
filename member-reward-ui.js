@@ -26,22 +26,35 @@
   if(select.value==='auto')delete values[key];else values[key]=select.value==='yes';
   saveConfig({earlyOverrides:values});
  };
+ window.memberRewardSavePoints_=function(form,reset=false){
+  const key=form.dataset.key,field=form.elements.namedItem('points');
+  const points=Number(field.value);
+  if(!reset&&(field.value.trim()===''||!Number.isSafeInteger(points)||points<0)){
+   alert('場次點數須為非負整數');return;
+  }
+  const values={...(config().pointOverrides||{})};
+  if(reset)delete values[key];else values[key]=points;
+  saveConfig({pointOverrides:values});
+ };
  window.memberRewardStats_=function(){
   const c=config();
   const events=(db.events||[]).map(e=>({...e,businessDate:actBusinessDate_(e),memberRewardIndependent:isIndependentAccountingEvent(e)}));
   return {config:c,rows:EPCMemberReward.score(events,c,c)};
  };
  function identity(id){return typeof epcPlayerDisplayHtml_==='function'?epcPlayerDisplayHtml_(id):esc(id);}
- function detailTable(row,c){
-  return '<details><summary>'+row.games+' 場明細'+(row.pending?'・'+row.pending+' 筆首場待確認':'')+'</summary><table><thead><tr><th>營業日／場次</th><th>級別</th><th>基本</th><th>首場</th><th>假日</th><th>合計</th><th>報名時間／首場確認</th></tr></thead><tbody>'+row.details.map(d=>{
+ function detailTable(row,c,open){
+  const edit=!(window.EPCMode?.isView?.())&&window.EPC_ACTIVITY_LOADED;
+  return '<details data-member-reward-details="'+esc(row.memberId)+'"'+(open?' open':'')+'><summary>'+row.games+' 場明細'+(row.pending?'・'+row.pending+' 筆首場待確認':'')+'</summary><table><thead><tr><th>營業日／場次</th><th>級別</th><th>基本</th><th>首場</th><th>假日</th><th>合計</th><th>報名時間／首場確認</th><th>手動點數</th></tr></thead><tbody>'+row.details.map(d=>{
    const event=(db.events||[]).find(e=>String(e.eventId||e.id)===d.eventId),title=event?eventDisplayName_(event):d.eventId;
    const override=c.earlyOverrides?.[d.overrideKey],value=typeof override==='boolean'?(override?'yes':'no'):'auto';
-   const control=d.isFirst?'<select aria-label="首場時間加成確認" data-key="'+esc(d.overrideKey)+'" onchange="memberRewardSetEarly_(this)">'+[['auto','依報名時間'],['yes','確認符合時間'],['no','確認不符合時間']].map(([v,label])=>'<option value="'+v+'" '+(v===value?'selected':'')+'>'+label+'</option>').join('')+'</select>':'';
-   return '<tr><td>'+esc(d.date)+'<div class="small">'+esc(title)+'</div></td><td>'+esc(d.level)+'</td><td>'+d.base+'</td><td>'+d.firstBonus+'</td><td>'+d.holidayBonus+'</td><td><b>'+d.points+'</b></td><td>'+esc(d.registeredTime||'未記錄報名時間')+(d.pending?'<div>待確認，首場加成暫未計入</div>':'')+control+'</td></tr>';
+   const control=edit&&d.isFirst?'<select aria-label="首場時間加成確認" data-key="'+esc(d.overrideKey)+'" onchange="memberRewardSetEarly_(this)">'+[['auto','依報名時間'],['yes','確認符合時間'],['no','確認不符合時間']].map(([v,label])=>'<option value="'+v+'" '+(v===value?'selected':'')+'>'+label+'</option>').join('')+'</select>':'';
+   const pointsControl=edit?'<form style="display:flex;flex-wrap:wrap;gap:4px;align-items:center" data-key="'+esc(d.overrideKey)+'" onsubmit="memberRewardSavePoints_(this);return false;"><input aria-label="本場點數" name="points" type="number" min="0" step="1" required value="'+d.points+'" style="width:5em"><button type="submit">儲存</button>'+(d.adjusted?'<button type="button" onclick="memberRewardSavePoints_(this.form,true)">恢復自動</button>':'')+'</form>':'';
+   return '<tr><td>'+esc(d.date)+'<div class="small">'+esc(title)+'</div></td><td>'+esc(d.level)+'</td><td>'+d.base+'</td><td>'+d.firstBonus+'</td><td>'+d.holidayBonus+'</td><td><b>'+d.points+'</b></td><td>'+esc(d.registeredTime||'未記錄報名時間')+(d.pending?'<div>待確認，首場加成暫未計入</div>':'')+control+'</td><td>'+(d.adjusted?'<div class="small">已手動調整｜自動 '+d.autoPoints+' 點</div>':'')+pointsControl+'</td></tr>';
   }).join('')+'</tbody></table></details>';
  }
  window.actMemberReward_=function(){
   let data;try{data=memberRewardStats_();}catch(error){return '<div class="card">'+esc(error.message)+'</div>';}
+  const openDetails=new Set(Array.from(document.querySelectorAll?.('details[data-member-reward-details][open]')||[],el=>el.dataset.memberRewardDetails));
   const c=data.config,all=data.rows,q=String(document.getElementById('actSearch')?.value||'').trim().toLowerCase();
   const rows=all.filter(row=>{
    const member=(db.members||[]).find(m=>String(m.id)===row.memberId)||{};
@@ -58,7 +71,7 @@
    '<p class="small">依集點日期及營業日即時計算，含進行中賽事；獨立帳與一般賽事模式不計入。舊紀錄未記錄報名時間時，首場加成待確認，可在明細選擇確認結果。上方查詢日期不影響本活動累計。</p>'+
    '<p>參與 '+all.length+' 人｜可付費 '+paid+' 人｜首次免費 '+free+' 人｜首場待確認 '+pending+' 筆</p>'+
    '<div class="tablewrap"><table><thead><tr><th>名次</th><th>會員</th><th>參賽場數</th><th>累積點數</th><th>參賽資格</th><th>起始籌碼</th><th>逐場明細</th></tr></thead><tbody>'+
-   rows.map(row=>'<tr><td>'+(all.indexOf(row)+1)+'</td><td>'+identity(row.memberId)+'</td><td>'+row.games+'</td><td><b>'+row.points+'</b>'+(row.pending?'<div class="small">加成待確認</div>':'')+'</td><td>'+status(row)+'</td><td>'+(row.canRegister?row.chips.toLocaleString('en-US'):'—')+'</td><td>'+detailTable(row,c)+'</td></tr>').join('')+
+   rows.map(row=>'<tr><td>'+(all.indexOf(row)+1)+'</td><td>'+identity(row.memberId)+'</td><td>'+row.games+'</td><td><b>'+row.points+'</b>'+(row.pending?'<div class="small">加成待確認</div>':'')+'</td><td>'+status(row)+'</td><td>'+(row.canRegister?row.chips.toLocaleString('en-US'):'—')+'</td><td>'+detailTable(row,c,openDetails.has(row.memberId))+'</td></tr>').join('')+
    (rows.length?'':'<tr><td colspan="7">目前沒有符合條件的參賽紀錄</td></tr>')+'</tbody></table></div></div>';
  };
 })();

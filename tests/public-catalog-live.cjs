@@ -1,7 +1,8 @@
 const assert=require('node:assert/strict'),fs=require('node:fs');
 require('../lucky-multiplier-core.js');
+const reward=require('../member-reward-core.js');
 (async()=>{
- const source=fs.readFileSync('activity-lookup/catalog-core.js','utf8');
+ const source=fs.readFileSync('activity-lookup/catalog-core.js','utf8').replace(/^import .*\n/,'');
  const {buildCatalog}=await import('data:text/javascript;base64,'+Buffer.from(source).toString('base64'));
  const A={activityRanges:{weekly:{from:'2026-10-26',to:'2026-11-01'},umbrella:{from:'2026-10-26',to:'2026-11-01'}},publicActivityVisibility:{weekly:true,umbrella:true},umbrella:[{date:'2026-10-30',memberId:'ABC',coupons:3}]};
  const event={id:'E1',date:'2026-10-30',players:[{memberId:'ABC'}]};
@@ -27,5 +28,12 @@ require('../lucky-multiplier-core.js');
  A.luckyMultiplier.to='2026-10-30';
  A.publicActivityVisibility.luckyMultiplier=false;
  assert(!buildCatalog(A,[event]).some(x=>x.id==='luckyMultiplier'));
+ const sat={id:'SAT',date:'2026-11-21',seq:1,level:3400,players:[{memberId:'ABC',registeredAt:'2026-11-21T18:23:00+08:00'}]};
+ A.publicActivityVisibility.memberReward=true;
+ assert.equal(buildCatalog(A,[sat]).find(x=>x.id==='memberReward').leaderboard[0].points,3);
+ A.memberReward={pointOverrides:{[reward.overrideKey(reward.defaults,'SAT','ABC')]:5}};
+ assert.equal(buildCatalog(A,[sat]).find(x=>x.id==='memberReward').leaderboard[0].points,5);
+ A.publicActivityVisibility.memberReward=false;
+ assert(!buildCatalog(A,[sat]).some(x=>x.id==='memberReward'));
  console.log('PASS: event progress, activity edit, visibility, missing settings guard');
 })();

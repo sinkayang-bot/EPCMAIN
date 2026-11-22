@@ -23,9 +23,9 @@ assert.equal(Core.score([first],period,{earlyOverrides:{[Core.overrideKey({from:
 
 const holiday=event('SAT','2026-11-21',1,6600,[player('A',at('2026-11-21','17:10'))]);
 assert.equal(score([holiday])[0].points,5);
-assert.equal(score([{...holiday,players:[player('A',at('2026-11-21','17:11'))]}])[0].points,3);
+assert.equal(score([{...holiday,players:[player('A',at('2026-11-21','17:11'))]}])[0].points,4);
 assert.equal(score([{...holiday,seq:2}])[0].points,4,'store second event cannot become first bonus');
-assert.equal(score([{...holiday,players:[player('A',at('2026-11-22','00:10'))]}])[0].points,3,'overnight registration misses afternoon cutoff');
+assert.equal(score([{...holiday,players:[player('A',at('2026-11-22','00:10'))]}])[0].points,4,'overnight registration misses afternoon cutoff');
 assert.equal(score([first,event('E2','2026-11-16',2,3400,[player('D',at('2026-11-16','18:00'))])]).find(x=>x.memberId==='D').points,2,'member first visit is not store first event');
 
 const weekendEvents=[holiday,event('S2','2026-11-21',2,6600),event('S3','2026-11-21',3,6600),event('SUN','2026-11-22',1,6600,[player('A',at('2026-11-22','17:00'))]),event('U2','2026-11-22',2,6600)];
@@ -34,7 +34,7 @@ assert.equal(score([...weekendEvents,holiday])[0].points,22,'replayed event cann
 const duplicate={...holiday,players:[{...holiday.players[0],rebuy:20},holiday.players[0]]};
 assert.equal(score([duplicate])[0].points,5,'rebuys and duplicate members cannot add points');
 assert.equal(score([{...holiday,players:[{memberId:'A',buyin:0,rebuy:0,addon:0}]}]).length,0);
-assert.equal(score([{...holiday,players:[{memberId:'A'}]}])[0].points,3,'legacy rows still count with pending first bonus');
+assert.equal(score([{...holiday,players:[{memberId:'A'}]}])[0].points,4,'legacy rows still count with pending first bonus');
 for(const level of [1200,3400,6600,11000,21500,32000])assert.equal(score([event('L','2026-11-16',2,level)])[0].points,level===1200?1:level===3400?2:3);
 assert.equal(score([event('L','2026-11-16',1,1000)]).length,0);
 for(const props of [{deleted:true},{status:'deleted'},{status:'已取消'},{accountingGroup:'獨立帳'},{memberRewardIndependent:true},{tournamentMode:'tournament'},{date:'2026-11-28'},{date:'2026-11-15'}])assert.equal(score([{...holiday,...props}]).length,0);
@@ -49,11 +49,19 @@ assert.equal(Core.qualification(45).freeEntry,false);
 assert.deepEqual(Core.qualification(46),{canRegister:true,freeEntry:true,chips:20500});
 assert.equal(Core.qualification(65).chips,30000);
 assert.equal(Core.qualification(100).chips,30000);
-// Weekend first events never receive the separate holiday point, including late/legacy rows.
+// A qualifying first-place time bonus replaces the ordinary weekend point.
 const first3400={...holiday,level:3400};
 assert.equal(score([first3400])[0].points,4);
 assert.equal(score([first3400])[0].details[0].holidayBonus,0);
 assert.equal(score([{...first3400,seq:2}])[0].points,3);
+const lateFirst={...first3400,players:[player('A',at('2026-11-21','18:23'))]};
+const lateAndSecond=[lateFirst,event('SAT2','2026-11-21',2)];
+assert.deepEqual(score(lateAndSecond)[0].details.map(d=>d.points),[3,3]);
+const lateKey=Core.overrideKey(period,'SAT','A');
+const adjusted=Core.score(lateAndSecond,period,{pointOverrides:{[lateKey]:0}})[0];
+assert.equal(adjusted.points,3);
+assert.equal(adjusted.details[0].autoPoints,3);
+assert.equal(adjusted.details[0].adjusted,true);
 const custom={base1200:0,base3400:4,base6600:5,weekdayFirst:2,weekendFirst:3,weekendExtra:2,paidThreshold:8,freeThreshold:10};
 assert.equal(Core.score([first3400],period,custom)[0].points,7);
 assert.equal(Core.score([{...first3400,seq:2}],period,custom)[0].points,6);
@@ -69,7 +77,7 @@ assert.throws(()=>Core.settings({paidThreshold:50,freeThreshold:45}),/不得低�
 assert.equal(Core.settings({base3400:null}).base3400,2);
 assert.equal(Core.settings(null).weekendFirst,2);
 assert.match(Core.rules(custom),/3400 每場 4 點/);
-assert.match(Core.rules(custom),/假日非首場額外 \+2 點，首場不疊加/);
+assert.match(Core.rules(custom),/假日每場額外 \+2 點，已取得假日首場加成/);
 const original=JSON.stringify(weekendEvents);score(weekendEvents);assert.equal(JSON.stringify(weekendEvents),original,'scoring cannot mutate tournament or accounting records');
 
 // Exercise actual UI entry, time corrections, cloud save guards and member search.
@@ -94,6 +102,13 @@ assert.match(ctx.actMemberReward_(),/name="weekendExtra"/);
 assert.match(ctx.actMemberReward_(),/value="4"/);
 ctx.memberRewardSaveScoring_(form({...custom,base3400:-1}));assert.equal(saves,3);assert.equal(ctx.db.activityManagement.memberReward.base3400,4);
 view=true;ctx.memberRewardSaveScoring_(form({...custom,base3400:3}));assert.equal(saves,3);assert.equal(ctx.db.activityManagement.memberReward.base3400,4);
+view=false;
+const edit={dataset:{key:Core.overrideKey(period,'E1','A')},elements:{namedItem:()=>({value:'9'})}};
+ctx.memberRewardSavePoints_(edit);
+assert.equal(ctx.memberRewardStats_().rows.find(x=>x.memberId==='A').points,9);
+assert.match(ctx.actMemberReward_(),/恢復自動/);
+ctx.memberRewardSavePoints_(edit,true);
+assert.equal(ctx.memberRewardStats_().rows.find(x=>x.memberId==='A').points,6);
 const Patch=require('../event-patch-core.js');
 const baseline={memberReward:{...Core.defaults,earlyOverrides:{[key]:true}}};
 const remote=structuredClone(baseline);remote.memberReward.weekendFirst=3;
